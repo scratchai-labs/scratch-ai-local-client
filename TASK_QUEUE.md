@@ -2,11 +2,11 @@
 
 ## 待确认
 
-- 2026-05-24：评估是否将当前工程按 GitHub Organization 方式拆分为 3 个仓库；目标是明确桌面端本地版、未来联机前端、未来服务器端的边界与迁移顺序，本轮先基于现有文档与目录现状给出架构判断和拆仓建议。
 - 2026-05-07：为桌面伴随程序整理 GitHub CI 与跨平台出包链路；目标是让 Windows / macOS runner 能稳定构建、测试、打包并上传产物；本轮先在独立 worktree 里核实现状、补测试与 workflow。
 
 ## 已完成
 
+- 2026-05-24：完成从原始 workspace 拆出独立本地客户端仓；保留 `desktop-companion + shared + verification` 主线，继续采用 DeepSeek API 直连模式；同步收口 README、架构文档、仓库元数据，并完成独立 git 初始化与测试验证。
 - 2026-05-07：修复 Windows CI 在 `npm run package:win:bundle` 阶段因 `electron-builder` 隐式触发 GitHub publish 而失败的问题；在桌面端共用 builder base config 中显式设置 `publish: "never"`，避免 GitHub Actions 因缺少 `GH_TOKEN` 在 NSIS 安装包收尾时报错；已按 TDD 先补回归测试，再完成修复，并通过 `desktop-companion` 全量测试。
 - 2026-05-07：按开源项目标准整理仓库：补齐 AGPL-3.0 许可证、双语 README 与贡献治理文档，完善 GitHub issue/PR 模板，统一发布、路线图与项目结构说明；同时为 macOS 打包链路补上 zip 目标，并让 `Desktop Release Artifacts` workflow 明确产出 macOS `zip + dmg`、Windows `portable + installer` 对外口径。已补仓库开源基线测试、macOS zip 打包测试，并通过根级 `npm run test`。
 - 2026-05-07：确认当前产品与文档主口径：只做本地基础版，定位为更通用的 `Scratch AI 教练桌面工具`，默认交互为“自动刷新”，仅保留 Windows / macOS 版本；不再继续推进“服务器版 + 单机版并存”方案。
