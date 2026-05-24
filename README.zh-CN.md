@@ -3,6 +3,7 @@
 `Scratch AI 教练` 是一个面向 `Scratch Desktop` 的开源桌面伴随工具。它不会改动 Scratch 官方源码，而是通过受控启动、只读桥接和原版积木渲染，帮助学生在本机创作时看清“当前角色程序”，并获得 AI 生成的下一步提示。
 
 当前仓库是拆分后的 **独立本地客户端仓**，只维护“桌面端直连 DeepSeek / 本地 fallback”的版本。
+跨仓库文档、总体架构和路线图已迁到 [`scratch-ai-docs`](https://github.com/scratchai-labs/scratch-ai-docs) 统一维护。
 
 ## 为什么做这个项目
 
@@ -13,7 +14,7 @@ Scratch 帮很多人第一次真正喜欢上电脑、理解程序和创作。Scr
 - 当前主线只维护 **桌面端本地基础版**
 - 支持 **Windows** 和 **macOS**
 - 当前主流程是“由伴随程序启动 Scratch Desktop，再建立只读连接”
-- 当前不提供服务器端代码；服务器版属于未来路线图
+- 当前不提供服务器端代码；跨仓库规划见 `scratch-ai-docs`
 - 当前默认面向中文用户，但开源核心文档已提供英文版本
 
 ## 当前能力
@@ -68,7 +69,7 @@ npm run dev
 
 - 仓库结构：[`docs/project-structure.zh-CN.md`](docs/project-structure.zh-CN.md)
 - 发布与出包：[`docs/releasing.zh-CN.md`](docs/releasing.zh-CN.md)
-- 路线图：[`docs/roadmap.zh-CN.md`](docs/roadmap.zh-CN.md)
+- 跨仓库文档与规划：[`scratch-ai-docs`](https://github.com/scratchai-labs/scratch-ai-docs)
 - 工程文档索引：[`docs/README.zh-CN.md`](docs/README.zh-CN.md)
 - 桌面端说明：[`apps/desktop-companion/README.md`](apps/desktop-companion/README.md)
 - 验证工具说明：[`tools/verification/README.zh-CN.md`](tools/verification/README.zh-CN.md)
@@ -84,13 +85,8 @@ npm run dev
 
 ## 未来方向
 
-未来希望在这个项目基础上继续开源：
-
-- 更稳定的桌面端发行与社区协作流程
-- 更适合教学场景的服务器版
-- 与课程、验证工具、示例工程更紧密的开源工作流
-
-具体节奏见 [`docs/roadmap.zh-CN.md`](docs/roadmap.zh-CN.md)。
+跨仓库层面的总体规划已经转到 [`scratch-ai-docs`](https://github.com/scratchai-labs/scratch-ai-docs) 统一维护。
+当前仓只聚焦本地版桌面端的开发、验证和发行链路。
 
 ## 许可证
 

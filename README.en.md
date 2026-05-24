@@ -3,6 +3,7 @@
 `Scratch AI Coach` is an open source companion app for `Scratch Desktop`. It does not modify the upstream Scratch source code. Instead, it launches Scratch in a controlled way, injects a read-only bridge, renders real Scratch-style blocks, and generates next-step hints from the learner's current project.
 
 This repository is the split-out **standalone local client** repo.
+Cross-repo docs, architecture notes, and planning now live in [`scratch-ai-docs`](https://github.com/scratchai-labs/scratch-ai-docs/blob/main/README.en.md).
 
 ## Why This Project Exists
 
@@ -13,7 +14,7 @@ Scratch helped many people fall in love with computers for the first time. Since
 - The maintained product line is the **local desktop edition**
 - Supported platforms: **Windows** and **macOS**
 - The current workflow is “launch Scratch Desktop from the companion app, then attach a read-only bridge”
-- No server code is included in the mainline yet; the teaching-oriented server edition is a future roadmap item
+- No server code is included in this repository; cross-repo planning lives in `scratch-ai-docs`
 - Chinese is the primary product language today, while the core open source docs are bilingual
 
 ## What It Does Today
@@ -68,7 +69,7 @@ npm run dev
 
 - Project structure: [`docs/project-structure.en.md`](docs/project-structure.en.md)
 - Releasing: [`docs/releasing.en.md`](docs/releasing.en.md)
-- Roadmap: [`docs/roadmap.en.md`](docs/roadmap.en.md)
+- Cross-repo docs and planning: [`scratch-ai-docs`](https://github.com/scratchai-labs/scratch-ai-docs/blob/main/README.en.md)
 - Engineering docs index: [`docs/README.zh-CN.md`](docs/README.zh-CN.md)
 - Desktop app docs: [`apps/desktop-companion/README.md`](apps/desktop-companion/README.md)
 - Verification tooling docs: [`tools/verification/README.zh-CN.md`](tools/verification/README.zh-CN.md)
@@ -84,13 +85,8 @@ Contributions are welcome through issues, pull requests, docs improvements, and 
 
 ## Future Direction
 
-The long-term direction includes:
-
-- a stronger desktop release and community workflow
-- a teaching-oriented open source server edition
-- tighter links between the app, verification tooling, and example teaching projects
-
-See [`docs/roadmap.en.md`](docs/roadmap.en.md) for the current direction.
+Cross-repo planning now lives in [`scratch-ai-docs`](https://github.com/scratchai-labs/scratch-ai-docs/blob/main/README.en.md).
+This repository stays focused on the standalone desktop client, its packaging flow, and verification tooling.
 
 ## License
 

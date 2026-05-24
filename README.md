@@ -18,7 +18,7 @@ This repository is the split-out **standalone local client** repo.
 - Windows CI 产物：`portable .exe`、`installer .exe`
 - macOS CI 产物：`zip`、`dmg`
 - 当前正式分发通过 **GitHub Actions artifacts**，暂未自动发布到 GitHub Releases
-- 未来计划包含教学导向的服务器版，详见路线图
+- 跨仓库文档与总体规划见 `scratch-ai-docs`
 
 ## Quick Links
 
@@ -28,7 +28,7 @@ This repository is the split-out **standalone local client** repo.
 - 行为准则：[`CODE_OF_CONDUCT.zh-CN.md`](CODE_OF_CONDUCT.zh-CN.md) / [`CODE_OF_CONDUCT.en.md`](CODE_OF_CONDUCT.en.md)
 - 安全说明：[`SECURITY.zh-CN.md`](SECURITY.zh-CN.md) / [`SECURITY.en.md`](SECURITY.en.md)
 - 支持与提问：[`SUPPORT.zh-CN.md`](SUPPORT.zh-CN.md) / [`SUPPORT.en.md`](SUPPORT.en.md)
-- 路线图：[`docs/roadmap.zh-CN.md`](docs/roadmap.zh-CN.md) / [`docs/roadmap.en.md`](docs/roadmap.en.md)
+- 跨仓库文档与规划 / Cross-repo docs and planning: [`scratch-ai-docs`](https://github.com/scratchai-labs/scratch-ai-docs)
 - 发布说明：[`docs/releasing.zh-CN.md`](docs/releasing.zh-CN.md) / [`docs/releasing.en.md`](docs/releasing.en.md)
 - 工程结构：[`docs/project-structure.zh-CN.md`](docs/project-structure.zh-CN.md) / [`docs/project-structure.en.md`](docs/project-structure.en.md)
 
