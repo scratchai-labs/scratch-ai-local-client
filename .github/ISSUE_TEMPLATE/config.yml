@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Support / 使用支持
+    url: https://github.com/tesths/scratchai/blob/main/SUPPORT.en.md
+    about: Read the support guide before opening a new issue.
+  - name: Security / 安全问题
+    url: https://github.com/tesths/scratchai/blob/main/SECURITY.en.md
+    about: Please report vulnerabilities privately instead of opening a public issue.

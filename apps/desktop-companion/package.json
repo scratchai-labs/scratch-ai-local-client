@@ -1,0 +1,61 @@
+{
+  "name": "@scratch-ai/desktop-companion",
+  "version": "0.1.0",
+  "private": true,
+  "author": "Ju",
+  "description": "Electron desktop companion app for Scratch AI Coach",
+  "license": "AGPL-3.0",
+  "homepage": "https://github.com/tesths/scratch-ai-local-client#readme",
+  "bugs": {
+    "url": "https://github.com/tesths/scratch-ai-local-client/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tesths/scratch-ai-local-client.git"
+  },
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "icons:generate": "powershell -ExecutionPolicy Bypass -File .\\scripts\\generate-icons.ps1",
+    "build": "node build.mjs",
+    "dev": "node build.mjs && node ../../node_modules/electron/cli.js dist/main.js",
+    "start": "node ../../node_modules/electron/cli.js dist/main.js",
+    "test": "npm run build && node --test test/**/*.test.mjs",
+    "test:windows-ui": "node ../../tools/verification/scripts/verify-desktop-companion-ui.mjs",
+    "test:desktop-ui": "node ../../tools/verification/scripts/verify-desktop-companion-ui.mjs",
+    "package:win": "node scripts/package-win.mjs",
+    "package:win:no-key": "node scripts/package-win.mjs --variant=no-key",
+    "package:win:with-key": "node scripts/package-win.mjs --variant=with-key",
+    "package:win:single": "node scripts/package-win-single.mjs",
+    "package:win:portable": "node scripts/package-win-single.mjs",
+    "package:win:single:no-key": "node scripts/package-win-single.mjs --variant=no-key",
+    "package:win:portable:no-key": "node scripts/package-win-single.mjs --variant=no-key",
+    "package:win:single:with-key": "node scripts/package-win-single.mjs --variant=with-key",
+    "package:win:portable:with-key": "node scripts/package-win-single.mjs --variant=with-key",
+    "package:win:installer": "node scripts/package-win-installer.mjs",
+    "package:win:installer:no-key": "node scripts/package-win-installer.mjs --variant=no-key",
+    "package:win:installer:with-key": "node scripts/package-win-installer.mjs --variant=with-key",
+    "package:win:bundle": "node scripts/package-win-bundle.mjs",
+    "package:mac:app": "node scripts/package-mac.mjs --target=dir",
+    "package:mac:app:no-key": "node scripts/package-mac.mjs --target=dir --variant=no-key",
+    "package:mac:app:with-key": "node scripts/package-mac.mjs --target=dir --variant=with-key",
+    "package:mac:zip": "node scripts/package-mac.mjs --target=zip",
+    "package:mac:zip:no-key": "node scripts/package-mac.mjs --target=zip --variant=no-key",
+    "package:mac:zip:with-key": "node scripts/package-mac.mjs --target=zip --variant=with-key",
+    "package:mac:dmg": "node scripts/package-mac.mjs --target=dmg",
+    "package:mac:dmg:no-key": "node scripts/package-mac.mjs --target=dmg --variant=no-key",
+    "package:mac:dmg:with-key": "node scripts/package-mac.mjs --target=dmg --variant=with-key"
+  },
+  "dependencies": {
+    "@scratch-ai/shared": "0.1.0",
+    "scratch-blocks": "^2.1.19",
+    "yauzl": "^2.10.0",
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.3.6",
+    "electron": "^41.3.0",
+    "electron-builder": "^26.8.1",
+    "esbuild": "^0.25.4"
+  }
+}

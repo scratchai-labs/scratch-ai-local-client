@@ -1,0 +1,48 @@
+{
+  "name": "cheese",
+  "studentGoal": "让 cheese 随机出现，被吃到后加分，并在关键分数广播升级和获胜。",
+  "scripts": [
+    {
+      "id": "cheese-random-show",
+      "goal": "定义一个每次都能把奶酪随机摆出来的小工具",
+      "trigger": "定义自制积木“随机摆放奶酪”",
+      "steps": [
+        "移到 x:在 200 到 -200 之间随机取数 y:在 150 到 -150 之间随机取数",
+        "显示"
+      ]
+    },
+    {
+      "id": "cheese-main-loop",
+      "goal": "绿旗后初始化 Score 和 Level，并循环处理吃到奶酪",
+      "trigger": "当绿旗被点击",
+      "steps": [
+        "将 Level 设为 1",
+        "将 Score 设为 0",
+        "一直重复",
+        "调用 自制积木“随机摆放奶酪”",
+        "等待直到 碰到 Mouse1",
+        "播放声音 Chomp",
+        "将 Score 增加 1",
+        "隐藏",
+        "如果 Score = 5 那么",
+        "广播 Level Up",
+        "如果 Score = 10 那么",
+        "广播 Win",
+        "等待 2 秒"
+      ]
+    },
+    {
+      "id": "cheese-level-counter",
+      "goal": "收到升级广播后，让 Level 增加 1",
+      "trigger": "当收到 Level Up",
+      "steps": [
+        "将 Level 增加 1"
+      ]
+    }
+  ],
+  "teacherChecks": [
+    "绿旗后 Score 会回到 0，Level 会回到 1",
+    "每次吃到奶酪后，Score 会增加 1，奶酪会先隐藏再等待下一轮",
+    "Score 到 5 和 10 时，广播会按顺序触发升级和胜利"
+  ]
+}

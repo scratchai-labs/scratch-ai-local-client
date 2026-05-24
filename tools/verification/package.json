@@ -1,0 +1,24 @@
+{
+  "name": "@scratch-ai/verification",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Cross-platform verification scripts and workflow fixtures for Scratch AI Coach",
+  "license": "AGPL-3.0",
+  "homepage": "https://github.com/tesths/scratchai#readme",
+  "bugs": {
+    "url": "https://github.com/tesths/scratchai/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tesths/scratchai.git"
+  },
+  "scripts": {
+    "build": "node -e \"console.log('verification workspace uses source scripts; no build step required')\"",
+    "test": "node --test tests/**/*.test.mjs"
+  },
+  "dependencies": {
+    "@scratch-ai/shared": "0.1.0",
+    "yauzl": "^3.3.0"
+  }
+}

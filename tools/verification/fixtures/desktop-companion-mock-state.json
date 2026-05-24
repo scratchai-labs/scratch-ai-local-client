@@ -1,0 +1,24 @@
+{
+  "status": "connected",
+  "statusText": "已连接到 Scratch Desktop",
+  "detail": "最近更新来源：mock-state",
+  "scratchPid": 12345,
+  "scratchTitle": "Scratch 3",
+  "scratchExecutablePath": "C:\\Users\\Administrator\\AppData\\Local\\Programs\\Scratch 3\\Scratch 3.exe",
+  "currentTargetId": "sprite-cat",
+  "currentTargetName": "Cat",
+  "currentTargetIsStage": false,
+  "launchMode": "controlled-launch",
+  "injectionMode": "cdp-runtime-evaluate",
+  "toolboxCategories": ["运动", "外观", "事件", "控制"],
+  "usedExtensions": ["pen"],
+  "loadedExtensions": ["music", "pen"],
+  "programAreaModules": [
+    { "id": "motion", "label": "运动", "blockCount": 2 },
+    { "id": "pen", "label": "画笔", "blockCount": 1 }
+  ],
+  "currentTargetPrograms": [
+    "event_whenflagclicked -> control_forever -> motion_movesteps -> pen_clear"
+  ],
+  "lastUpdatedAt": "2026-04-28T12:00:00.000Z"
+}

@@ -1,0 +1,25 @@
+现在只生成一个角色的脚本包。
+
+教学 brief:
+{{briefJson}}
+
+规划结果:
+{{planJson}}
+
+当前角色:
+{{roleJson}}
+
+输出 JSON 字段只能包含：
+- name
+- studentGoal
+- scripts
+- teacherChecks
+
+其中：
+1. name 必须等于当前角色名。
+2. studentGoal 是一句学生能理解的学习目标。
+3. scripts 必须是数组；每个元素字段只能包含 id,goal,trigger,steps。
+4. id 要短而稳定，便于老师引用。
+5. goal 要说明这段脚本解决什么问题。
+6. trigger 和 steps 都必须是中文。
+7. teacherChecks 要给老师快速验收这个角色是否搭对了。

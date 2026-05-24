@@ -1,0 +1,1 @@
+export const MAX_RECOMMENDED_BLOCKS = 3;

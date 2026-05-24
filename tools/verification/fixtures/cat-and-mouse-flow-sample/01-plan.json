@@ -1,0 +1,185 @@
+{
+  "title": "Cat and a Mouse",
+  "pitch": "让 Mouse1 跟着鼠标跑，Cat 2 追 Mouse1，cheese 被吃到后加分并在 5 分升级、10 分获胜，碰到猫就结束。",
+  "variables": [
+    "Score",
+    "Level"
+  ],
+  "broadcasts": [
+    "Game Over",
+    "Win",
+    "Level Up"
+  ],
+  "roles": [
+    {
+      "name": "Mouse1",
+      "focus": "先做出可控制的主角"
+    },
+    {
+      "name": "Cat 2",
+      "focus": "再补追逐和失败规则"
+    },
+    {
+      "name": "cheese",
+      "focus": "再补分数、升级和获胜"
+    },
+    {
+      "name": "Message",
+      "focus": "再补升级、胜利和失败反馈"
+    },
+    {
+      "name": "Stage",
+      "focus": "最后补背景音乐"
+    }
+  ],
+  "winCondition": "Score 达到 10 时广播 Win",
+  "loseCondition": "Cat 2 碰到 Mouse1 时广播 Game Over",
+  "milestones": [
+    {
+      "id": "m1",
+      "title": "先让 Mouse1 跑起来",
+      "studentOutcome": "绿旗后 Mouse1 会跟着鼠标移动，并且看起来像在跑步。",
+      "teacherCheck": "Mouse1 有一条跟跑脚本和一条换造型脚本，两条都在持续执行。"
+    },
+    {
+      "id": "m2",
+      "title": "让 Cat 2 追上来",
+      "studentOutcome": "Cat 2 会追 Mouse1，碰到后能触发 Game Over。",
+      "teacherCheck": "追逐和碰撞判断都放在循环里，而且广播名写对。"
+    },
+    {
+      "id": "m3",
+      "title": "让 cheese 成为计分目标",
+      "studentOutcome": "cheese 会随机出现，碰到 Mouse1 后加分、隐藏，再准备下一次出现。",
+      "teacherCheck": "Score 会从 0 开始增加，奶酪不是固定停在一个位置。"
+    },
+    {
+      "id": "m4",
+      "title": "补升级和获胜规则",
+      "studentOutcome": "Score 到 5 时广播 Level Up，Score 到 10 时广播 Win。",
+      "teacherCheck": "学生能说清楚 5 分和 10 分分别触发什么广播。"
+    },
+    {
+      "id": "m5",
+      "title": "补 Message 和 Stage 完成体验",
+      "studentOutcome": "失败、胜利、升级都有提示，背景音乐会循环播放。",
+      "teacherCheck": "Message 能根据广播显示不同造型，Stage 的音乐不是只放一次。"
+    }
+  ],
+  "roleBuildOrder": [
+    "Mouse1",
+    "Cat 2",
+    "cheese",
+    "Message",
+    "Stage"
+  ],
+  "roleContracts": [
+    {
+      "name": "Mouse1",
+      "mustHaveScripts": [
+        "绿旗初始化位置和大小并开始跟跑",
+        "绿旗后循环切换造型"
+      ],
+      "mustAvoid": [
+        "不要把跟跑动作只执行一次",
+        "不要把目标写成面向 Mouse1 自己",
+        "不要忘记给换造型脚本加等待"
+      ]
+    },
+    {
+      "name": "Cat 2",
+      "mustHaveScripts": [
+        "绿旗初始化并追逐 Mouse1",
+        "收到 Level Up 后加快追逐"
+      ],
+      "mustAvoid": [
+        "不要把追逐目标写成鼠标指针",
+        "不要把碰撞判断放在循环外面",
+        "不要把 Game Over 广播写错"
+      ]
+    },
+    {
+      "name": "cheese",
+      "mustHaveScripts": [
+        "定义随机出现的自制积木",
+        "绿旗后初始化并循环处理吃到奶酪",
+        "收到 Level Up 后增加 Level"
+      ],
+      "mustAvoid": [
+        "不要把 Score 初始化写进循环里面",
+        "不要忘记吃到后先隐藏再等待下一轮",
+        "不要把 5 分和 10 分的广播条件写反"
+      ]
+    },
+    {
+      "name": "Message",
+      "mustHaveScripts": [
+        "绿旗时移到前面并隐藏",
+        "收到 Game Over 时显示失败提示",
+        "收到 Win 时显示胜利提示",
+        "收到 Level Up 时短暂显示升级提示"
+      ],
+      "mustAvoid": [
+        "不要忘记绿旗先隐藏",
+        "不要在显示之前先停止全部",
+        "不要把三个广播共用同一个造型"
+      ]
+    },
+    {
+      "name": "Stage",
+      "mustHaveScripts": [
+        "绿旗后循环播放背景音乐"
+      ],
+      "mustAvoid": [
+        "不要只播放一次就结束",
+        "不要把背景音乐放到别的角色里"
+      ]
+    }
+  ],
+  "commonPitfalls": [
+    {
+      "role": "Mouse1",
+      "symptom": "老鼠只朝着鼠标转，但没有往前跑",
+      "teacherQuestion": "你在“面向鼠标指针”后面，有没有接上“移动几步”？"
+    },
+    {
+      "role": "Mouse1",
+      "symptom": "老鼠会跑，但看起来不像在跑步",
+      "teacherQuestion": "换造型的脚本有没有单独放在一直重复里？"
+    },
+    {
+      "role": "Cat 2",
+      "symptom": "猫不会结束游戏",
+      "teacherQuestion": "碰到 Mouse1 的判断是在一直重复里面，还是只检查了一次？"
+    },
+    {
+      "role": "cheese",
+      "symptom": "奶酪只在一个位置出现",
+      "teacherQuestion": "随机摆放的那几步，是不是每轮都会重新调用？"
+    },
+    {
+      "role": "cheese",
+      "symptom": "分数没有增加",
+      "teacherQuestion": "吃到奶酪后，你改的是 Score 吗，还是改成了别的变量？"
+    },
+    {
+      "role": "Message",
+      "symptom": "升级或胜利时没有看到提示牌",
+      "teacherQuestion": "Message 有没有收到正确的广播，而且绿旗时是不是先隐藏了？"
+    },
+    {
+      "role": "Stage",
+      "symptom": "背景音乐只响了一次",
+      "teacherQuestion": "你用的是“播放声音直到播完”还是“播放声音”呢？"
+    }
+  ],
+  "assemblyChecklist": [
+    "先只运行 Mouse1，确认它能跟着鼠标跑",
+    "再打开 Cat 2，确认碰到老鼠时会广播 Game Over",
+    "再打开 cheese，确认 Score 从 0 开始并且能加分",
+    "测试 Score 到 5 时是否出现升级提示",
+    "测试 Score 到 10 时是否出现胜利提示",
+    "测试失败提示出现时游戏是否停止",
+    "最后确认 Stage 的背景音乐会循环播放"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "Stage",
+  "studentGoal": "让 Stage 一直循环播放背景音乐，补完整个游戏的氛围。",
+  "scripts": [
+    {
+      "id": "stage-bgm-loop",
+      "goal": "绿旗后持续播放背景音乐",
+      "trigger": "当绿旗被点击",
+      "steps": [
+        "一直重复",
+        "播放声音直到播完 Bossa Nova"
+      ]
+    }
+  ],
+  "teacherChecks": [
+    "音乐会在绿旗后开始播放",
+    "音乐播完后会自动继续，而不是只响一次"
+  ]
+}

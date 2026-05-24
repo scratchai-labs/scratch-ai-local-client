@@ -1,0 +1,36 @@
+{
+  "name": "Cat 2",
+  "studentGoal": "让 Cat 2 追逐 Mouse1，并在升级后追得更快。",
+  "scripts": [
+    {
+      "id": "cat2-chase",
+      "goal": "绿旗后从右边开始追 Mouse1，碰到就结束游戏",
+      "trigger": "当绿旗被点击",
+      "steps": [
+        "移到 x:180 y:0",
+        "一直重复",
+        "面向 Mouse1",
+        "移动 2 步",
+        "如果 碰到 Mouse1 那么",
+        "广播 Game Over"
+      ]
+    },
+    {
+      "id": "cat2-level-up",
+      "goal": "收到升级广播后，用更快的速度继续追 Mouse1",
+      "trigger": "当收到 Level Up",
+      "steps": [
+        "一直重复",
+        "面向 Mouse1",
+        "移动 3 步",
+        "如果 碰到 Mouse1 那么",
+        "广播 Game Over"
+      ]
+    }
+  ],
+  "teacherChecks": [
+    "Cat 2 一开始从右侧出发，而不是和 Mouse1 重叠",
+    "Cat 2 会持续追向 Mouse1，而不是只动一下",
+    "收到 Level Up 后，Cat 2 的追逐速度会明显变快"
+  ]
+}

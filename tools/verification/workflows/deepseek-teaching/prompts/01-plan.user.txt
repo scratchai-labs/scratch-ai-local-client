@@ -1,0 +1,26 @@
+请根据下面的 Scratch 教学 brief 输出规划。
+
+brief:
+{{briefJson}}
+
+输出 JSON 字段只能包含：
+- title
+- pitch
+- variables
+- broadcasts
+- roles
+- winCondition
+- loseCondition
+- milestones
+- roleBuildOrder
+- roleContracts
+- commonPitfalls
+- assemblyChecklist
+
+额外要求：
+1. roles 必须是与 brief 完全同顺序的角色数组。
+2. milestones 必须是老师可逐步验收的教学里程碑，每个元素字段只能包含 id,title,studentOutcome,teacherCheck。
+3. roleBuildOrder 必须是角色名数组，且与建议搭建顺序一致。
+4. roleContracts 每个元素字段只能包含 name,mustHaveScripts,mustAvoid。
+5. commonPitfalls 每个元素字段只能包含 role,symptom,teacherQuestion。
+6. assemblyChecklist 必须是最后组装和联调时给老师用的检查清单。

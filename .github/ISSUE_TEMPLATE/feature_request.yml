@@ -1,0 +1,43 @@
+name: Feature Request
+description: 提出功能建议 / Propose an improvement or feature
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请尽量从真实教学或创作场景出发描述需求，避免只给抽象想法。
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你想解决什么问题 / Problem to Solve
+      description: 描述当前痛点、限制或机会。
+    validations:
+      required: true
+  - type: textarea
+    id: audience
+    attributes:
+      label: 谁会使用它 / Audience
+      description: 例如学生、老师、维护者、课堂机房管理员。
+    validations:
+      required: true
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 使用场景 / Scenario
+      description: 描述触发场景、目标任务和成功标准。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 你的建议 / Proposal
+      description: 说清楚你期望的行为、界面或工作流变化。
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充信息 / Additional Context
+      description: 可以附示意图、参考项目、课堂限制等。

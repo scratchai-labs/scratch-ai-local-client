@@ -1,0 +1,169 @@
+{
+  "fixtureId": "cat-and-a-mouse",
+  "title": "Cat and a Mouse",
+  "sourceFileName": "Cat and a Mouse.sb3",
+  "sourceLastModified": "2026-04-29T22:25:58+08:00",
+  "projectStructure": {
+    "targetCount": 5,
+    "spriteCount": 4,
+    "stageCount": 1,
+    "monitorCount": 2
+  },
+  "variables": [
+    "my variable",
+    "Score",
+    "Level"
+  ],
+  "broadcasts": [
+    "Game Over",
+    "Win",
+    "Level Up"
+  ],
+  "usedExtensions": [],
+  "detectedConcepts": [
+    "变量",
+    "声音",
+    "事件驱动",
+    "条件判断",
+    "外观",
+    "循环",
+    "运动",
+    "运算",
+    "侦测",
+    "自制积木"
+  ],
+  "notes": [
+    "`Score` 和 `Level` 是主要玩法变量。",
+    "`my variable` 看起来是默认模板变量，保留它有助于覆盖非精简项目的真实输入情况。",
+    "该项目同时具备广播、变量、自制积木和结果提示层，适合作为综合测试样本。"
+  ],
+  "targets": [
+    {
+      "name": "Cat 2",
+      "kind": "sprite",
+      "role": "追逐角色；开局归位后持续运动，并在收到 `Level Up` 后继续执行升级后的追逐逻辑。",
+      "blockCount": 15,
+      "scriptCount": 2,
+      "modules": [
+        "motion",
+        "control",
+        "event",
+        "sensing"
+      ],
+      "receivesBroadcasts": [
+        "Level Up"
+      ],
+      "sendsBroadcasts": [
+        "Game Over"
+      ],
+      "keyScripts": [
+        "when green flag clicked -> go to x/y -> forever",
+        "when I receive Level Up -> forever"
+      ]
+    },
+    {
+      "name": "Mouse1",
+      "kind": "sprite",
+      "role": "被追逐角色；负责初始位置、大小和持续移动表现。",
+      "blockCount": 10,
+      "scriptCount": 2,
+      "modules": [
+        "control",
+        "motion",
+        "event",
+        "looks"
+      ],
+      "receivesBroadcasts": [],
+      "sendsBroadcasts": [],
+      "keyScripts": [
+        "when green flag clicked -> go to x/y -> set size -> forever",
+        "when green flag clicked -> forever"
+      ]
+    },
+    {
+      "name": "cheese",
+      "kind": "sprite",
+      "role": "计分与关卡推进核心；初始化 `Score`、`Level`，加分后广播升级或胜利。",
+      "blockCount": 25,
+      "scriptCount": 3,
+      "modules": [
+        "control",
+        "data",
+        "event",
+        "operator",
+        "procedures",
+        "looks",
+        "sound",
+        "motion",
+        "sensing"
+      ],
+      "receivesBroadcasts": [
+        "Level Up"
+      ],
+      "sendsBroadcasts": [
+        "Level Up",
+        "Win"
+      ],
+      "changesVariables": [
+        "Score",
+        "Level"
+      ],
+      "keyScripts": [
+        "define custom block -> go to x/y -> show",
+        "when green flag clicked -> set Score -> set Level -> forever",
+        "when I receive Level Up -> change Score"
+      ]
+    },
+    {
+      "name": "Message",
+      "kind": "sprite",
+      "role": "统一提示层；根据 `Game Over`、`Win`、`Level Up` 切换造型并显示提示信息。",
+      "blockCount": 17,
+      "scriptCount": 4,
+      "modules": [
+        "looks",
+        "event",
+        "control",
+        "motion"
+      ],
+      "receivesBroadcasts": [
+        "Game Over",
+        "Win",
+        "Level Up"
+      ],
+      "sendsBroadcasts": [],
+      "keyScripts": [
+        "when green flag clicked -> go to front/back -> go to x/y -> hide",
+        "when I receive Game Over -> switch costume -> show -> stop",
+        "when I receive Win -> switch costume -> show -> stop",
+        "when I receive Level Up -> switch costume -> show -> wait -> hide"
+      ]
+    },
+    {
+      "name": "Stage",
+      "kind": "stage",
+      "role": "舞台层循环逻辑，主要承担背景和整体节奏控制。",
+      "blockCount": 3,
+      "scriptCount": 1,
+      "modules": [
+        "control",
+        "sound",
+        "event"
+      ],
+      "receivesBroadcasts": [],
+      "sendsBroadcasts": [],
+      "keyScripts": [
+        "when green flag clicked -> forever"
+      ]
+    }
+  ],
+  "recommendedTestUses": [
+    "验证真实 `.sb3` 文件的读取与角色解析。",
+    "验证广播、变量和监视器信息抽取。",
+    "验证多角色项目在教学摘要生成前的结构化整理。",
+    "为 `cat-and-mouse-flow-sample` 这类工作流输出样例提供原始输入来源。"
+  ],
+  "relatedFixtures": [
+    "../../cat-and-mouse-flow-sample"
+  ]
+}

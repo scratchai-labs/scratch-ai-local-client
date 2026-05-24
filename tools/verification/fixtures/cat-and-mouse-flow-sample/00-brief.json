@@ -1,0 +1,109 @@
+{
+  "title": "Cat and a Mouse",
+  "pitch": "让 Mouse1 跟着鼠标跑，Cat 2 追 Mouse1，cheese 被吃到后加分并在 5 分升级、10 分获胜，碰到猫就结束。",
+  "studentLevel": "小学 Scratch 初学者（已学过移动、循环、判断）",
+  "winCondition": "Score 达到 10 时广播 Win",
+  "loseCondition": "Cat 2 碰到 Mouse1 时广播 Game Over",
+  "variables": [
+    "Score",
+    "Level"
+  ],
+  "broadcasts": [
+    "Game Over",
+    "Win",
+    "Level Up"
+  ],
+  "learningGoals": [
+    "理解一个游戏可以拆成多个角色分工完成",
+    "理解循环和判断怎样让角色持续互动",
+    "理解广播怎样把升级、胜利和失败传给别的角色",
+    "理解变量 Score 和 Level 怎样表示游戏状态",
+    "理解自制积木可以把重复动作包成一个小工具"
+  ],
+  "constraints": [
+    "只用 Scratch 3.0 内置积木",
+    "保留现有角色名 Mouse1、Cat 2、cheese、Message、Stage",
+    "保留现有广播名 Game Over、Win、Level Up",
+    "提示要先引导学生观察和尝试，不直接给完整答案",
+    "这个样本只用于跑流程，不当作产品默认课程模板"
+  ],
+  "teacherNotes": [
+    "先让学生说出每个角色分别负责什么",
+    "先做 Mouse1 和 Cat 2 的最小可运行版本，再补奶酪、升级和提示牌",
+    "学生卡住时优先问他现在缺的是触发、循环、判断还是广播",
+    "看到学生想一次写完整游戏时，要把任务切回一个角色的一条脚本"
+  ],
+  "roles": [
+    {
+      "name": "Mouse1",
+      "responsibility": "跟着鼠标移动，并用换造型做出奔跑效果",
+      "requiredScripts": [
+        "绿旗初始化位置和大小并开始跟跑",
+        "绿旗后循环切换造型"
+      ],
+      "mustTeach": [
+        "面向鼠标指针",
+        "移动步数",
+        "一直重复",
+        "下一个造型和等待"
+      ]
+    },
+    {
+      "name": "Cat 2",
+      "responsibility": "追逐 Mouse1，碰到后结束游戏，升级后追得更快",
+      "requiredScripts": [
+        "绿旗初始化并追逐 Mouse1",
+        "收到 Level Up 后加快追逐"
+      ],
+      "mustTeach": [
+        "面向指定角色",
+        "移动步数",
+        "如果碰到角色就广播",
+        "接收广播"
+      ]
+    },
+    {
+      "name": "cheese",
+      "responsibility": "随机出现，被 Mouse1 吃到后加分，并在关键分数时广播升级和获胜",
+      "requiredScripts": [
+        "定义随机出现的自制积木",
+        "绿旗后初始化并循环处理吃到奶酪",
+        "收到 Level Up 后增加 Level"
+      ],
+      "mustTeach": [
+        "随机数",
+        "碰到角色",
+        "变量增加",
+        "条件判断和广播",
+        "自制积木"
+      ]
+    },
+    {
+      "name": "Message",
+      "responsibility": "显示失败、胜利和升级提示",
+      "requiredScripts": [
+        "绿旗时移到前面并隐藏",
+        "收到 Game Over 时显示失败提示",
+        "收到 Win 时显示胜利提示",
+        "收到 Level Up 时短暂显示升级提示"
+      ],
+      "mustTeach": [
+        "显示与隐藏",
+        "切换造型",
+        "停止全部",
+        "接收广播"
+      ]
+    },
+    {
+      "name": "Stage",
+      "responsibility": "循环播放背景音乐，补完整体氛围",
+      "requiredScripts": [
+        "绿旗后循环播放背景音乐"
+      ],
+      "mustTeach": [
+        "播放声音直到播完",
+        "一直重复"
+      ]
+    }
+  ]
+}

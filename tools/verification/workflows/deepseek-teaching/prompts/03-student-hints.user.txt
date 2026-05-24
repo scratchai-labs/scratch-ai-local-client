@@ -1,0 +1,25 @@
+请根据以下材料生成学生提示包。
+
+教学 brief:
+{{briefJson}}
+
+规划结果:
+{{planJson}}
+
+角色脚本包:
+{{rolePacksJson}}
+
+输出 JSON 字段只能包含：
+- title
+- studentLevel
+- hintPolicy
+- milestoneHints
+- roleHints
+- teacherPrompts
+
+其中：
+1. title 和 studentLevel 必须与 brief 一致。
+2. hintPolicy 是老师使用提示的原则数组。
+3. milestoneHints 必须与规划里的 milestones 一一对应；每个元素字段只能包含 milestoneId,light,guided,exampleReady。
+4. roleHints 必须与角色一一对应；每个元素字段只能包含 name,questions,commonMistakes。
+5. teacherPrompts 是老师现场追问学生时可直接使用的句子数组。

@@ -1,0 +1,6 @@
+{
+  "apiKey": "PLEASE_FILL_DEEPSEEK_API_KEY",
+  "model": "deepseek-v4-flash",
+  "baseUrl": "https://api.deepseek.com",
+  "timeoutMs": 20000
+}

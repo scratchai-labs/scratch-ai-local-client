@@ -1,0 +1,86 @@
+name: Desktop Release Artifacts
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/desktop-companion/**"
+      - "packages/shared/**"
+      - "tools/verification/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.base.json"
+      - ".github/workflows/release-desktop.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/desktop-companion/**"
+      - "packages/shared/**"
+      - "tools/verification/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.base.json"
+      - ".github/workflows/release-desktop.yml"
+
+concurrency:
+  group: desktop-release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows Artifacts
+    runs-on: windows-2022
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run test
+
+      - run: npm run package:win:bundle
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: scratch-desktop-companion-windows
+          path: installers/**
+          if-no-files-found: error
+          retention-days: 7
+
+  macos:
+    name: macOS Artifacts
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run test
+
+      - run: npm run package:mac:zip
+
+      - run: npm run package:mac:dmg
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: scratch-desktop-companion-macos
+          path: installers/**
+          if-no-files-found: error
+          retention-days: 7

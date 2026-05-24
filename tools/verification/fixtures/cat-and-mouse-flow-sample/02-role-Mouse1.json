@@ -1,0 +1,33 @@
+{
+  "name": "Mouse1",
+  "studentGoal": "让 Mouse1 跟着鼠标跑，并看起来像在跑步。",
+  "scripts": [
+    {
+      "id": "mouse1-follow",
+      "goal": "绿旗后从中间开始，持续跟着鼠标移动",
+      "trigger": "当绿旗被点击",
+      "steps": [
+        "移到 x:0 y:0",
+        "将大小设为 50",
+        "一直重复",
+        "面向 鼠标指针",
+        "移动 7 步"
+      ]
+    },
+    {
+      "id": "mouse1-run-animation",
+      "goal": "让 Mouse1 有跑步动画",
+      "trigger": "当绿旗被点击",
+      "steps": [
+        "一直重复",
+        "下一个造型",
+        "等待 0.1 秒"
+      ]
+    }
+  ],
+  "teacherChecks": [
+    "绿旗后 Mouse1 会先回到中间位置",
+    "移动鼠标时 Mouse1 会一直跟着跑",
+    "Mouse1 的造型会不断切换，看起来像在跑步"
+  ]
+}

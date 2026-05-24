@@ -1,0 +1,52 @@
+{
+  "name": "Message",
+  "studentGoal": "让 Message 根据不同广播显示失败、胜利和升级提示。",
+  "scripts": [
+    {
+      "id": "message-init",
+      "goal": "开局把提示牌放到最前面并隐藏",
+      "trigger": "当绿旗被点击",
+      "steps": [
+        "移到最前面",
+        "移到 x:0 y:0",
+        "隐藏"
+      ]
+    },
+    {
+      "id": "message-game-over",
+      "goal": "收到 Game Over 时显示失败提示并结束游戏",
+      "trigger": "当收到 Game Over",
+      "steps": [
+        "切换造型到 costume1",
+        "显示",
+        "停止 全部"
+      ]
+    },
+    {
+      "id": "message-win",
+      "goal": "收到 Win 时显示胜利提示并结束游戏",
+      "trigger": "当收到 Win",
+      "steps": [
+        "切换造型到 costume2",
+        "显示",
+        "停止 全部"
+      ]
+    },
+    {
+      "id": "message-level-up",
+      "goal": "收到 Level Up 时短暂显示升级提示",
+      "trigger": "当收到 Level Up",
+      "steps": [
+        "切换造型到 costume3",
+        "显示",
+        "等待 1 秒",
+        "隐藏"
+      ]
+    }
+  ],
+  "teacherChecks": [
+    "绿旗后看不到提示牌，但它仍然在最前面等待广播",
+    "收到 Game Over 和 Win 时，会显示不同造型并停止全部",
+    "收到 Level Up 时，会短暂显示升级提示再隐藏"
+  ]
+}
