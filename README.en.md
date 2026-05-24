@@ -70,6 +70,8 @@ npm run dev
 - Project structure: [`docs/project-structure.en.md`](docs/project-structure.en.md)
 - Releasing: [`docs/releasing.en.md`](docs/releasing.en.md)
 - Cross-repo docs and planning: [`scratch-ai-docs`](https://github.com/scratchai-labs/scratch-ai-docs/blob/main/README.en.md)
+- Development workflow: [`scratch-ai-docs/docs/development-workflow.zh-CN.md`](https://github.com/scratchai-labs/scratch-ai-docs/blob/main/docs/development-workflow.zh-CN.md)
+- Documentation guide: [`scratch-ai-docs/docs/documentation-guide.zh-CN.md`](https://github.com/scratchai-labs/scratch-ai-docs/blob/main/docs/documentation-guide.zh-CN.md)
 - Engineering docs index: [`docs/README.zh-CN.md`](docs/README.zh-CN.md)
 - Desktop app docs: [`apps/desktop-companion/README.md`](apps/desktop-companion/README.md)
 - Verification tooling docs: [`tools/verification/README.zh-CN.md`](tools/verification/README.zh-CN.md)

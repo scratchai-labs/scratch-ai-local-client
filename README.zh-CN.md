@@ -70,6 +70,8 @@ npm run dev
 - 仓库结构：[`docs/project-structure.zh-CN.md`](docs/project-structure.zh-CN.md)
 - 发布与出包：[`docs/releasing.zh-CN.md`](docs/releasing.zh-CN.md)
 - 跨仓库文档与规划：[`scratch-ai-docs`](https://github.com/scratchai-labs/scratch-ai-docs)
+- 开发工作流：[`scratch-ai-docs/docs/development-workflow.zh-CN.md`](https://github.com/scratchai-labs/scratch-ai-docs/blob/main/docs/development-workflow.zh-CN.md)
+- 文档归属说明：[`scratch-ai-docs/docs/documentation-guide.zh-CN.md`](https://github.com/scratchai-labs/scratch-ai-docs/blob/main/docs/documentation-guide.zh-CN.md)
 - 工程文档索引：[`docs/README.zh-CN.md`](docs/README.zh-CN.md)
 - 桌面端说明：[`apps/desktop-companion/README.md`](apps/desktop-companion/README.md)
 - 验证工具说明：[`tools/verification/README.zh-CN.md`](tools/verification/README.zh-CN.md)

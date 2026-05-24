@@ -31,6 +31,8 @@ This repository is the split-out **standalone local client** repo.
 - 跨仓库文档与规划 / Cross-repo docs and planning: [`scratch-ai-docs`](https://github.com/scratchai-labs/scratch-ai-docs)
 - 发布说明：[`docs/releasing.zh-CN.md`](docs/releasing.zh-CN.md) / [`docs/releasing.en.md`](docs/releasing.en.md)
 - 工程结构：[`docs/project-structure.zh-CN.md`](docs/project-structure.zh-CN.md) / [`docs/project-structure.en.md`](docs/project-structure.en.md)
+- 开发工作流：[`scratch-ai-docs/docs/development-workflow.zh-CN.md`](https://github.com/scratchai-labs/scratch-ai-docs/blob/main/docs/development-workflow.zh-CN.md)
+- 文档归属说明：[`scratch-ai-docs/docs/documentation-guide.zh-CN.md`](https://github.com/scratchai-labs/scratch-ai-docs/blob/main/docs/documentation-guide.zh-CN.md)
 
 ## License
 

@@ -12,6 +12,8 @@
 - 贡献指南：[`../CONTRIBUTING.zh-CN.md`](../CONTRIBUTING.zh-CN.md)
 - 发布说明：[`./releasing.zh-CN.md`](./releasing.zh-CN.md)
 - 跨仓库文档与规划：[`scratch-ai-docs`](https://github.com/scratchai-labs/scratch-ai-docs)
+- 跨仓开发工作流：[`scratch-ai-docs/docs/development-workflow.zh-CN.md`](https://github.com/scratchai-labs/scratch-ai-docs/blob/main/docs/development-workflow.zh-CN.md)
+- 文档归属说明：[`scratch-ai-docs/docs/documentation-guide.zh-CN.md`](https://github.com/scratchai-labs/scratch-ai-docs/blob/main/docs/documentation-guide.zh-CN.md)
 - 仓库结构：[`./project-structure.zh-CN.md`](./project-structure.zh-CN.md)
 
 ## 工程文档
