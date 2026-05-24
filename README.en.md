@@ -41,7 +41,7 @@ See [`docs/releasing.en.md`](docs/releasing.en.md) for workflow names, artifact 
 ## Local Development
 
 ```bash
-git clone git@github.com:tesths/scratch-ai-local-client.git
+git clone git@github.com:scratchai-labs/scratch-ai-local-client.git
 cd scratch-ai-local-client
 npm ci
 npm run test

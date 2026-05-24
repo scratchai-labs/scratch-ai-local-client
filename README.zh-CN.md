@@ -41,7 +41,7 @@ Scratch 帮很多人第一次真正喜欢上电脑、理解程序和创作。Scr
 ## 本地开发
 
 ```bash
-git clone git@github.com:tesths/scratch-ai-local-client.git
+git clone git@github.com:scratchai-labs/scratch-ai-local-client.git
 cd scratch-ai-local-client
 npm ci
 npm run test

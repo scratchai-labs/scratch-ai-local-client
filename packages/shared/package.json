@@ -4,13 +4,13 @@
   "private": true,
   "description": "Shared schemas and Scratch project snapshot utilities for Scratch AI Coach",
   "license": "AGPL-3.0",
-  "homepage": "https://github.com/tesths/scratchai#readme",
+  "homepage": "https://github.com/scratchai-labs/scratch-ai-local-client#readme",
   "bugs": {
-    "url": "https://github.com/tesths/scratchai/issues"
+    "url": "https://github.com/scratchai-labs/scratch-ai-local-client/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tesths/scratchai.git"
+    "url": "git+https://github.com/scratchai-labs/scratch-ai-local-client.git"
   },
   "type": "module",
   "main": "src/index.js",

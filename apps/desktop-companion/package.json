@@ -5,13 +5,13 @@
   "author": "Ju",
   "description": "Electron desktop companion app for Scratch AI Coach",
   "license": "AGPL-3.0",
-  "homepage": "https://github.com/tesths/scratch-ai-local-client#readme",
+  "homepage": "https://github.com/scratchai-labs/scratch-ai-local-client#readme",
   "bugs": {
-    "url": "https://github.com/tesths/scratch-ai-local-client/issues"
+    "url": "https://github.com/scratchai-labs/scratch-ai-local-client/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tesths/scratch-ai-local-client.git"
+    "url": "git+https://github.com/scratchai-labs/scratch-ai-local-client.git"
   },
   "type": "module",
   "main": "dist/main.js",

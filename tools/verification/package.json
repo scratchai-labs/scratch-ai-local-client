@@ -5,13 +5,13 @@
   "type": "module",
   "description": "Cross-platform verification scripts and workflow fixtures for Scratch AI Coach",
   "license": "AGPL-3.0",
-  "homepage": "https://github.com/tesths/scratchai#readme",
+  "homepage": "https://github.com/scratchai-labs/scratch-ai-local-client#readme",
   "bugs": {
-    "url": "https://github.com/tesths/scratchai/issues"
+    "url": "https://github.com/scratchai-labs/scratch-ai-local-client/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tesths/scratchai.git"
+    "url": "git+https://github.com/scratchai-labs/scratch-ai-local-client.git"
   },
   "scripts": {
     "build": "node -e \"console.log('verification workspace uses source scripts; no build step required')\"",
