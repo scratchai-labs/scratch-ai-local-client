@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   buildCurrentTargetScriptXmlList,
-  buildRecommendedBlockXml
+  buildRecommendedBlockXml,
+  buildRecommendedStructureXml
 } from "../dist/scratch-block-xml.js";
 
 test("buildCurrentTargetScriptXmlList serializes nested control stacks into Blockly XML", () => {
@@ -89,6 +90,82 @@ test("buildRecommendedBlockXml creates official block XML with default inputs", 
   assert.match(waitXml, /<block[^>]+type="control_wait"/);
   assert.match(waitXml, /<value name="DURATION">/);
   assert.match(waitXml, /<field name="NUM">1<\/field>/);
+});
+
+test("buildRecommendedStructureXml serializes ordered blocks through next connections", () => {
+  const xml = buildRecommendedStructureXml({
+    root: {
+      opcode: "event_whenflagclicked",
+      category: "事件",
+      label: "当绿旗被点击",
+      reason: "给脚本一个开始时机。",
+      next: {
+        opcode: "motion_movesteps",
+        category: "运动",
+        label: "移动 10 步",
+        reason: "先让角色动起来。"
+      }
+    }
+  });
+
+  assert.match(xml, /^<xml[^>]*>/);
+  assert.match(xml, /<block[^>]+type="event_whenflagclicked"/);
+  assert.match(xml, /<next>\s*<block[^>]+type="motion_movesteps"/);
+  assert.equal((xml.match(/<xml/g) ?? []).length, 1);
+});
+
+test("buildRecommendedStructureXml serializes condition and substack relationships", () => {
+  const xml = buildRecommendedStructureXml({
+    root: {
+      opcode: "control_if",
+      category: "控制",
+      label: "如果...那么",
+      reason: "让角色会判断。",
+      condition: {
+        opcode: "sensing_touchingobject",
+        category: "侦测",
+        label: "碰到...？",
+        reason: "检查角色是否碰到目标。"
+      },
+      substack: {
+        opcode: "looks_sayforsecs",
+        category: "外观",
+        label: "说 2 秒",
+        reason: "给出可见反馈。"
+      }
+    }
+  });
+
+  assert.match(xml, /<value name="CONDITION">\s*<block[^>]+type="sensing_touchingobject"/);
+  assert.match(xml, /<statement name="SUBSTACK">\s*<block[^>]+type="looks_sayforsecs"/);
+  assert.doesNotMatch(xml, /type="sensing_mousedown"/);
+  assert.doesNotMatch(xml, /type="motion_movesteps"/);
+});
+
+test("buildRecommendedStructureXml serializes both branches of if-else blocks", () => {
+  const xml = buildRecommendedStructureXml({
+    root: {
+      opcode: "control_if_else",
+      category: "控制",
+      label: "如果...那么...否则",
+      reason: "让角色根据情况选择行为。",
+      substack: {
+        opcode: "looks_show",
+        category: "外观",
+        label: "显示",
+        reason: "条件成立时显示角色。"
+      },
+      substack2: {
+        opcode: "looks_hide",
+        category: "外观",
+        label: "隐藏",
+        reason: "条件不成立时隐藏角色。"
+      }
+    }
+  });
+
+  assert.match(xml, /<statement name="SUBSTACK">\s*<block[^>]+type="looks_show"/);
+  assert.match(xml, /<statement name="SUBSTACK2">\s*<block[^>]+type="looks_hide"/);
 });
 
 test("buildRecommendedBlockXml fills fields and values for effect, menu and variable blocks", () => {

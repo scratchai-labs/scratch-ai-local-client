@@ -61,6 +61,26 @@ export type RecommendedBlock = {
   example?: string;
 };
 
+export type RecommendedBlockNode = {
+  opcode: string;
+  category: string;
+  label: string;
+  reason: string;
+  next?: RecommendedBlockNode;
+  condition?: RecommendedBlockNode;
+  substack?: RecommendedBlockNode;
+  substack2?: RecommendedBlockNode;
+};
+
+export type RecommendedBlockStructure = {
+  root: RecommendedBlockNode;
+};
+
+export type CoachRecommendationResponse = {
+  summary: string;
+  recommendation: RecommendedBlockStructure;
+};
+
 export type ScratchBlockDescriptor = {
   opcode: string;
   categoryId: string;
@@ -133,6 +153,8 @@ export declare const CORE_PROGRAM_AREA_MODULE_LABELS: Record<string, string>;
 export declare const EXTENSION_PROGRAM_AREA_MODULE_LABELS: Record<string, string>;
 export declare const hintLevelSchema: z.ZodTypeAny;
 export declare const recommendedBlockSchema: z.ZodTypeAny;
+export declare const recommendedBlockNodeSchema: z.ZodType<RecommendedBlockNode>;
+export declare const coachRecommendationResponseSchema: z.ZodType<CoachRecommendationResponse>;
 export declare const scratchBlockDescriptorSchema: z.ZodTypeAny;
 export declare const currentTargetScriptDescriptorSchema: z.ZodTypeAny;
 export declare const detectedIssueSchema: z.ZodTypeAny;

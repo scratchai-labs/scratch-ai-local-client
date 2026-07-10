@@ -1,4 +1,8 @@
-import type { RecommendedBlock } from "./types";
+import type {
+  RecommendedBlock,
+  RecommendedBlockNode,
+  RecommendedBlockStructure
+} from "./types";
 
 const XML_NAMESPACE = "https://developers.google.com/blockly/xml";
 const SCALAR_VARIABLE_TYPE = "";
@@ -704,7 +708,7 @@ function buildListFieldXml(name = "LIST", value = "清单") {
   return buildFieldXml(name, value, DEFAULT_LIST_ATTRIBUTES);
 }
 
-function buildRecommendedBlockBody(block: RecommendedBlock) {
+function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPlaceholders = true) {
   const messageText = block.example || "开始吧";
 
   switch (block.opcode) {
@@ -879,27 +883,39 @@ function buildRecommendedBlockBody(block: RecommendedBlock) {
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildWholeNumberShadowValueXml("TIMES", "10")}${buildMoveStepsStatementXml()}`
+        `${buildWholeNumberShadowValueXml("TIMES", "10")}${
+          includeStructuralPlaceholders ? buildMoveStepsStatementXml() : ""
+        }`
       );
     case "control_forever":
-      return buildElementXml("block", block.opcode, buildMoveStepsStatementXml());
+      return buildElementXml(
+        "block",
+        block.opcode,
+        includeStructuralPlaceholders ? buildMoveStepsStatementXml() : ""
+      );
     case "control_if":
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildMouseDownConditionValueXml()}${buildMoveStepsStatementXml()}`
+        includeStructuralPlaceholders
+          ? `${buildMouseDownConditionValueXml()}${buildMoveStepsStatementXml()}`
+          : ""
       );
     case "control_if_else":
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildMouseDownConditionValueXml()}${buildMoveStepsStatementXml()}${buildLooksSayStatementXml()}`
+        includeStructuralPlaceholders
+          ? `${buildMouseDownConditionValueXml()}${buildMoveStepsStatementXml()}${buildLooksSayStatementXml()}`
+          : ""
       );
     case "control_repeat_until":
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildMouseDownConditionValueXml()}${buildMoveStepsStatementXml()}`
+        includeStructuralPlaceholders
+          ? `${buildMouseDownConditionValueXml()}${buildMoveStepsStatementXml()}`
+          : ""
       );
     case "control_stop":
       return buildElementXml("block", block.opcode, buildFieldXml("STOP_OPTION", "all"));
@@ -1102,4 +1118,38 @@ export function buildCurrentTargetScriptXmlList(
 
 export function buildRecommendedBlockXml(block: RecommendedBlock) {
   return wrapWorkspaceXml(buildRecommendedBlockBody(block));
+}
+
+function appendBlockChildren(blockXml: string, childrenXml: string) {
+  const closingTag = "</block>";
+  const closingIndex = blockXml.lastIndexOf(closingTag);
+  if (closingIndex < 0) {
+    return blockXml;
+  }
+
+  return `${blockXml.slice(0, closingIndex)}${childrenXml}${blockXml.slice(closingIndex)}`;
+}
+
+function buildRecommendedStructureBody(node: RecommendedBlockNode): string {
+  const conditionXml = node.condition
+    ? `<value name="CONDITION">${buildRecommendedStructureBody(node.condition)}</value>`
+    : "";
+  const substackXml = node.substack
+    ? `<statement name="SUBSTACK">${buildRecommendedStructureBody(node.substack)}</statement>`
+    : "";
+  const substack2Xml = node.substack2
+    ? `<statement name="SUBSTACK2">${buildRecommendedStructureBody(node.substack2)}</statement>`
+    : "";
+  const nextXml = node.next
+    ? `<next>${buildRecommendedStructureBody(node.next)}</next>`
+    : "";
+
+  return appendBlockChildren(
+    buildRecommendedBlockBody(node, false),
+    `${conditionXml}${substackXml}${substack2Xml}${nextXml}`
+  );
+}
+
+export function buildRecommendedStructureXml(structure: RecommendedBlockStructure) {
+  return wrapWorkspaceXml(buildRecommendedStructureBody(structure.root));
 }

@@ -6,6 +6,7 @@
 
 ## 已完成
 
+- 2026-07-10：按 TDD 完成自学辅导实施计划切片 1；新增 1–3 个节点的结构化积木推荐协议，支持 `next`、条件槽、`SUBSTACK` 和 `SUBSTACK2`，严格拒绝额外字段、超过 3 个节点和模型原始 XML；客户端新增递归 Scratch Blockly XML 生成入口，同时保留旧扁平协议供下一切片渐进迁移；共享包 10 项、验证工具 32 项、桌面端 95 项测试全部通过。
 - 2026-07-10：完成单机直连自学辅导的 `grill-with-docs` 压力测试；产品边界、交互模式、结构化积木协议、会话状态机、安全约束和非目标均已确认，并形成设计文档、8 份 ADR、领域词典及分六个垂直切片的 TDD 实施计划；本轮未修改业务代码。
 - 2026-05-24：完成从原始 workspace 拆出独立本地客户端仓；保留 `desktop-companion + shared + verification` 主线，继续采用 DeepSeek API 直连模式；同步收口 README、架构文档、仓库元数据，并完成独立 git 初始化与测试验证。
 - 2026-05-07：修复 Windows CI 在 `npm run package:win:bundle` 阶段因 `electron-builder` 隐式触发 GitHub publish 而失败的问题；在桌面端共用 builder base config 中显式设置 `publish: "never"`，避免 GitHub Actions 因缺少 `GH_TOKEN` 在 NSIS 安装包收尾时报错；已按 TDD 先补回归测试，再完成修复，并通过 `desktop-companion` 全量测试。

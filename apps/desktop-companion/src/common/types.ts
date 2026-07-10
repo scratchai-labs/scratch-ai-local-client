@@ -37,6 +37,21 @@ export interface RecommendedBlock {
   example?: string;
 }
 
+export interface RecommendedBlockNode {
+  opcode: string;
+  category: string;
+  label: string;
+  reason: string;
+  next?: RecommendedBlockNode;
+  condition?: RecommendedBlockNode;
+  substack?: RecommendedBlockNode;
+  substack2?: RecommendedBlockNode;
+}
+
+export interface RecommendedBlockStructure {
+  root: RecommendedBlockNode;
+}
+
 export interface ScratchBlockDescriptor {
   opcode: string;
   categoryId: string;

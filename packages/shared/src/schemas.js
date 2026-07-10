@@ -10,6 +10,51 @@ const recommendedBlockSchema = z.object({
   example: z.string().optional()
 });
 
+const recommendedBlockNodeSchema = z.lazy(() =>
+  z
+    .object({
+      opcode: z.string(),
+      category: z.string(),
+      label: z.string(),
+      reason: z.string(),
+      next: recommendedBlockNodeSchema.optional(),
+      condition: recommendedBlockNodeSchema.optional(),
+      substack: recommendedBlockNodeSchema.optional(),
+      substack2: recommendedBlockNodeSchema.optional()
+    })
+    .strict()
+);
+
+function countRecommendedBlockNodes(node) {
+  return (
+    1 +
+    ["next", "condition", "substack", "substack2"].reduce(
+      (count, relation) => count + (node[relation] ? countRecommendedBlockNodes(node[relation]) : 0),
+      0
+    )
+  );
+}
+
+const coachRecommendationResponseSchema = z
+  .object({
+    summary: z.string(),
+    recommendation: z
+      .object({
+        root: recommendedBlockNodeSchema
+      })
+      .strict()
+  })
+  .strict()
+  .superRefine((response, context) => {
+    if (countRecommendedBlockNodes(response.recommendation.root) > 3) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["recommendation", "root"],
+        message: "推荐积木结构最多包含 3 个积木。"
+      });
+    }
+  });
+
 const scratchBlockDescriptorSchema = z.object({
   opcode: z.string(),
   categoryId: z.string(),
@@ -207,6 +252,7 @@ export {
   aiHintStatusSchema,
   blockSummarySchema,
   coachRequestSchema,
+  coachRecommendationResponseSchema,
   coachResponseSchema,
   currentTargetScriptDescriptorSchema,
   desktopCompanionStateSchema,
@@ -216,6 +262,7 @@ export {
   programAreaModuleSchema,
   projectAnalysisSchema,
   projectSnapshotSchema,
+  recommendedBlockNodeSchema,
   recommendedBlockSchema,
   scratchStatePayloadSchema,
   scratchBlockDescriptorSchema,
