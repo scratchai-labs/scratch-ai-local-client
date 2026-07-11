@@ -17,7 +17,7 @@ This repository is the split-out **standalone local client** repo.
 - 支持 **Windows** 和 **macOS**
 - Windows CI 产物：`portable .exe`、`installer .exe`
 - macOS CI 产物：`zip`、`dmg`
-- 当前正式分发通过 **GitHub Actions artifacts**，暂未自动发布到 GitHub Releases
+- 当前正式分发通过 **GitHub Releases** 自动发布 4 个无 Key 下载包；`main` 分支仍保留短期 GitHub Actions artifacts 供检查
 - 跨仓库文档与总体规划见 `scratch-ai-docs`
 
 ## Quick Links

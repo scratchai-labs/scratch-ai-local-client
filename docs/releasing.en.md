@@ -26,6 +26,10 @@ You can also run `Desktop Release Artifacts` manually from GitHub Actions and fi
 
 Formal releases attach only 4 no-key downloadable files built on the Windows and macOS runners, so users can download them from GitHub Releases. The version must look like `v0.1.0` or `v0.1.0-beta.1`.
 
+When publishing the same version again, the workflow first deletes the existing Release assets for that tag and then uploads the new 4 files. This prevents old artifacts, checksum files, or historical `with-key` builds from remaining in the download list.
+
+The `Source code (zip)` / `Source code (tar.gz)` entries shown by GitHub are generated automatically from the tag. They are not Release assets uploaded by this project.
+
 ## Actions Artifact Names
 
 - Windows: `scratch-desktop-companion-windows`
@@ -69,5 +73,7 @@ npm run package:mac:dmg
 ## Current Boundaries
 
 - No `with-key` build is published or retained
+- `with-key` packaging entrypoints are disabled, and the release workflow verifies that no historical `with-key` asset remains before uploading
+- Formal Release assets contain only the 4 installer/portable files listed above; `SHA256SUMS.txt`, `RELEASE-NOTES.md`, and unpacked directories are not uploaded
 - macOS signing and notarization are not automated yet
 - `installers/` is an output collection directory and is not committed to git

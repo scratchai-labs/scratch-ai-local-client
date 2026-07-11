@@ -26,6 +26,10 @@ git push origin v0.1.0
 
 正式 Release 只附带 4 个无 Key 可下载文件，用户可在 GitHub Releases 页面直接下载。版本号必须类似 `v0.1.0` 或 `v0.1.0-beta.1`。
 
+重复发布同一个版本时，workflow 会先清空该 tag 已有的 Release assets，再上传新的 4 个文件，避免旧产物、校验文件或历史 `with-key` 产物继续挂在下载区。
+
+GitHub 页面自动显示的 `Source code (zip)` / `Source code (tar.gz)` 是 tag 自动生成的源码入口，不是本项目上传的 Release asset。
+
 ## Actions artifact 名称
 
 - Windows：`scratch-desktop-companion-windows`
@@ -69,5 +73,7 @@ npm run package:mac:dmg
 ## 当前边界
 
 - 不发布、也不保留任何 `with-key` 预置 Key 版本
+- `with-key` 打包入口已禁用；发布链路会在上传前校验不得残留历史 `with-key` asset
+- 正式 Release asset 只上传上述 4 个安装/便携文件，不额外上传 `SHA256SUMS.txt`、`RELEASE-NOTES.md` 或未打包目录
 - 当前不会自动做 macOS 签名、公证或 notarization 发布流程
 - `installers/` 是产物收口目录，不纳入 git
