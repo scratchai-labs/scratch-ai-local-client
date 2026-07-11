@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   buildScratchLaunchArgs,
+  createScratchLaunchLocaleProvider,
   normalizeScratchLaunchLocale,
   resolvePreferredScratchLaunchLocale
 } from "../dist/scratch-launcher.js";
@@ -47,4 +48,14 @@ test("resolvePreferredScratchLaunchLocale keeps the app locale before system lan
 test("resolvePreferredScratchLaunchLocale prefers Chinese when Electron falls back to English", () => {
   assert.equal(resolvePreferredScratchLaunchLocale(["en-CN", "zh-Hans-CN"], "en-US"), "zh-CN");
   assert.equal(resolvePreferredScratchLaunchLocale(["en-US", "zh-Hant-TW"], "en-US"), "zh-TW");
+});
+
+test("createScratchLaunchLocaleProvider includes macOS AppleLanguages fallback", () => {
+  const resolveLocale = createScratchLaunchLocaleProvider(
+    () => ["en-US"],
+    () => "en-US",
+    () => ["en-CN", "zh-Hans-CN"]
+  );
+
+  assert.equal(resolveLocale(), "zh-CN");
 });

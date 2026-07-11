@@ -10,7 +10,7 @@ import { createScratchPlatformAdapter } from "./platform-adapter";
 import { getRuntimeLogPath, initializeRuntimeLog, writeRuntimeLog } from "./runtime-log";
 import { ScratchExecutableConfigStore } from "./scratch-config-store";
 import { SessionManager } from "./session-manager";
-import { ScratchLauncher, resolvePreferredScratchLaunchLocale } from "./scratch-launcher";
+import { ScratchLauncher, createScratchLaunchLocaleProvider } from "./scratch-launcher";
 import { StateStore } from "./state-store";
 import { getIconAssetPath } from "./icon-assets";
 import { createTrayIcon } from "./tray-icon";
@@ -523,8 +523,11 @@ app.whenReady()
     sessionManager = new SessionManager(stateStore, {
       configStore: new ScratchExecutableConfigStore(app.getPath("userData")),
       platformAdapter: scratchPlatformAdapter,
-      scratchLauncher: new ScratchLauncher(() =>
-        resolvePreferredScratchLaunchLocale(app.getPreferredSystemLanguages?.(), app.getLocale())
+      scratchLauncher: new ScratchLauncher(
+        createScratchLaunchLocaleProvider(
+          () => app.getPreferredSystemLanguages?.(),
+          () => app.getLocale()
+        )
       )
     });
 

@@ -6,6 +6,7 @@
 
 ## 已完成
 
+- 2026-07-11：继续修复人工测试中 Scratch 仍默认英文的问题；新增 macOS `AppleLanguages` 读取作为 Scratch 受控启动语言兜底，并在运行日志记录实际 `--lang` 启动参数，覆盖当前系统 `en-CN, zh-Hans-CN` 但 Electron fallback 为英文的场景。已通过 launcher 定向测试和 desktop-companion 143 项测试。
 - 2026-07-11：继续修复 Scratch 受控启动仍显示英文的问题；macOS 当前全局语言为 `en-CN, zh-Hans-CN` 时，Electron 可能给到英文 locale，导致 Scratch 收到英文启动参数。现已补强语言解析：当 Electron fallback 是英文但系统首选语言中存在中文时，优先传 `zh-CN` / `zh-TW` 给 Scratch。已通过 launcher 定向测试和 desktop-companion 142 项测试。
 - 2026-07-11：修复 Scratch 受控启动仍显示英文的问题；真实探针确认 Scratch Desktop 支持 `--lang=zh-CN`，根因是客户端优先取系统首选语言列表时可能拿到 `en-US`，现已改为优先使用 Electron 当前应用语言，再用系统语言列表兜底。已通过 launcher 定向测试和 desktop-companion 141 项测试。
 - 2026-07-11：继续修复人工测试反馈；Scratch 受控启动会优先使用 Electron 系统首选语言并把中文 locale 映射到 `zh-CN` / `zh-TW`，避免每次打开回到英文；推荐积木补齐画笔扩展只读 scratch-blocks 定义，避免退回文字显示；共享 schema 对旧/临时 mock 缺失 `detectedIssues` 时默认补空数组，避免验证客户端启动失败。已通过 shared 11 项和 desktop-companion 141 项测试。
