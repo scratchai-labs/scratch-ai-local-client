@@ -6,7 +6,7 @@
 
 ## 已完成
 
-- 2026-07-11：按发布安全要求收口桌面端产物矩阵；移除 `with-key` 打包变体、公开 npm 脚本、旧测试口径和可注入打包 Key 的环境变量，Windows bundle 只生成无 Key portable / installer，GitHub Release 重发同名版本前会删除旧 Release 并只上传 4 个无 Key 安装文件：Windows portable、Windows installer、macOS zip、macOS dmg，避免任何预置 Key 版本进入发布链路或继续挂在 Release 页面。
+- 2026-07-11：按发布安全要求收口桌面端产物矩阵；移除 `with-key` 打包变体、公开 npm 脚本、旧测试口径和可注入打包 Key 的环境变量，Windows bundle 只生成无 Key portable / installer；GitHub Release 重发同名版本前会通过 GitHub API 强制删除旧 Release，再只上传 4 个无 Key 安装文件：Windows portable、Windows installer、macOS zip、macOS dmg，避免任何预置 Key 版本进入发布链路或继续挂在 Release 页面。
 - 2026-07-11：修复 GitHub Release 最后上传 asset 失败；`v0.1.0` 重新触发后 Windows / macOS 出包均已成功，失败点收敛到 `softprops/action-gh-release` 上传阶段。已将 Release assets staging 收口为 `.exe` / `.zip` / `.dmg` / `SHA256SUMS.txt` / `RELEASE-NOTES.md` 等可下载文件，避免把 `win-unpacked/` 目录内容直接交给 Release action。
 - 2026-07-11：修复 `v0.1.0` 发布出包失败；定位到 `electron-builder` 配置中的 `publish: "never"` 被当作 publisher provider 解析，导致 Windows / macOS 打包步骤失败。已改为在程序化 `build()` 调用参数中禁用发布，保留 GitHub Release workflow 负责上传 Release assets；已完成桌面端全量测试和本地 macOS zip 出包验证。
 - 2026-07-11：完成桌面伴随程序 GitHub Release 自动发布链路；`Desktop Release Artifacts` 保留 PR / main 的 Windows 与 macOS Actions artifact，同时支持 `v*` tag 或手动填写 `release_version` 创建正式 GitHub Release，并上传 Windows portable / installer 与 macOS zip / dmg 产物；已补 workflow 回归测试和中英文发布文档。

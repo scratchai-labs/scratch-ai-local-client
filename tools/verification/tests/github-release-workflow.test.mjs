@@ -56,8 +56,9 @@ test("desktop release workflow publishes GitHub Release assets only for version 
   assert.match(workflow, /ScratchDesktopCompanion-mac\.dmg/);
   assert.match(workflow, /wc -l\)" -eq 4/);
   assert.match(workflow, /Delete Existing Release/);
-  assert.match(workflow, /gh release delete "\$\{\{\s*needs\.prepare\.outputs\.version\s*\}\}"/);
-  assert.match(workflow, /--cleanup-tag=false --yes/);
+  assert.match(workflow, /releases\/tags\/\$\{\{\s*needs\.prepare\.outputs\.version\s*\}\}/);
+  assert.match(workflow, /--request DELETE/);
+  assert.match(workflow, /releases\/\$\{release_id\}/);
   assert.match(workflow, /files:\s*release-upload\/\*/);
   assert.doesNotMatch(workflow, /files:\s*release-assets\/\*\*/);
   assert.doesNotMatch(workflow, /with-key/);
