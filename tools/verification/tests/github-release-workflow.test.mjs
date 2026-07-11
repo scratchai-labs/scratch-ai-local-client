@@ -55,13 +55,15 @@ test("desktop release workflow publishes GitHub Release assets only for version 
   assert.match(workflow, /ScratchDesktopCompanion-mac\.zip/);
   assert.match(workflow, /ScratchDesktopCompanion-mac\.dmg/);
   assert.match(workflow, /wc -l\)" -eq 4/);
-  assert.match(workflow, /Delete Existing Release/);
+  assert.match(workflow, /Clean Existing Release Assets/);
   assert.match(workflow, /releases\/tags\/\$\{\{\s*needs\.prepare\.outputs\.version\s*\}\}/);
+  assert.match(workflow, /releases\/assets\/\$\{asset_id\}/);
   assert.match(workflow, /--request DELETE/);
-  assert.match(workflow, /releases\/\$\{release_id\}/);
+  assert.match(workflow, /with-key release assets remain/);
+  assert.match(workflow, /release assets were not fully cleaned/);
   assert.match(workflow, /files:\s*release-upload\/\*/);
   assert.doesNotMatch(workflow, /files:\s*release-assets\/\*\*/);
-  assert.doesNotMatch(workflow, /with-key/);
+  assert.doesNotMatch(workflow, /ScratchDesktopCompanion-with-key/);
 });
 
 test("desktop release workflow uses Node 24-based GitHub actions runtimes", async () => {
