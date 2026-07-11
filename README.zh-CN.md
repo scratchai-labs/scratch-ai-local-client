@@ -28,14 +28,14 @@ Scratch 帮很多人第一次真正喜欢上电脑、理解程序和创作。Scr
 
 ## 下载与发布
 
-当前仓库还没有自动同步 GitHub Releases，正式下载入口以 **GitHub Actions artifacts** 为准：
+正式下载入口是 **GitHub Releases**。当前导出规则固定为 4 个无 Key 包：
 
-- Windows artifact：`scratch-desktop-companion-windows`
-  - 包含 `portable .exe`
-  - 包含 `installer .exe`
-- macOS artifact：`scratch-desktop-companion-macos`
-  - 包含 `.zip`
-  - 包含 `.dmg`
+- Windows 便携版：`ScratchDesktopCompanion-portable.exe`
+- Windows 安装版：`ScratchDesktopCompanion-setup.exe`
+- macOS 便携版：`ScratchDesktopCompanion-mac.zip`
+- macOS 安装包：`ScratchDesktopCompanion-mac.dmg`
+
+`main` 分支仍会保留短期 GitHub Actions artifacts，方便检查每次提交的出包结果；正式 Release 不上传额外校验文件、发布说明文件、未打包目录或任何 `with-key` 版本。
 
 更多产物命名、workflow 和分发口径见 [`docs/releasing.zh-CN.md`](docs/releasing.zh-CN.md)。
 

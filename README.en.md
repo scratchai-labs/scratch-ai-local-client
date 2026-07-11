@@ -28,14 +28,14 @@ Scratch helped many people fall in love with computers for the first time. Since
 
 ## Downloads and Release Flow
 
-This repository does not publish GitHub Releases automatically yet. For now, official binaries are distributed through **GitHub Actions artifacts**:
+The official download entrypoint is **GitHub Releases**. The export rule is fixed to 4 no-key packages:
 
-- Windows artifact: `scratch-desktop-companion-windows`
-  - includes a `portable .exe`
-  - includes an `installer .exe`
-- macOS artifact: `scratch-desktop-companion-macos`
-  - includes a `.zip`
-  - includes a `.dmg`
+- Windows portable: `ScratchDesktopCompanion-portable.exe`
+- Windows installer: `ScratchDesktopCompanion-setup.exe`
+- macOS portable: `ScratchDesktopCompanion-mac.zip`
+- macOS installer package: `ScratchDesktopCompanion-mac.dmg`
+
+The `main` branch still keeps short-lived GitHub Actions artifacts so each commit's packaging output can be checked. Formal Releases do not upload extra checksum files, release-note files, unpacked directories, or any `with-key` build.
 
 See [`docs/releasing.en.md`](docs/releasing.en.md) for workflow names, artifact naming, and packaging details.
 

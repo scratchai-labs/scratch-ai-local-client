@@ -6,6 +6,7 @@
 
 ## 已完成
 
+- 2026-07-11：补齐导出规则文档口径；将双语 README 的旧 GitHub Actions artifacts 分发说明改为正式 GitHub Releases 只导出 4 个无 Key 包，并在架构风险点中明确正式导出矩阵固定为 Windows portable / setup、macOS zip / dmg。
 - 2026-07-11：维护发布收尾文档；同步 README、路线图和中英文发布说明到最终口径：正式分发通过 GitHub Releases 自动发布 4 个无 Key 包，重复发布会先清空旧 Release assets，`with-key` 打包入口禁用且不得保留历史 asset，GitHub 自动生成的源码 zip/tar.gz 不属于本项目上传的 Release 资产。
 - 2026-07-11：继续收口 `v0.1.0` GitHub Release 资产；远端页面仍残留旧 `with-key` Windows 产物，本轮将发布前清理改为逐个删除旧 Release asset，并在上传前校验不得残留 `with-key` 或额外资产；Release 仍只 staging 4 个无 Key 文件：Windows portable / setup、macOS zip / dmg。
 - 2026-07-11：按发布安全要求收口桌面端产物矩阵；移除 `with-key` 打包变体、公开 npm 脚本、旧测试口径和可注入打包 Key 的环境变量，Windows bundle 只生成无 Key portable / installer；GitHub Release 重发同名版本前会通过 GitHub API 强制删除旧 Release，再只上传 4 个无 Key 安装文件：Windows portable、Windows installer、macOS zip、macOS dmg，避免任何预置 Key 版本进入发布链路或继续挂在 Release 页面。

@@ -108,7 +108,7 @@ Electron 桌面工具，源码拆成三层：
 
 - 真机验证脚本虽然已跨平台收口，但仍有部分现场运维流程只写了 Windows 口径
 - macOS 正式签名、公证和发版还没有自动化
-- CI 负责双平台正式产物；本地只承诺当前平台可出包
+- GitHub Releases 的正式导出规则固定为 4 个无 Key 包：Windows portable / setup、macOS zip / dmg；本地只承诺当前平台可出包
 - `tools/verification/artifacts/` 不再进 git，需要通过文档和 CI artifact 回看验证结果
 - 推荐积木白名单外的新 opcode，先扩 `src/common/scratch-block-xml.ts` 的默认模板，再决定是否放行到 AI 输出
 - 新出现的扩展块、动态菜单块或特殊 mutation，可能还需要在只读渲染层补兜底定义
