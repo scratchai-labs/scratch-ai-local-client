@@ -34,13 +34,15 @@ function createConfigStoreMock(initialPath = undefined) {
   let customAiApiKey;
   let customAiModel;
   let customAiPrompt;
+  let lastScratchLocale;
 
   return {
     load: async () => ({
       ...(scratchExecutablePath ? { scratchExecutablePath } : {}),
       ...(customAiApiKey ? { customAiApiKey } : {}),
       ...(customAiModel ? { customAiModel } : {}),
-      ...(customAiPrompt ? { customAiPrompt } : {})
+      ...(customAiPrompt ? { customAiPrompt } : {}),
+      ...(lastScratchLocale ? { lastScratchLocale } : {})
     }),
     saveScratchExecutablePath: async (value) => {
       scratchExecutablePath = value;
@@ -48,7 +50,8 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(scratchExecutablePath ? { scratchExecutablePath } : {}),
         ...(customAiApiKey ? { customAiApiKey } : {}),
         ...(customAiModel ? { customAiModel } : {}),
-        ...(customAiPrompt ? { customAiPrompt } : {})
+        ...(customAiPrompt ? { customAiPrompt } : {}),
+        ...(lastScratchLocale ? { lastScratchLocale } : {})
       };
     },
     saveCustomAiApiKey: async (value) => {
@@ -57,7 +60,8 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(scratchExecutablePath ? { scratchExecutablePath } : {}),
         ...(customAiApiKey ? { customAiApiKey } : {}),
         ...(customAiModel ? { customAiModel } : {}),
-        ...(customAiPrompt ? { customAiPrompt } : {})
+        ...(customAiPrompt ? { customAiPrompt } : {}),
+        ...(lastScratchLocale ? { lastScratchLocale } : {})
       };
     },
     clearCustomAiApiKey: async () => {
@@ -65,7 +69,8 @@ function createConfigStoreMock(initialPath = undefined) {
       return {
         ...(scratchExecutablePath ? { scratchExecutablePath } : {}),
         ...(customAiModel ? { customAiModel } : {}),
-        ...(customAiPrompt ? { customAiPrompt } : {})
+        ...(customAiPrompt ? { customAiPrompt } : {}),
+        ...(lastScratchLocale ? { lastScratchLocale } : {})
       };
     },
     saveCustomAiModel: async (value) => {
@@ -74,7 +79,8 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(scratchExecutablePath ? { scratchExecutablePath } : {}),
         ...(customAiApiKey ? { customAiApiKey } : {}),
         ...(customAiModel ? { customAiModel } : {}),
-        ...(customAiPrompt ? { customAiPrompt } : {})
+        ...(customAiPrompt ? { customAiPrompt } : {}),
+        ...(lastScratchLocale ? { lastScratchLocale } : {})
       };
     },
     clearCustomAiModel: async () => {
@@ -82,7 +88,8 @@ function createConfigStoreMock(initialPath = undefined) {
       return {
         ...(scratchExecutablePath ? { scratchExecutablePath } : {}),
         ...(customAiApiKey ? { customAiApiKey } : {}),
-        ...(customAiPrompt ? { customAiPrompt } : {})
+        ...(customAiPrompt ? { customAiPrompt } : {}),
+        ...(lastScratchLocale ? { lastScratchLocale } : {})
       };
     },
     saveCustomAiPrompt: async (value) => {
@@ -99,7 +106,18 @@ function createConfigStoreMock(initialPath = undefined) {
       return {
         ...(scratchExecutablePath ? { scratchExecutablePath } : {}),
         ...(customAiApiKey ? { customAiApiKey } : {}),
-        ...(customAiModel ? { customAiModel } : {})
+        ...(customAiModel ? { customAiModel } : {}),
+        ...(lastScratchLocale ? { lastScratchLocale } : {})
+      };
+    },
+    saveLastScratchLocale: async (value) => {
+      lastScratchLocale = value;
+      return {
+        ...(scratchExecutablePath ? { scratchExecutablePath } : {}),
+        ...(customAiApiKey ? { customAiApiKey } : {}),
+        ...(customAiModel ? { customAiModel } : {}),
+        ...(customAiPrompt ? { customAiPrompt } : {}),
+        ...(lastScratchLocale ? { lastScratchLocale } : {})
       };
     }
   };

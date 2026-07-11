@@ -59,3 +59,14 @@ test("ScratchExecutableConfigStore removes the custom API key field when clearin
     assert.equal(Object.hasOwn(rawConfig, "customAiApiKey"), false);
   });
 });
+
+test("ScratchExecutableConfigStore saves the last observed Scratch locale", async () => {
+  await withTempStore(async ({ configPath, store }) => {
+    await store.saveScratchExecutablePath("/Applications/Scratch.app/Contents/MacOS/Scratch");
+    await store.saveLastScratchLocale("ko");
+
+    const rawConfig = JSON.parse(await readFile(configPath, "utf8"));
+    assert.equal(rawConfig.lastScratchLocale, "ko");
+    assert.equal((await store.load()).lastScratchLocale, "ko");
+  });
+});

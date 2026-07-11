@@ -9,11 +9,40 @@ export interface ScratchLaunchSession {
   debugPort: number;
   scratchExecutablePath: string;
   args: string[];
+  locale?: string;
   onExit(listener: (code: number | null, signal: NodeJS.Signals | null) => void): () => void;
 }
 
-export function buildScratchLaunchArgs(debugPort: number) {
-  return [`--remote-debugging-port=${debugPort}`];
+export function normalizeScratchLaunchLocale(locale?: string | null) {
+  const normalized = String(locale ?? "").trim().replace("_", "-");
+  if (!normalized) {
+    return undefined;
+  }
+
+  const parts = normalized.split("-").filter(Boolean);
+  const [language] = parts;
+  if (!language || !/^[a-z]{2,3}$/i.test(language)) {
+    return undefined;
+  }
+
+  if (language.toLowerCase() === "zh") {
+    const hasTraditionalScriptOrRegion = parts
+      .slice(1)
+      .some((part) => ["hant", "tw", "hk", "mo"].includes(part.toLowerCase()));
+    return hasTraditionalScriptOrRegion ? "zh-TW" : "zh-CN";
+  }
+
+  const region = parts.slice(1).find((part) => /^[a-z]{2}$|^[0-9]{3}$/i.test(part));
+  return region ? `${language.toLowerCase()}-${region.toUpperCase()}` : language.toLowerCase();
+}
+
+export function buildScratchLaunchArgs(debugPort: number, locale?: string | null) {
+  const args = [`--remote-debugging-port=${debugPort}`];
+  const normalizedLocale = normalizeScratchLaunchLocale(locale);
+  if (normalizedLocale) {
+    args.push(`--lang=${normalizedLocale}`);
+  }
+  return args;
 }
 
 async function getAvailablePort() {
@@ -42,11 +71,14 @@ async function getAvailablePort() {
 }
 
 export class ScratchLauncher {
+  constructor(private readonly localeProvider: () => string | undefined = () => undefined) {}
+
   async launch(scratchExecutablePath: string): Promise<ScratchLaunchSession> {
     await access(scratchExecutablePath);
 
     const debugPort = await getAvailablePort();
-    const args = buildScratchLaunchArgs(debugPort);
+    const locale = normalizeScratchLaunchLocale(this.localeProvider());
+    const args = buildScratchLaunchArgs(debugPort, locale);
     const processEvents = new EventEmitter();
     const child = spawn(scratchExecutablePath, args, {
       cwd: path.dirname(scratchExecutablePath),
@@ -75,6 +107,7 @@ export class ScratchLauncher {
       debugPort,
       scratchExecutablePath,
       args,
+      ...(locale ? { locale } : {}),
       onExit(listener: (code: number | null, signal: NodeJS.Signals | null) => void) {
         processEvents.on("exit", listener);
         return () => {

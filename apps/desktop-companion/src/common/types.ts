@@ -130,6 +130,7 @@ export interface ScratchStatePayload {
   source?: string;
   capturedAt?: string;
   scratchPid?: number;
+  scratchLocale?: string;
   currentTargetId?: string;
   currentTargetName?: string;
   currentTargetIsStage?: boolean;

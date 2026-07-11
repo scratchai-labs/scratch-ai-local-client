@@ -21,6 +21,7 @@ export class ScratchExecutableConfigStore {
       customAiModel?: string;
       customAiPrompt?: string;
       aiHintTriggerMode?: "auto" | "manual";
+      lastScratchLocale?: string;
     } = {};
 
     if (typeof parsed.scratchExecutablePath === "string" && parsed.scratchExecutablePath.trim()) {
@@ -37,6 +38,10 @@ export class ScratchExecutableConfigStore {
 
     if (typeof parsed.customAiPrompt === "string" && parsed.customAiPrompt.trim()) {
       nextConfig.customAiPrompt = parsed.customAiPrompt.trim();
+    }
+
+    if (typeof parsed.lastScratchLocale === "string" && parsed.lastScratchLocale.trim()) {
+      nextConfig.lastScratchLocale = parsed.lastScratchLocale.trim();
     }
 
     nextConfig.aiHintTriggerMode = normalizeAiHintTriggerMode(parsed.aiHintTriggerMode);
@@ -129,6 +134,17 @@ export class ScratchExecutableConfigStore {
     const nextConfig = {
       ...currentConfig,
       aiHintTriggerMode: normalizeAiHintTriggerMode(aiHintTriggerMode)
+    };
+
+    await this.writeConfig(nextConfig);
+    return nextConfig;
+  }
+
+  async saveLastScratchLocale(lastScratchLocale: string) {
+    const currentConfig = await this.load();
+    const nextConfig = {
+      ...currentConfig,
+      lastScratchLocale: lastScratchLocale.trim()
     };
 
     await this.writeConfig(nextConfig);

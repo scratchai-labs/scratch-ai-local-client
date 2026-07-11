@@ -6,6 +6,7 @@
 
 ## 已完成
 
+- 2026-07-11：修正 Scratch 语言启动语义；目标不是完全移除 `--lang`，而是读取 Scratch 界面中上次实际选择的语言并沿用，避免系统语言、固定中文或固定英文覆盖用户偏好。桥接脚本会记录 Scratch Redux 当前 locale，本地配置持久化后，下次受控启动仅用该 locale 生成 `--lang`。
 - 2026-07-11：继续修复人工测试反馈；撤掉 Scratch 受控启动的 `--lang` 强制参数，避免覆盖用户在 Scratch 内选择的语言；同时让本地 fallback 推荐变成结构化推荐，学生按推荐加完积木后能刷新到下一组推荐。已通过定向测试和 desktop-companion 138 项全量测试。
 - 2026-07-11：继续修复人工测试中 Scratch 仍默认英文的问题；新增 macOS `AppleLanguages` 读取作为 Scratch 受控启动语言兜底，并在运行日志记录实际 `--lang` 启动参数，覆盖当前系统 `en-CN, zh-Hans-CN` 但 Electron fallback 为英文的场景。已通过 launcher 定向测试和 desktop-companion 143 项测试。
 - 2026-07-11：继续修复 Scratch 受控启动仍显示英文的问题；macOS 当前全局语言为 `en-CN, zh-Hans-CN` 时，Electron 可能给到英文 locale，导致 Scratch 收到英文启动参数。现已补强语言解析：当 Electron fallback 是英文但系统首选语言中存在中文时，优先传 `zh-CN` / `zh-TW` 给 Scratch。已通过 launcher 定向测试和 desktop-companion 142 项测试。

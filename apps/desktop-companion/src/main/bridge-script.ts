@@ -255,6 +255,63 @@ export function buildDesktopInjectionScript(apiBaseUrl: string, token: string) {
     return null;
   }
 
+  function findReduxStoreInFiberNode(node) {
+    const queue = [node];
+    const visited = new Set();
+
+    while (queue.length > 0 && visited.size < 500) {
+      const current = queue.shift();
+      if (!current || typeof current !== "object" || visited.has(current)) {
+        continue;
+      }
+      visited.add(current);
+
+      const candidateProps = [current.memoizedProps, current.pendingProps, current.stateNode && current.stateNode.props];
+      for (const props of candidateProps) {
+        const store = props && typeof props === "object" ? props.store : null;
+        if (store && typeof store.getState === "function") {
+          return store;
+        }
+      }
+
+      for (const key of ["child", "sibling", "return"]) {
+        const nextNode = current[key];
+        if (nextNode && !visited.has(nextNode)) {
+          queue.push(nextNode);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function findReduxStoreFromReactTree() {
+    const candidates = document.querySelectorAll("#app, [class*='gui_page-wrapper'], [class*='gui_body-wrapper']");
+    for (const element of candidates) {
+      for (const key of Object.getOwnPropertyNames(element)) {
+        if (!REACT_NODE_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+          continue;
+        }
+        const store = findReduxStoreInFiberNode(element[key]);
+        if (store) {
+          return store;
+        }
+      }
+    }
+    return null;
+  }
+
+  function getScratchLocale() {
+    try {
+      const store = findReduxStoreFromReactTree();
+      const state = store && store.getState ? store.getState() : null;
+      const locale = state && state.locales && state.locales.locale;
+      return typeof locale === "string" && locale.trim() ? locale.trim() : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   function findToolboxXmlInFiberNode(node) {
     const queue = [node];
     const visited = new Set();
@@ -453,6 +510,7 @@ export function buildDesktopInjectionScript(apiBaseUrl: string, token: string) {
         source,
         capturedAt: new Date().toISOString(),
         scratchPid: getScratchPid(),
+        scratchLocale: getScratchLocale(),
         currentTargetId: currentTargetMeta.id,
         currentTargetName: currentTargetMeta.name,
         currentTargetIsStage: currentTargetMeta.isStage,

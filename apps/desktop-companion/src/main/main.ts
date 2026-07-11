@@ -523,7 +523,7 @@ app.whenReady()
     sessionManager = new SessionManager(stateStore, {
       configStore: new ScratchExecutableConfigStore(app.getPath("userData")),
       platformAdapter: scratchPlatformAdapter,
-      scratchLauncher: new ScratchLauncher()
+      scratchLauncher: new ScratchLauncher(() => sessionManager?.getLastScratchLocale())
     });
 
     writeRuntimeLog("session manager start begin");

@@ -201,6 +201,7 @@ const scratchStatePayloadSchema = z.object({
   source: z.string().optional(),
   capturedAt: z.string().optional(),
   scratchPid: z.number().int().positive().optional(),
+  scratchLocale: z.string().optional(),
   currentTargetId: z.string().optional(),
   currentTargetName: z.string().optional(),
   currentTargetIsStage: z.boolean().optional(),

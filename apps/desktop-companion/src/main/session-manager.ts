@@ -141,6 +141,7 @@ export class SessionManager {
     customAiModel?: string;
     customAiPrompt?: string;
     aiHintTriggerMode?: AiHintTriggerMode;
+    lastScratchLocale?: string;
   } = {};
 
   private activeLaunchSession?: ScratchLaunchSession;
@@ -469,7 +470,7 @@ export class SessionManager {
       });
 
       this.log(
-        `Scratch launched pid=${launchSession.pid} port=${launchSession.debugPort} args=${JSON.stringify(launchSession.args)} path=${JSON.stringify(launchSession.scratchExecutablePath)}`
+        `Scratch launched pid=${launchSession.pid} port=${launchSession.debugPort} locale=${JSON.stringify(launchSession.locale)} args=${JSON.stringify(launchSession.args)} path=${JSON.stringify(launchSession.scratchExecutablePath)}`
       );
 
       await this.ensureBridgeScriptInjected(launchSession);
@@ -497,6 +498,9 @@ export class SessionManager {
     }
 
     const payload = parsed.data as ScratchStatePayload;
+    if (typeof payload.scratchLocale === "string" && payload.scratchLocale.trim()) {
+      void this.rememberScratchLocale(payload.scratchLocale);
+    }
     const wasConnected = this.stateStore.getState().status === "connected";
     const toolboxCategories = Array.isArray(payload.toolboxCategories) ? payload.toolboxCategories : [];
     const loadedExtensions = Array.isArray(payload.loadedExtensions)
@@ -595,6 +599,20 @@ export class SessionManager {
       this.applySessionDecision(decision);
     }
     this.flushBridgeConnectionWaiters(true);
+  }
+
+  getLastScratchLocale() {
+    return typeof this.config.lastScratchLocale === "string" ? this.config.lastScratchLocale : undefined;
+  }
+
+  private async rememberScratchLocale(locale: string) {
+    const normalizedLocale = locale.trim();
+    if (!normalizedLocale || normalizedLocale === this.config.lastScratchLocale) {
+      return;
+    }
+
+    this.config = await this.configStore.saveLastScratchLocale(normalizedLocale);
+    this.log(`Scratch locale remembered locale=${JSON.stringify(normalizedLocale)}`);
   }
 
   handleBridgeError(message: string) {
