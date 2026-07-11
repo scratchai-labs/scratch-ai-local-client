@@ -24,7 +24,7 @@ git push origin v0.1.0
 
 You can also run `Desktop Release Artifacts` manually from GitHub Actions and fill `release_version`, for example `v0.1.0`.
 
-Formal releases attach the artifacts built on the Windows and macOS runners, so users can download them from GitHub Releases. The version must look like `v0.1.0` or `v0.1.0-beta.1`.
+Formal releases attach downloadable files built on the Windows and macOS runners, so users can download them from GitHub Releases. The version must look like `v0.1.0` or `v0.1.0-beta.1`.
 
 ## Actions Artifact Names
 

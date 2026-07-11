@@ -49,7 +49,13 @@ test("desktop release workflow publishes GitHub Release assets only for version 
   assert.match(workflow, /prerelease:\s*\$\{\{\s*contains\(needs\.prepare\.outputs\.version, '-'\)\s*\}\}/);
   assert.match(workflow, /download-artifact@v7/);
   assert.match(workflow, /release-assets/);
-  assert.match(workflow, /release-assets\/\*\*/);
+  assert.match(workflow, /Stage Release Assets/);
+  assert.match(workflow, /find release-assets -maxdepth 3 -type f/);
+  assert.match(workflow, /-name "\*\.exe"/);
+  assert.match(workflow, /-name "\*\.zip"/);
+  assert.match(workflow, /-name "\*\.dmg"/);
+  assert.match(workflow, /files:\s*release-upload\/\*/);
+  assert.doesNotMatch(workflow, /files:\s*release-assets\/\*\*/);
 });
 
 test("desktop release workflow uses Node 24-based GitHub actions runtimes", async () => {

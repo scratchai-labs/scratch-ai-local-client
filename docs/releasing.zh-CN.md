@@ -24,7 +24,7 @@ git push origin v0.1.0
 
 也可以在 GitHub Actions 页面手动运行 `Desktop Release Artifacts`，填写 `release_version`，例如 `v0.1.0`。
 
-正式 Release 会附带从 Windows / macOS runner 打出的产物，用户可在 GitHub Releases 页面直接下载。版本号必须类似 `v0.1.0` 或 `v0.1.0-beta.1`。
+正式 Release 会附带从 Windows / macOS runner 打出的可下载文件，用户可在 GitHub Releases 页面直接下载。版本号必须类似 `v0.1.0` 或 `v0.1.0-beta.1`。
 
 ## Actions artifact 名称
 
