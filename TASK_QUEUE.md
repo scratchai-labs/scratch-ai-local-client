@@ -6,6 +6,7 @@
 
 ## 已完成
 
+- 2026-07-11：重新运行当前客户端供人工测试；使用正常联调启动，不带 mock 环境变量；Electron 主进程和渲染进程已确认运行，启动日志无错误。
 - 2026-07-11：修复 macOS 人工测试反馈；“下一步提示”改为直接面向学生说“你”，DeepSeek prompt 明确禁止第三人称称呼；推荐积木区域会把扁平返回的 1-3 个积木串成一组 Scratch workspace 展示，不再只渲染第一块。已补 CoachService 和 renderer 回归测试，并通过桌面端 135 项测试。
 - 2026-07-11：运行当前 macOS 版本桌面伴随程序供人工用户测试；按现有文档使用正常联调启动，不带 mock 环境变量；修复后已重启到最新源码版进程。
 - 2026-07-11：补齐导出规则文档口径；将双语 README 的旧 GitHub Actions artifacts 分发说明改为正式 GitHub Releases 只导出 4 个无 Key 包，并在架构风险点中明确正式导出矩阵固定为 Windows portable / setup、macOS zip / dmg。
