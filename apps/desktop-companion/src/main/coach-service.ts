@@ -262,9 +262,13 @@ function buildGenericFallbackCoachResponse(options: GenerateCoachHintOptions): C
     );
   }
 
+  const visibleRecommendedBlocks = recommendedBlocks.slice(0, MAX_RECOMMENDED_BLOCKS);
+  const recommendation = buildLinearRecommendation(visibleRecommendedBlocks);
+
   return {
     answerText,
-    recommendedBlocks: recommendedBlocks.slice(0, MAX_RECOMMENDED_BLOCKS),
+    ...(recommendation ? { recommendation } : {}),
+    recommendedBlocks: visibleRecommendedBlocks,
     nextStep,
     detectedIssues,
     ...(followUpQuestion ? { followUpQuestion } : {})
@@ -379,6 +383,34 @@ function flattenRecommendedStructure(structure: RecommendedBlockStructure) {
 
   visit(structure.root);
   return blocks.slice(0, MAX_RECOMMENDED_BLOCKS);
+}
+
+function cloneRecommendedBlockAsNode(block: RecommendedBlock): RecommendedBlockNode {
+  return {
+    opcode: block.opcode,
+    category: block.category,
+    label: block.label,
+    reason: block.reason
+  };
+}
+
+function buildLinearRecommendation(blocks: RecommendedBlock[]): RecommendedBlockStructure | undefined {
+  const nodes = blocks.slice(0, MAX_RECOMMENDED_BLOCKS).map(cloneRecommendedBlockAsNode);
+  if (!nodes[0]) {
+    return undefined;
+  }
+
+  for (let index = 0; index < nodes.length - 1; index += 1) {
+    const currentNode = nodes[index];
+    const nextNode = nodes[index + 1];
+    if (currentNode && nextNode) {
+      currentNode.next = nextNode;
+    }
+  }
+
+  return {
+    root: nodes[0]
+  };
 }
 
 function trimRecommendedNode(

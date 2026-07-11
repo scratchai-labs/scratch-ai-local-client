@@ -288,6 +288,26 @@ test("CoachService fallback speaks directly to the student", async () => {
   assert.equal(result.source, "fallback");
   assert.equal(result.coachResponse.answerText.includes("学生"), false);
   assert.equal(result.coachResponse.answerText.includes("你"), true);
+  assert.deepEqual(result.coachResponse.recommendation, {
+    root: {
+      opcode: "data_setvariableto",
+      category: "变量",
+      label: "将变量设为",
+      reason: "先初始化一个核心变量。",
+      next: {
+        opcode: "data_changevariableby",
+        category: "变量",
+        label: "将变量增加",
+        reason: "完成动作或满足条件时更新结果。",
+        next: {
+          opcode: "looks_sayforsecs",
+          category: "外观",
+          label: "说 2 秒",
+          reason: "变量变化后给一个可见反馈，方便调试。"
+        }
+      }
+    }
+  });
 });
 
 test("CoachService falls back when DeepSeek returns invalid JSON content", async () => {
@@ -883,6 +903,10 @@ test("CoachService fallback gives a local basic hint without forcing three block
   assert.equal(result.source, "fallback");
   assert.equal(result.coachResponse.recommendedBlocks.length >= 1, true);
   assert.equal(result.coachResponse.recommendedBlocks.length <= 3, true);
+  assert.equal(
+    result.coachResponse.recommendation?.root.opcode,
+    result.coachResponse.recommendedBlocks[0].opcode
+  );
 });
 
 test("CoachService redacts API keys from DeepSeek failure warnings", async () => {

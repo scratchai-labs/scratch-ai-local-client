@@ -469,7 +469,7 @@ export class SessionManager {
       });
 
       this.log(
-        `Scratch launched pid=${launchSession.pid} port=${launchSession.debugPort} locale=${JSON.stringify(launchSession.locale)} args=${JSON.stringify(launchSession.args)} path=${JSON.stringify(launchSession.scratchExecutablePath)}`
+        `Scratch launched pid=${launchSession.pid} port=${launchSession.debugPort} args=${JSON.stringify(launchSession.args)} path=${JSON.stringify(launchSession.scratchExecutablePath)}`
       );
 
       await this.ensureBridgeScriptInjected(launchSession);

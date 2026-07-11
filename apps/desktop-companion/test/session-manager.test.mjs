@@ -755,6 +755,60 @@ test("SessionManager auto refreshes changed Scratch blocks after three quiet sec
   ]);
 });
 
+test("SessionManager refreshes fallback recommendation after the student completes it", async () => {
+  const stateStore = new StateStore();
+  const fakeTimer = createFakeTimer();
+
+  const manager = new SessionManager(stateStore, {
+    bridgeServer: createBridgeServerMock(),
+    platform: "win32",
+    log: () => {},
+    configStore: createConfigStoreMock("C:\\Scratch 3.exe"),
+    loadAiConfig: createAiConfigMock(),
+    scratchLauncher: {},
+    scratchRemoteDebugger: {},
+    now: fakeTimer.now,
+    setTimeout: fakeTimer.setTimeout,
+    clearTimeout: fakeTimer.clearTimeout
+  });
+
+  await manager.start();
+
+  manager.handlePayload({
+    source: "test",
+    currentTargetId: "sprite-a",
+    currentTargetName: "Cat",
+    toolboxCategories: ["event", "motion", "control", "sensing"],
+    projectData: createLinearProjectData(["event_whenflagclicked", "motion_movesteps"])
+  });
+
+  await fakeTimer.advance(3000);
+  await flushAsyncWork();
+
+  const firstHint = stateStore.getState().aiCoachResponse;
+  assert.equal(firstHint?.recommendation?.root.opcode, "control_repeat");
+
+  manager.handlePayload({
+    source: "test",
+    currentTargetId: "sprite-a",
+    currentTargetName: "Cat",
+    toolboxCategories: ["event", "motion", "control", "sensing"],
+    projectData: createLinearProjectData([
+      "event_whenflagclicked",
+      "motion_movesteps",
+      "control_repeat",
+      "control_forever",
+      "motion_turnright"
+    ])
+  });
+
+  await fakeTimer.advance(3000);
+  await flushAsyncWork();
+
+  const nextHint = stateStore.getState().aiCoachResponse;
+  assert.equal(nextHint?.recommendation?.root.opcode, "sensing_touchingobject");
+});
+
 test("SessionManager returns an error when requesting a hint before Scratch connects", async () => {
   const stateStore = new StateStore();
   const manager = new SessionManager(stateStore, {
