@@ -154,6 +154,12 @@ const coachRequestSchema = z.object({
 
 const coachResponseSchema = z.object({
   answerText: z.string(),
+  recommendation: z
+    .object({
+      root: recommendedBlockNodeSchema
+    })
+    .strict()
+    .optional(),
   recommendedBlocks: z.array(recommendedBlockSchema),
   nextStep: z.string(),
   detectedIssues: z.array(detectedIssueSchema),

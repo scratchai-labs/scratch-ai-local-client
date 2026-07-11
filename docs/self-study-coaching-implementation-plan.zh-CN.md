@@ -16,19 +16,19 @@
 
 ### 协议与类型
 
-- `packages/shared/src/schemas.js`、`packages/shared/src/index.d.ts` 和 `apps/desktop-companion/src/common/types.ts` 仍使用扁平 `recommendedBlocks`
-- 当前响应仍包含 `answerText`、`nextStep`、`detectedIssues`、`followUpQuestion` 和 `example`
-- 当前协议不能表达 `next`、条件槽、`SUBSTACK` 或 `SUBSTACK2`
-- 当前计数只限制数组长度，不能限制嵌套结构中的积木总数
+- 已完成：共享协议新增 `summary + recommendation.root`，可表达 `next`、条件槽、`SUBSTACK` 和 `SUBSTACK2`
+- 已完成：协议限制递归结构总节点数最多 3 个，并拒绝额外字段和模型原始 XML
+- 仍待完成：学生端渲染层尚未直接消费结构化 `recommendation`
+- 仍待完成：旧 `recommendedBlocks` 扁平字段仍作为兼容输出保留，等待后续 UI 切片迁移
 
 ### CoachService
 
-- `apps/desktop-companion/src/main/coach-service.ts` 的提示词明确要求“不把积木顺序一次性全部告诉学生”，与新设计相反
-- 未知 opcode 会通过类别或模块映射成“最接近”的积木
-- DeepSeek 少于 3 个推荐时会调用 `ensureRecommendedBlockCount` 强制补满
-- 空白角色会生成“绿旗、移动、说话”等起步脚本
-- 本地降级仍生成追问、问题诊断、额外示例和多段说明
-- 请求上下文不包含上一轮推荐及推荐后的作品变化
+- 已完成：DeepSeek prompt 改为只允许 `summary + recommendation`，并要求按顺序返回具体积木结构
+- 已完成：服务层严格解析结构化协议，过滤未知 opcode 和当前未加载扩展 opcode
+- 已完成：返回 1 个或 2 个有效积木时保持原数量，不再强制补满
+- 已完成：无效 opcode 不做近似替换；全部无效或畸形响应时降级到本地基础提示
+- 仍待完成：本地降级仍沿用旧文案结构，后续学生端文案切片再收口
+- 仍待完成：请求上下文不包含上一轮推荐及推荐后的作品变化
 
 ### 会话与调度
 
@@ -334,6 +334,8 @@ buildRecommendedStructureXml(recommendation)
 - XML 完全由客户端模板生成
 
 ### 切片 2：CoachService 严格解析与降级
+
+状态：已完成。
 
 先写失败测试：
 

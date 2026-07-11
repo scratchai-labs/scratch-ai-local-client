@@ -100,6 +100,7 @@ export type DetectedIssue = {
 
 export type CoachResponse = {
   answerText: string;
+  recommendation?: RecommendedBlockStructure;
   recommendedBlocks: RecommendedBlock[];
   nextStep: string;
   detectedIssues: DetectedIssue[];

@@ -1,29 +1,37 @@
 import {
+  coachRecommendationResponseSchema,
   coachResponseSchema,
   getDisplayLabelForOpcode,
-  getModuleIdForOpcode,
+  getExtensionIdForOpcode,
   projectSnapshotSchema
 } from "@scratch-ai/shared";
 import {
   SUPPORTED_RECOMMENDED_BLOCK_OPCODES,
-  getDefaultSupportedRecommendedOpcode,
   isSupportedRecommendedBlockOpcode
 } from "../common/scratch-block-xml";
 import { MAX_RECOMMENDED_BLOCKS } from "../common/recommended-blocks";
 
 import type { LoadedDeepSeekConfig } from "./deepseek-config";
-import type { CoachResponse, ProgramAreaModule, ProjectSnapshot, RecommendedBlock, SpriteSnapshot } from "../common/types";
+import type {
+  CoachResponse,
+  ProgramAreaModule,
+  ProjectSnapshot,
+  RecommendedBlock,
+  RecommendedBlockNode,
+  RecommendedBlockStructure,
+  SpriteSnapshot
+} from "../common/types";
 
 const DEFAULT_FALLBACK_MODEL = "local-heuristic";
 const DEFAULT_DEEPSEEK_MAX_TOKENS = 2048;
 export const DEFAULT_HINT_ONLY_SYSTEM_PROMPT =
-  "你是 Scratch 小学编程助教。请只根据学生当前作品，给出具体、可执行、面向小学生的中文提示，但不要直接给完整答案，不要写完整脚本，也不要把积木顺序一次性全部告诉学生。你只能做诊断、缩小下一步范围、提示关键积木和追问。你必须先判断学生当前项目已经做到哪一步，再只补当前最缺的一小步。所有自然语言必须使用中文，不要出现英文 opcode、英文积木名、英文字段解释，避免中英混杂。recommendedBlocks 里的 opcode 必须使用 Scratch 官方积木 opcode；如果你不确定具体 opcode，就改用最接近的官方核心积木，不要编造不存在的 opcode。";
+  "你是 Scratch 小学编程助教。请只根据学生当前作品，给出具体、可执行、面向小学生的中文提示，但不要直接给完整答案，不要写完整脚本。你必须先判断学生当前项目已经做到哪一步，再给出当前最适合尝试的 1 到 3 个按顺序连接的关键积木。所有自然语言必须使用中文，不要出现英文 opcode、英文积木名、英文字段解释，避免中英混杂。recommendation.root 里的 opcode 必须使用 Scratch 官方积木 opcode，不要编造不存在的 opcode。";
 const HINT_ONLY_OUTPUT_REQUIREMENTS =
-  "输出必须是一个 JSON 对象，字段只能包含 answerText、recommendedBlocks、nextStep、detectedIssues、followUpQuestion。recommendedBlocks 最多返回 3 个，且每个元素必须包含 opcode、category、label、reason，可选 example。detectedIssues 里每个元素必须包含 severity、title、description，可选 spriteName，其中 severity 只能是 info 或 warning。不要输出 Markdown，不要输出额外解释。";
+  "输出必须是一个 JSON 对象，字段只能包含 summary、recommendation。summary 是一句给学生看的简短中文提示。recommendation.root 是按顺序连接的具体积木结构，最多 3 个积木节点；每个节点必须包含 opcode、category、label、reason。使用 next 表示下一个顺序积木，使用 condition 表示条件输入，使用 substack 表示内部执行分支，使用 substack2 表示否则分支。不要输出 Markdown，不要输出额外解释，不要输出追问、诊断、示例或 XML。";
 const RECOMMENDED_OPCODE_WHITELIST_REQUIREMENTS =
-  `recommendedBlocks.opcode 只允许从以下 Scratch 官方 opcode 白名单中选择：${SUPPORTED_RECOMMENDED_BLOCK_OPCODES.join("、")}。如果你本来想用别的积木，请改写成这份白名单里最接近的一块。`;
+  `recommendation 里的 opcode 只允许从以下 Scratch 官方 opcode 白名单中选择：${SUPPORTED_RECOMMENDED_BLOCK_OPCODES.join("、")}。如果不确定具体 opcode，就不要返回那一块，不要替换成其他积木。`;
 const HINT_ONLY_USER_PROMPT =
-  "请根据下面的 Scratch 项目上下文，给出“下一步做什么”的提示。只根据当前学生作品判断已经完成了什么，再补最需要的一小步。优先基于学生已经使用过的模块继续推进，不要让学生一下子大改，也不要直接泄露完整答案。";
+  "请根据下面的 Scratch 项目上下文，给出“下一步做什么”的提示。只根据当前学生作品判断已经完成了什么，再直接给出按顺序连接的具体积木。优先基于学生已经使用过的模块继续推进，不要让学生一下子大改。";
 
 interface GenerateCoachHintOptions {
   snapshot: ProjectSnapshot;
@@ -165,77 +173,6 @@ function buildBlockSuggestionFromOpcode(opcode: string) {
   }
 }
 
-const RECOMMENDED_OPCODE_FALLBACK_BY_MODULE_ID: Record<string, string> = {
-  event: "event_whenflagclicked",
-  motion: "motion_movesteps",
-  looks: "looks_sayforsecs",
-  sound: "sound_playuntildone",
-  control: "control_repeat",
-  sensing: "sensing_touchingobject",
-  operator: "operator_equals",
-  data: "data_setvariableto",
-  pen: "pen_clear"
-};
-
-function getFallbackOpcodeForCategory(category: string) {
-  const normalized = category.replace(/\s+/g, "");
-  if (!normalized) {
-    return null;
-  }
-  if (normalized.includes("事件")) {
-    return "event_whenflagclicked";
-  }
-  if (normalized.includes("运动")) {
-    return "motion_movesteps";
-  }
-  if (normalized.includes("外观")) {
-    return "looks_sayforsecs";
-  }
-  if (normalized.includes("声音")) {
-    return "sound_playuntildone";
-  }
-  if (normalized.includes("控制")) {
-    return "control_repeat";
-  }
-  if (normalized.includes("侦测")) {
-    return "sensing_touchingobject";
-  }
-  if (normalized.includes("运算")) {
-    return "operator_equals";
-  }
-  if (normalized.includes("画笔")) {
-    return "pen_clear";
-  }
-  if (normalized.includes("列表")) {
-    return "data_addtolist";
-  }
-  if (normalized.includes("变量")) {
-    return "data_setvariableto";
-  }
-  return null;
-}
-
-function normalizeRecommendedOpcode(rawOpcode: unknown, category: string) {
-  const opcode = normalizeTextValue(rawOpcode) ?? "";
-  if (isSupportedRecommendedBlockOpcode(opcode)) {
-    return {
-      opcode,
-      remapped: false
-    };
-  }
-
-  const moduleId = getModuleIdForOpcode(opcode) ?? "";
-  const fallbackOpcode =
-    RECOMMENDED_OPCODE_FALLBACK_BY_MODULE_ID[moduleId] ??
-    getFallbackOpcodeForCategory(category) ??
-    getDefaultSupportedRecommendedOpcode();
-
-  return {
-    opcode: fallbackOpcode,
-    remapped: true
-  };
-}
-
 function buildGenericFallbackCoachResponse(options: GenerateCoachHintOptions): CoachResponse {
   const { snapshot, currentTargetPrograms, programAreaModules, goal } = options;
   const currentTarget = snapshot.currentTarget || "当前角色";
@@ -328,7 +265,7 @@ function buildGenericFallbackCoachResponse(options: GenerateCoachHintOptions): C
     recommendedBlocks: recommendedBlocks.slice(0, MAX_RECOMMENDED_BLOCKS),
     nextStep,
     detectedIssues,
-    followUpQuestion
+    ...(followUpQuestion ? { followUpQuestion } : {})
   };
 }
 
@@ -339,31 +276,6 @@ function buildSystemPrompt(customSystemPrompt?: string) {
 
 function buildFallbackCoachResponse(options: GenerateCoachHintOptions): CoachResponse {
   return buildGenericFallbackCoachResponse(options);
-}
-
-function ensureRecommendedBlockCount(
-  recommendedBlocks: RecommendedBlock[],
-  options: GenerateCoachHintOptions
-) {
-  const mergedBlocks: RecommendedBlock[] = [];
-  const seenOpcodes = new Set<string>();
-
-  const appendUniqueBlock = (block: RecommendedBlock) => {
-    if (mergedBlocks.length >= MAX_RECOMMENDED_BLOCKS || seenOpcodes.has(block.opcode)) {
-      return;
-    }
-
-    seenOpcodes.add(block.opcode);
-    mergedBlocks.push(block);
-  };
-
-  recommendedBlocks.forEach(appendUniqueBlock);
-
-  if (mergedBlocks.length < MAX_RECOMMENDED_BLOCKS) {
-    buildFallbackCoachResponse(options).recommendedBlocks.forEach(appendUniqueBlock);
-  }
-
-  return mergedBlocks.slice(0, MAX_RECOMMENDED_BLOCKS);
 }
 
 function buildPromptContext(options: GenerateCoachHintOptions) {
@@ -441,17 +353,79 @@ function normalizeTextValue(value: unknown) {
   return null;
 }
 
-function normalizeDetectedIssueSeverity(value: unknown): "info" | "warning" {
-  const normalized = normalizeTextValue(value)?.toLowerCase();
-  if (!normalized) {
-    return "info";
+function toRecommendedBlock(node: RecommendedBlockNode): RecommendedBlock {
+  return {
+    opcode: node.opcode,
+    category: node.category,
+    label: node.label,
+    reason: node.reason
+  };
+}
+
+function flattenRecommendedStructure(structure: RecommendedBlockStructure) {
+  const blocks: RecommendedBlock[] = [];
+
+  const visit = (node: RecommendedBlockNode) => {
+    blocks.push(toRecommendedBlock(node));
+    for (const relation of ["condition", "substack", "substack2", "next"] as const) {
+      const child = node[relation];
+      if (child) {
+        visit(child);
+      }
+    }
+  };
+
+  visit(structure.root);
+  return blocks.slice(0, MAX_RECOMMENDED_BLOCKS);
+}
+
+function isAvailableRecommendedOpcode(opcode: string, options: GenerateCoachHintOptions) {
+  if (!isSupportedRecommendedBlockOpcode(opcode)) {
+    return false;
   }
 
-  if (["warning", "warn", "high", "medium", "critical", "error", "severe"].includes(normalized)) {
-    return "warning";
+  const extensionId = getExtensionIdForOpcode(opcode);
+  if (!extensionId) {
+    return true;
   }
 
-  return "info";
+  return options.loadedExtensions.includes(extensionId) || options.snapshot.loadedExtensions.includes(extensionId);
+}
+
+function filterRecommendedNode(
+  node: RecommendedBlockNode,
+  options: GenerateCoachHintOptions
+): RecommendedBlockNode | null {
+  if (!isAvailableRecommendedOpcode(node.opcode, options)) {
+    return null;
+  }
+
+  const filteredNode: RecommendedBlockNode = {
+    opcode: node.opcode,
+    category: node.category,
+    label: node.label,
+    reason: node.reason
+  };
+
+  const next = node.next ? filterRecommendedNode(node.next, options) : null;
+  const condition = node.condition ? filterRecommendedNode(node.condition, options) : null;
+  const substack = node.substack ? filterRecommendedNode(node.substack, options) : null;
+  const substack2 = node.substack2 ? filterRecommendedNode(node.substack2, options) : null;
+
+  if (next) {
+    filteredNode.next = next;
+  }
+  if (condition) {
+    filteredNode.condition = condition;
+  }
+  if (substack) {
+    filteredNode.substack = substack;
+  }
+  if (substack2) {
+    filteredNode.substack2 = substack2;
+  }
+
+  return filteredNode;
 }
 
 function normalizeCoachResponse(rawPayload: unknown, options: GenerateCoachHintOptions) {
@@ -460,6 +434,26 @@ function normalizeCoachResponse(rawPayload: unknown, options: GenerateCoachHintO
   }
 
   const candidate = rawPayload as Record<string, unknown>;
+  if (candidate.recommendation && typeof candidate.recommendation === "object") {
+    const parsed = coachRecommendationResponseSchema.parse(candidate);
+    const filteredRoot = filterRecommendedNode(parsed.recommendation.root, options);
+    if (!filteredRoot) {
+      throw new Error("DeepSeek 没有返回可用的官方推荐积木。");
+    }
+
+    const recommendation = {
+      root: filteredRoot
+    };
+
+    return {
+      answerText: parsed.summary,
+      recommendation,
+      recommendedBlocks: flattenRecommendedStructure(recommendation),
+      nextStep: parsed.summary,
+      detectedIssues: []
+    };
+  }
+
   const answerText =
     normalizeTextValue(candidate.answerText) ??
     normalizeTextValue(candidate.answer) ??
@@ -476,15 +470,17 @@ function normalizeCoachResponse(rawPayload: unknown, options: GenerateCoachHintO
   const recommendedBlocks = Array.isArray(candidate.recommendedBlocks)
     ? candidate.recommendedBlocks
         .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
-        .map((item) => {
+        .flatMap((item) => {
           const category = normalizeTextValue(item.category) ?? "其他";
-          const normalizedOpcode = normalizeRecommendedOpcode(item.opcode, category);
-          const opcode = normalizedOpcode.opcode;
+          const opcode = normalizeTextValue(item.opcode) ?? "";
+          if (!isSupportedRecommendedBlockOpcode(opcode)) {
+            return [];
+          }
           const rawLabel =
             normalizeTextValue(item.label) ??
             normalizeTextValue(item.blockName);
           const label =
-            !normalizedOpcode.remapped && rawLabel && !/^[a-z0-9_]+$/i.test(rawLabel)
+            rawLabel && !/^[a-z0-9_]+$/i.test(rawLabel)
               ? rawLabel
               : getDisplayLabelForOpcode(opcode);
           const reason =
@@ -493,47 +489,22 @@ function normalizeCoachResponse(rawPayload: unknown, options: GenerateCoachHintO
             "适合作为下一步尝试。";
           const example = normalizeTextValue(item.example);
 
-          return {
+          return [{
             opcode,
             category,
             label,
             reason,
             ...(example ? { example } : {})
-          };
-        })
-    : [];
-
-  const detectedIssues = Array.isArray(candidate.detectedIssues)
-    ? candidate.detectedIssues
-        .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
-        .map((item) => {
-          const title =
-            normalizeTextValue(item.title) ??
-            normalizeTextValue(item.summary) ??
-            "需要留意的一点";
-          const description =
-            normalizeTextValue(item.description) ??
-            normalizeTextValue(item.reason) ??
-            title;
-          const spriteName =
-            normalizeTextValue(item.spriteName) ??
-            normalizeTextValue(item.sprite);
-
-          return {
-            severity: normalizeDetectedIssueSeverity(item.severity),
-            title,
-            description,
-            ...(spriteName ? { spriteName } : {})
-          };
+          }];
         })
     : [];
 
   return {
     answerText,
-    recommendedBlocks: ensureRecommendedBlockCount(recommendedBlocks, options),
+    recommendedBlocks: recommendedBlocks.slice(0, MAX_RECOMMENDED_BLOCKS),
     nextStep,
-    detectedIssues,
-    ...(followUpQuestion ? { followUpQuestion } : {})
+    detectedIssues: [],
+    ...(followUpQuestion && !candidate.recommendation ? { followUpQuestion } : {})
   };
 }
 

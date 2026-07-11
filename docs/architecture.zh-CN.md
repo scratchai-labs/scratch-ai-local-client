@@ -79,7 +79,7 @@ Electron 桌面工具，源码拆成三层：
 10. `StateStore` 更新状态，渲染层先生成 workspace 宿主节点
 11. `renderScratchWorkspaces(...)` 使用 `scratch-blocks` 把 XML 加载成只读 SVG
 12. 用户请求 AI 提示时，桌面端直接调用 DeepSeek 或本地 fallback
-13. `CoachService` 会先把 DeepSeek 返回的 `recommendedBlocks` 归一化，超出白名单的 opcode 会自动映射到可渲染的官方积木
+13. `CoachService` 严格解析 DeepSeek 返回的 `summary + recommendation.root`，过滤不可用 opcode，并保留 `recommendedBlocks` 扁平兼容输出
 
 关键约束：
 

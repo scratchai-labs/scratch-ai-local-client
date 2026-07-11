@@ -168,18 +168,15 @@ test("CoachService sends DeepSeek V4 chat completions requests in JSON non-think
 
     return createDeepSeekResponse(
       JSON.stringify({
-        answerText: "先把角色移动起来。",
-        recommendedBlocks: [
-          {
+        summary: "先把角色移动起来。",
+        recommendation: {
+          root: {
             opcode: "motion_movesteps",
             category: "运动",
             label: "移动 10 步",
             reason: "先给角色一个明显反馈。"
           }
-        ],
-        nextStep: "先点击绿旗运行一次。",
-        detectedIssues: [],
-        followUpQuestion: "你想让角色继续往哪里走？"
+        }
       })
     );
   });
@@ -203,6 +200,24 @@ test("CoachService sends DeepSeek V4 chat completions requests in JSON non-think
   assert.equal(result.source, "deepseek");
   assert.equal(result.model, "deepseek-v4-flash");
   assert.equal(result.coachResponse.answerText, "先把角色移动起来。");
+  assert.equal(result.coachResponse.nextStep, "先把角色移动起来。");
+  assert.deepEqual(result.coachResponse.recommendation, {
+    root: {
+      opcode: "motion_movesteps",
+      category: "运动",
+      label: "移动 10 步",
+      reason: "先给角色一个明显反馈。"
+    }
+  });
+  assert.deepEqual(result.coachResponse.recommendedBlocks, [
+    {
+      opcode: "motion_movesteps",
+      category: "运动",
+      label: "移动 10 步",
+      reason: "先给角色一个明显反馈。"
+    }
+  ]);
+  assert.equal(Object.hasOwn(result.coachResponse, "followUpQuestion"), false);
   assert.equal(capturedRequest.url, "https://api.deepseek.com/chat/completions");
   assert.equal(capturedRequest.init.method, "POST");
   assert.equal(capturedRequest.init.headers["Content-Type"], "application/json");
@@ -215,7 +230,17 @@ test("CoachService sends DeepSeek V4 chat completions requests in JSON non-think
   assert.equal(capturedRequest.body.messages.length, 2);
   assert.equal(capturedRequest.body.messages[0].content.includes("不要直接给完整答案"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("只允许从以下 Scratch 官方 opcode 白名单中选择"), true);
-  assert.equal(capturedRequest.body.messages[1].content.includes("不要直接泄露完整答案"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("summary"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("recommendation.root"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("next"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("condition"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("substack"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("substack2"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("最多 3 个"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("按顺序"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("不要把积木顺序一次性全部告诉学生"), false);
+  assert.equal(capturedRequest.body.messages[0].content.includes("最接近"), false);
+  assert.equal(capturedRequest.body.messages[1].content.includes("直接给出按顺序连接的具体积木"), true);
 });
 
 test("CoachService falls back when DeepSeek returns invalid JSON content", async () => {
@@ -251,11 +276,15 @@ test("CoachService ignores legacy teaching reference context and only sends the 
 
     return createDeepSeekResponse(
       JSON.stringify({
-        answerText: "先补起步脚本。",
-        recommendedBlocks: [],
-        nextStep: "先补一个最小脚本。",
-        detectedIssues: [],
-        followUpQuestion: "你想先做哪一步？"
+        summary: "先补起步脚本。",
+        recommendation: {
+          root: {
+            opcode: "event_whenflagclicked",
+            category: "事件",
+            label: "当绿旗被点击",
+            reason: "先给脚本一个开始入口。"
+          }
+        }
       })
     );
   });
@@ -309,11 +338,15 @@ test("CoachService uses the saved custom teacher prompt while keeping JSON outpu
 
     return createDeepSeekResponse(
       JSON.stringify({
-        answerText: "先补一段碰撞判断。",
-        recommendedBlocks: [],
-        nextStep: "先补一段碰撞判断。",
-        detectedIssues: [],
-        followUpQuestion: "你想先在哪个角色里做？"
+        summary: "先补一段碰撞判断。",
+        recommendation: {
+          root: {
+            opcode: "sensing_touchingobject",
+            category: "侦测",
+            label: "碰到...？",
+            reason: "先判断是否碰到目标。"
+          }
+        }
       })
     );
   });
@@ -342,29 +375,19 @@ test("CoachService uses the saved custom teacher prompt while keeping JSON outpu
   assert.equal(capturedRequest.messages[0].content.includes("输出必须是一个 JSON 对象"), true);
 });
 
-test("CoachService normalizes non-schema severity values from DeepSeek", async () => {
+test("CoachService does not expose student-facing diagnostic fields for structured hints", async () => {
   const service = new CoachService(async () =>
     createDeepSeekResponse(
       JSON.stringify({
-        answerText: "先补碰撞和加分。",
-        recommendedBlocks: [
-          {
+        summary: "把碰撞判断放进循环里。",
+        recommendation: {
+          root: {
             opcode: "sensing_touchingobject",
             category: "侦测",
             label: "碰到...？",
             reason: "先检测猫是否碰到奶酪。"
           }
-        ],
-        nextStep: "把碰撞判断放进循环里。",
-        detectedIssues: [
-          {
-            severity: "high",
-            title: "缺少得分逻辑",
-            description: "碰到奶酪后还没有加分。",
-            spriteName: "Cat 2"
-          }
-        ],
-        followUpQuestion: "你想在哪个角色里加分？"
+        }
       })
     )
   );
@@ -387,32 +410,24 @@ test("CoachService normalizes non-schema severity values from DeepSeek", async (
 
   assert.equal(result.source, "deepseek");
   assert.equal(result.warning, undefined);
-  assert.deepEqual(result.coachResponse.detectedIssues, [
-    {
-      severity: "warning",
-      title: "缺少得分逻辑",
-      description: "碰到奶酪后还没有加分。",
-      spriteName: "Cat 2"
-    }
-  ]);
+  assert.deepEqual(result.coachResponse.detectedIssues, []);
+  assert.equal(Object.hasOwn(result.coachResponse, "followUpQuestion"), false);
+  assert.equal(result.coachResponse.nextStep, "把碰撞判断放进循环里。");
 });
 
-test("CoachService normalizes unsupported recommended opcodes to safe supported blocks", async () => {
+test("CoachService drops unsupported recommended opcodes and does not remap", async () => {
   const service = new CoachService(async () =>
     createDeepSeekResponse(
       JSON.stringify({
-        answerText: "先加一个更容易看见的外观反馈。",
-        recommendedBlocks: [
-          {
+        summary: "先加一个更容易看见的外观反馈。",
+        recommendation: {
+          root: {
             opcode: "looks_magicflash",
             category: "外观",
             label: "神奇闪光",
-            reason: "先让学生明显看到触发结果。"
+            reason: "这个 opcode 不在白名单里。"
           }
-        ],
-        nextStep: "先运行一次看看有没有反馈。",
-        detectedIssues: [],
-        followUpQuestion: "你想让角色说一句话还是切换造型？"
+        }
       })
     )
   );
@@ -433,62 +448,123 @@ test("CoachService normalizes unsupported recommended opcodes to safe supported 
     aiConfig: createAiConfig()
   });
 
+  assert.equal(result.source, "fallback");
+  assert.equal(result.model, "local-heuristic");
+  assert.equal(typeof result.warning, "string");
+  assert.equal(result.coachResponse.recommendedBlocks.some((block) => block.opcode === "looks_sayforsecs"), false);
+});
+
+test("CoachService keeps valid structured recommendations after dropping invalid children", async () => {
+  const service = new CoachService(async () =>
+    createDeepSeekResponse(
+      JSON.stringify({
+        summary: "先保留能用的动作，再继续尝试。",
+        recommendation: {
+          root: {
+            opcode: "event_whenflagclicked",
+            category: "事件",
+            label: "当绿旗被点击",
+            reason: "给脚本一个开始入口。",
+            next: {
+              opcode: "looks_magicflash",
+              category: "外观",
+              label: "神奇闪光",
+              reason: "这个 opcode 不可用。"
+            },
+            substack: {
+              opcode: "motion_movesteps",
+              category: "运动",
+              label: "移动 10 步",
+              reason: "这个有效节点应该保留。"
+            }
+          }
+        }
+      })
+    )
+  );
+
+  const result = await service.generateHint({
+    snapshot: createSnapshot(),
+    currentTargetPrograms: ["event_whenflagclicked -> motion_movesteps"],
+    programAreaModules: [
+      { id: "event", label: "事件", blockCount: 1 },
+      { id: "motion", label: "运动", blockCount: 1 }
+    ],
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "继续做动作",
+    aiConfig: createAiConfig()
+  });
+
   assert.equal(result.source, "deepseek");
-  assert.deepEqual(result.coachResponse.recommendedBlocks, [
-    {
-      opcode: "looks_sayforsecs",
-      category: "外观",
-      label: "说 2 秒",
-      reason: "先让学生明显看到触发结果。"
-    },
-    {
-      opcode: "control_repeat",
-      category: "控制",
-      label: "重复执行",
-      reason: "先做固定次数的循环测试。"
-    },
-    {
-      opcode: "control_forever",
-      category: "控制",
-      label: "一直重复",
-      reason: "适合持续移动、持续检测或持续绘制。"
-    }
-  ]);
+  assert.deepEqual(
+    result.coachResponse.recommendedBlocks.map((block) => block.opcode),
+    ["event_whenflagclicked", "motion_movesteps"]
+  );
+  assert.equal(result.coachResponse.recommendation.root.next, undefined);
+  assert.equal(result.coachResponse.recommendation.root.substack.opcode, "motion_movesteps");
+});
+
+test("CoachService drops extension opcodes that are not available in the current toolbox", async () => {
+  const service = new CoachService(async () =>
+    createDeepSeekResponse(
+      JSON.stringify({
+        summary: "先不要使用还没加载的扩展积木。",
+        recommendation: {
+          root: {
+            opcode: "pen_clear",
+            category: "画笔",
+            label: "清空",
+            reason: "画笔扩展没有加载。"
+          }
+        }
+      })
+    )
+  );
+
+  const result = await service.generateHint({
+    snapshot: createSnapshot(),
+    currentTargetPrograms: ["event_whenflagclicked -> motion_movesteps"],
+    programAreaModules: [
+      { id: "motion", label: "运动", blockCount: 1 }
+    ],
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "尝试画笔",
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "fallback");
+  assert.equal(result.model, "local-heuristic");
+  assert.equal(typeof result.warning, "string");
+  assert.equal(result.coachResponse.recommendedBlocks.some((block) => block.opcode === "pen_clear"), false);
 });
 
 test("CoachService keeps at most three recommended blocks from DeepSeek", async () => {
   const service = new CoachService(async () =>
     createDeepSeekResponse(
       JSON.stringify({
-        answerText: "按顺序先补三小步。",
-        recommendedBlocks: [
-          {
+        summary: "按顺序先补三小步。",
+        recommendation: {
+          root: {
             opcode: "event_whenflagclicked",
             category: "事件",
             label: "当绿旗被点击",
-            reason: "1"
-          },
-          {
-            opcode: "motion_movesteps",
-            category: "运动",
-            label: "移动 10 步",
-            reason: "2"
-          },
-          {
-            opcode: "control_repeat",
-            category: "控制",
-            label: "重复执行",
-            reason: "3"
-          },
-          {
-            opcode: "looks_sayforsecs",
-            category: "外观",
-            label: "说 2 秒",
-            reason: "4"
+            reason: "1",
+            next: {
+              opcode: "motion_movesteps",
+              category: "运动",
+              label: "移动 10 步",
+              reason: "2",
+              next: {
+                opcode: "control_repeat",
+                category: "控制",
+                label: "重复执行",
+                reason: "3"
+              }
+            }
           }
-        ],
-        nextStep: "先把前三步补出来。",
-        detectedIssues: []
+        }
       })
     )
   );
@@ -520,27 +596,25 @@ test("CoachService keeps at most three recommended blocks from DeepSeek", async 
   );
 });
 
-test("CoachService pads DeepSeek recommendations to three blocks with fallback suggestions", async () => {
+test("CoachService keeps fewer than three recommendations without padding", async () => {
   const service = new CoachService(async () =>
     createDeepSeekResponse(
       JSON.stringify({
-        answerText: "先补成三步。",
-        recommendedBlocks: [
-          {
+        summary: "先补成两步。",
+        recommendation: {
+          root: {
             opcode: "event_whenflagclicked",
             category: "事件",
             label: "当绿旗被点击",
-            reason: "1"
-          },
-          {
-            opcode: "motion_movesteps",
-            category: "运动",
-            label: "移动 10 步",
-            reason: "2"
+            reason: "1",
+            next: {
+              opcode: "motion_movesteps",
+              category: "运动",
+              label: "移动 10 步",
+              reason: "2"
+            }
           }
-        ],
-        nextStep: "先把第三步也补出来。",
-        detectedIssues: []
+        }
       })
     )
   );
@@ -561,18 +635,17 @@ test("CoachService pads DeepSeek recommendations to three blocks with fallback s
     aiConfig: createAiConfig()
   });
 
-  assert.equal(result.coachResponse.recommendedBlocks.length, 3);
+  assert.equal(result.coachResponse.recommendedBlocks.length, 2);
   assert.deepEqual(
     result.coachResponse.recommendedBlocks.map((block) => block.opcode),
     [
       "event_whenflagclicked",
-      "motion_movesteps",
-      "control_repeat"
+      "motion_movesteps"
     ]
   );
 });
 
-test("CoachService fallback recommends three blocks for an empty current target", async () => {
+test("CoachService fallback gives a local basic hint without forcing three blocks", async () => {
   const service = new CoachService();
   const snapshot = createSnapshot();
   snapshot.sprites[0].blockCount = 0;
@@ -593,13 +666,6 @@ test("CoachService fallback recommends three blocks for an empty current target"
   });
 
   assert.equal(result.source, "fallback");
-  assert.equal(result.coachResponse.recommendedBlocks.length, 3);
-  assert.deepEqual(
-    result.coachResponse.recommendedBlocks.map((block) => block.opcode),
-    [
-      "event_whenflagclicked",
-      "motion_movesteps",
-      "looks_sayforsecs"
-    ]
-  );
+  assert.equal(result.coachResponse.recommendedBlocks.length >= 1, true);
+  assert.equal(result.coachResponse.recommendedBlocks.length <= 3, true);
 });

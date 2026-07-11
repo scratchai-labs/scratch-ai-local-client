@@ -6,6 +6,7 @@
 
 ## 已完成
 
+- 2026-07-11：按 TDD 完成自学辅导计划切片 2；`CoachService` 已迁移到 `summary + recommendation.root` 结构化 AI 积木推荐协议，DeepSeek prompt 改为直接给 1–3 个按顺序连接的具体积木，服务层严格解析共享 schema，过滤未知 opcode 和未加载扩展积木；保留旧 `recommendedBlocks` 扁平兼容输出，但不再近似替换、不再补满，全部无效时降级到本地基础提示。已完成 CoachService 定向测试和桌面端定向回归。
 - 2026-07-10：按 TDD 完成自学辅导实施计划切片 1；新增 1–3 个节点的结构化积木推荐协议，支持 `next`、条件槽、`SUBSTACK` 和 `SUBSTACK2`，严格拒绝额外字段、超过 3 个节点和模型原始 XML；客户端新增递归 Scratch Blockly XML 生成入口，同时保留旧扁平协议供下一切片渐进迁移；共享包 10 项、验证工具 32 项、桌面端 95 项测试全部通过。
 - 2026-07-10：完成单机直连自学辅导的 `grill-with-docs` 压力测试；产品边界、交互模式、结构化积木协议、会话状态机、安全约束和非目标均已确认，并形成设计文档、8 份 ADR、领域词典及分六个垂直切片的 TDD 实施计划；本轮未修改业务代码。
 - 2026-05-24：完成从原始 workspace 拆出独立本地客户端仓；保留 `desktop-companion + shared + verification` 主线，继续采用 DeepSeek API 直连模式；同步收口 README、架构文档、仓库元数据，并完成独立 git 初始化与测试验证。

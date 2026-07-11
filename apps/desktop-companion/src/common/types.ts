@@ -71,6 +71,7 @@ export interface DetectedIssue {
 
 export interface CoachResponse {
   answerText: string;
+  recommendation?: RecommendedBlockStructure;
   recommendedBlocks: RecommendedBlock[];
   nextStep: string;
   detectedIssues: DetectedIssue[];
