@@ -837,6 +837,39 @@ test("SessionManager can switch to a saved custom AI key", async () => {
   assert.equal(clearedState.aiCustomKeyConfigured, false);
 });
 
+test("SessionManager does not expose the saved custom AI key through public state or logs", async () => {
+  const stateStore = new StateStore();
+  const logs = [];
+  const secretKey = "sk-custom-secret-123456";
+  const manager = new SessionManager(stateStore, {
+    bridgeServer: createBridgeServerMock(),
+    platform: "win32",
+    log: (message, error) => {
+      logs.push(`${message} ${error ? String(error) : ""}`);
+    },
+    configStore: createConfigStoreMock("C:\\Scratch 3.exe"),
+    loadAiConfig: async (_configPath, options) => ({
+      configured: Boolean(options?.customApiKey),
+      baseUrl: "https://api.deepseek.com",
+      model: options?.customModel ?? "deepseek-v4-flash",
+      timeoutMs: 20000,
+      configPath: "C:\\config\\deepseek.config.json",
+      customKeyConfigured: Boolean(options?.customApiKey),
+      source: options?.customApiKey ? "custom" : undefined,
+      ...(options?.customApiKey ? { apiKey: options.customApiKey } : {})
+    }),
+    scratchLauncher: {},
+    scratchRemoteDebugger: {}
+  });
+
+  await manager.start();
+  await manager.saveCustomAiApiKey(secretKey);
+
+  const serializedState = JSON.stringify(stateStore.getState());
+  assert.equal(serializedState.includes(secretKey), false);
+  assert.equal(logs.join("\n").includes(secretKey), false);
+});
+
 test("SessionManager saves a custom AI model and exposes it in state", async () => {
   const stateStore = new StateStore();
   const capturedOptions = [];

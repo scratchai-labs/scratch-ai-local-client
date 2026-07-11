@@ -236,14 +236,14 @@
         <p class="eyebrow">DeepSeek Settings</p>
         <h1>DeepSeek 本地设置</h1>
         <p class="hero-copy">
-          这里只保存当前电脑要使用的 DeepSeek Key、模型，以及“下一步提示”是自动刷新还是手动触发。
+          这里只保存当前电脑要使用的 DeepSeek Key、模型，以及“下一步提示”是自动刷新还是手动触发。默认使用 Flash；Pro 更强，但可能更慢、费用更高。
         </p>
         <p id="settings-status" class="status-pill">正在读取当前配置…</p>
       </section>
 
       <section class="panel">
         <h2>DeepSeek API Key</h2>
-        <p class="note">只在当前电脑本地保存。保存后直接用于在线提示；清除后不再请求 DeepSeek，而是自动使用基础提示。</p>
+        <p class="note">Key 会明文保存在当前电脑，并限制为当前系统用户可读写。保存后直接用于在线提示；清除后不再请求 DeepSeek，而是自动使用基础提示。</p>
         <input
           id="settings-custom-ai-api-key"
           type="password"
@@ -261,7 +261,7 @@
         <h2>模型选择</h2>
         <p class="note">模型必须从固定选项中选择，并保存在本机。</p>
         <select id="settings-custom-ai-model">
-          <option value="deepseek-v4-flash">deepseek-v4-flash</option>
+          <option value="deepseek-v4-flash" selected>deepseek-v4-flash</option>
           <option value="deepseek-v4-pro">deepseek-v4-pro</option>
         </select>
         <div class="action-row">
@@ -273,7 +273,7 @@
         <h2>下一步提示触发方式</h2>
         <p class="note">默认自动刷新。若希望课堂上由老师或学生手动控制，也可以切回按钮触发。</p>
         <select id="settings-ai-hint-trigger-mode">
-          <option value="auto">自动刷新</option>
+          <option value="auto" selected>自动刷新</option>
           <option value="manual">手动点击</option>
         </select>
         <div class="action-row">

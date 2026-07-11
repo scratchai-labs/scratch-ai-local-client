@@ -2,15 +2,21 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
+import { redactSensitiveText } from "./sensitive-redaction";
+
 let logFilePath: string | null = null;
 
 const require = createRequire(import.meta.url);
 
 function toMessage(error: unknown) {
   if (error instanceof Error) {
-    return `${error.name}: ${error.message}\n${error.stack ?? ""}`.trim();
+    return sanitizeRuntimeLogText(`${error.name}: ${error.message}\n${error.stack ?? ""}`.trim());
   }
-  return String(error);
+  return sanitizeRuntimeLogText(String(error));
+}
+
+export function sanitizeRuntimeLogText(value: string) {
+  return redactSensitiveText(value);
 }
 
 export function initializeRuntimeLog() {
@@ -31,7 +37,7 @@ export function getRuntimeLogPath() {
 }
 
 export function writeRuntimeLog(message: string, error?: unknown) {
-  const line = [`[${new Date().toISOString()}]`, message];
+  const line = [`[${new Date().toISOString()}]`, sanitizeRuntimeLogText(message)];
   if (error !== undefined) {
     line.push(toMessage(error));
   }

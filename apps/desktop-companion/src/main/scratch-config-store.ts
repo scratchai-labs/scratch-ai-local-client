@@ -1,9 +1,10 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { normalizeAiHintTriggerMode } from "../common/types";
 
 const CONFIG_FILE_NAME = "desktop-companion.config.json";
+const CONFIG_FILE_MODE = 0o600;
 
 export class ScratchExecutableConfigStore {
   private readonly filePath: string;
@@ -151,6 +152,13 @@ export class ScratchExecutableConfigStore {
 
   private async writeConfig(nextConfig: Record<string, unknown>) {
     await mkdir(path.dirname(this.filePath), { recursive: true });
-    await writeFile(this.filePath, JSON.stringify(nextConfig, null, 2), "utf8");
+    await writeFile(this.filePath, JSON.stringify(nextConfig, null, 2), {
+      encoding: "utf8",
+      mode: CONFIG_FILE_MODE
+    });
+
+    if (process.platform !== "win32") {
+      await chmod(this.filePath, CONFIG_FILE_MODE);
+    }
   }
 }

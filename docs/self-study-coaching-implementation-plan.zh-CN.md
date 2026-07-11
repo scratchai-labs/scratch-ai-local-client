@@ -50,10 +50,11 @@
 
 ### 设置与安全
 
-- Flash 默认模型和 Pro 设置选项已经存在，需要保留回归测试
-- Key 明文 JSON 符合已确认决策
-- `apps/desktop-companion/src/main/scratch-config-store.ts` 写文件时没有显式限制为当前用户读写
-- 需要验证日志、状态和设置页不会回显完整 Key
+- 已完成：Flash 默认模型和 Pro 设置选项已保留回归测试
+- 已完成：Key 明文 JSON 符合已确认决策，设置页明确本地明文风险
+- 已完成：`apps/desktop-companion/src/main/scratch-config-store.ts` 在 POSIX 平台把配置文件权限收紧为 `0o600`
+- 已完成：清除 Key 后配置文件会删除 `customAiApiKey` 字段
+- 已完成：日志、DeepSeek 失败 warning、公开状态和设置页不会回显完整 Key
 
 ## 目标模块边界
 
@@ -447,6 +448,8 @@ buildRecommendedStructureXml(recommendation)
 - 主界面不存在聊天或完成反馈概念
 
 ### 切片 6：设置、安全与回归
+
+状态：已完成。配置文件写入和重写后会收紧 POSIX 权限，清除 Key 会删除字段；运行日志和 DeepSeek 失败 warning 使用统一脱敏，学生状态与设置页只暴露配置状态，不回显完整 Key；设置页保留默认自动、Flash 默认和 Pro 选项，并补充本地明文风险说明。
 
 先写失败测试：
 

@@ -79,6 +79,25 @@ const buildConfigs = [
     format: "esm"
   },
   {
+    entryPoints: [path.join(__dirname, "src/main/scratch-config-store.ts")],
+    outfile: path.join(distDir, "scratch-config-store.js"),
+    platform: "node",
+    format: "esm"
+  },
+  {
+    entryPoints: [path.join(__dirname, "src/main/runtime-log.ts")],
+    outfile: path.join(distDir, "runtime-log.js"),
+    platform: "node",
+    format: "esm",
+    external: ["electron"]
+  },
+  {
+    entryPoints: [path.join(__dirname, "src/main/sensitive-redaction.ts")],
+    outfile: path.join(distDir, "sensitive-redaction.js"),
+    platform: "node",
+    format: "esm"
+  },
+  {
     entryPoints: [path.join(__dirname, "src/main/state-store.ts")],
     outfile: path.join(distDir, "state-store.js"),
     platform: "node",

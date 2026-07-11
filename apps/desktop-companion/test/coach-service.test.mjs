@@ -669,3 +669,29 @@ test("CoachService fallback gives a local basic hint without forcing three block
   assert.equal(result.coachResponse.recommendedBlocks.length >= 1, true);
   assert.equal(result.coachResponse.recommendedBlocks.length <= 3, true);
 });
+
+test("CoachService redacts API keys from DeepSeek failure warnings", async () => {
+  const secretKey = "sk-secret-from-error-body";
+  const service = new CoachService(async () =>
+    new Response(`Authorization: Bearer ${secretKey} {"apiKey":"${secretKey}"}`, {
+      status: 500,
+      statusText: "Internal Server Error"
+    })
+  );
+
+  const result = await service.generateHint({
+    snapshot: createSnapshot(),
+    currentTargetPrograms: [],
+    programAreaModules: [],
+    usedExtensions: [],
+    loadedExtensions: [],
+    aiConfig: createAiConfig({
+      apiKey: secretKey
+    })
+  });
+
+  assert.equal(result.source, "fallback");
+  assert.equal(result.warning.includes(secretKey), false);
+  assert.match(result.warning, /Authorization: Bearer \*\*\*/);
+  assert.match(result.warning, /"apiKey":"\*\*\*"/);
+});

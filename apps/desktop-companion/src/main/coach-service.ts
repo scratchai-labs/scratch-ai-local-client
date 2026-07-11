@@ -12,6 +12,7 @@ import {
 import { MAX_RECOMMENDED_BLOCKS } from "../common/recommended-blocks";
 
 import type { LoadedDeepSeekConfig } from "./deepseek-config";
+import { redactSensitiveText } from "./sensitive-redaction";
 import type {
   CoachResponse,
   ProgramAreaModule,
@@ -595,7 +596,7 @@ export class CoachService {
 
       if (!response.ok) {
         const responseText = await response.text();
-        throw new Error(`DeepSeek 请求失败：${response.status} ${responseText.slice(0, 240)}`);
+        throw new Error(`DeepSeek 请求失败：${response.status} ${redactSensitiveText(responseText).slice(0, 240)}`);
       }
 
       const rawPayload = await response.json();
