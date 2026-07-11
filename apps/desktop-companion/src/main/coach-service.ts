@@ -3,7 +3,8 @@ import {
   coachResponseSchema,
   getDisplayLabelForOpcode,
   getExtensionIdForOpcode,
-  projectSnapshotSchema
+  projectSnapshotSchema,
+  recommendedBlockNodeSchema
 } from "@scratch-ai/shared";
 import {
   SUPPORTED_RECOMMENDED_BLOCK_OPCODES,
@@ -380,6 +381,96 @@ function flattenRecommendedStructure(structure: RecommendedBlockStructure) {
   return blocks.slice(0, MAX_RECOMMENDED_BLOCKS);
 }
 
+function trimRecommendedNode(
+  node: RecommendedBlockNode,
+  remaining: { count: number }
+): RecommendedBlockNode | null {
+  if (remaining.count <= 0) {
+    return null;
+  }
+
+  remaining.count -= 1;
+  const trimmedNode: RecommendedBlockNode = {
+    opcode: node.opcode,
+    category: node.category,
+    label: node.label,
+    reason: node.reason
+  };
+
+  for (const relation of ["condition", "substack", "substack2", "next"] as const) {
+    const child = node[relation];
+    if (!child) {
+      continue;
+    }
+
+    const trimmedChild = trimRecommendedNode(child, remaining);
+    if (trimmedChild) {
+      trimmedNode[relation] = trimmedChild;
+    }
+  }
+
+  return trimmedNode;
+}
+
+function stripScratchNodeMetadata(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  const node = value as Record<string, unknown>;
+  const stripped: Record<string, unknown> = {};
+
+  for (const [key, childValue] of Object.entries(node)) {
+    if (key === "fields" || key === "inputs") {
+      continue;
+    }
+
+    if (["condition", "substack", "substack2", "next"].includes(key)) {
+      stripped[key] = stripScratchNodeMetadata(childValue);
+      continue;
+    }
+
+    stripped[key] = childValue;
+  }
+
+  return stripped;
+}
+
+function parseRecommendationCandidate(candidate: Record<string, unknown>) {
+  const extraTopLevelKeys = Object.keys(candidate).filter((key) => key !== "summary" && key !== "recommendation");
+  if (extraTopLevelKeys.length > 0) {
+    return coachRecommendationResponseSchema.parse(candidate);
+  }
+
+  if (typeof candidate.summary !== "string") {
+    return coachRecommendationResponseSchema.parse(candidate);
+  }
+
+  const rawRecommendation = candidate.recommendation;
+  if (!rawRecommendation || typeof rawRecommendation !== "object" || Array.isArray(rawRecommendation)) {
+    return coachRecommendationResponseSchema.parse(candidate);
+  }
+
+  const recommendation = rawRecommendation as Record<string, unknown>;
+  const extraRecommendationKeys = Object.keys(recommendation).filter((key) => key !== "root");
+  if (extraRecommendationKeys.length > 0) {
+    return coachRecommendationResponseSchema.parse(candidate);
+  }
+
+  const rawRoot = recommendedBlockNodeSchema.parse(stripScratchNodeMetadata(recommendation.root));
+  const root = trimRecommendedNode(rawRoot, { count: MAX_RECOMMENDED_BLOCKS });
+  if (!root) {
+    throw new Error("DeepSeek 没有返回可用的官方推荐积木。");
+  }
+
+  return coachRecommendationResponseSchema.parse({
+    summary: candidate.summary,
+    recommendation: {
+      root
+    }
+  });
+}
+
 function isAvailableRecommendedOpcode(opcode: string, options: GenerateCoachHintOptions) {
   if (!isSupportedRecommendedBlockOpcode(opcode)) {
     return false;
@@ -391,6 +482,29 @@ function isAvailableRecommendedOpcode(opcode: string, options: GenerateCoachHint
   }
 
   return options.loadedExtensions.includes(extensionId) || options.snapshot.loadedExtensions.includes(extensionId);
+}
+
+function canUseRecommendationRelation(opcode: string, relation: "condition" | "substack" | "substack2") {
+  if (relation === "condition") {
+    return [
+      "control_if",
+      "control_if_else",
+      "control_repeat_until",
+      "control_wait_until"
+    ].includes(opcode);
+  }
+
+  if (relation === "substack") {
+    return [
+      "control_forever",
+      "control_if",
+      "control_if_else",
+      "control_repeat",
+      "control_repeat_until"
+    ].includes(opcode);
+  }
+
+  return opcode === "control_if_else";
 }
 
 function filterRecommendedNode(
@@ -409,9 +523,18 @@ function filterRecommendedNode(
   };
 
   const next = node.next ? filterRecommendedNode(node.next, options) : null;
-  const condition = node.condition ? filterRecommendedNode(node.condition, options) : null;
-  const substack = node.substack ? filterRecommendedNode(node.substack, options) : null;
-  const substack2 = node.substack2 ? filterRecommendedNode(node.substack2, options) : null;
+  const condition =
+    node.condition && canUseRecommendationRelation(node.opcode, "condition")
+      ? filterRecommendedNode(node.condition, options)
+      : null;
+  const substack =
+    node.substack && canUseRecommendationRelation(node.opcode, "substack")
+      ? filterRecommendedNode(node.substack, options)
+      : null;
+  const substack2 =
+    node.substack2 && canUseRecommendationRelation(node.opcode, "substack2")
+      ? filterRecommendedNode(node.substack2, options)
+      : null;
 
   if (next) {
     filteredNode.next = next;
@@ -436,7 +559,7 @@ function normalizeCoachResponse(rawPayload: unknown, options: GenerateCoachHintO
 
   const candidate = rawPayload as Record<string, unknown>;
   if (candidate.recommendation && typeof candidate.recommendation === "object") {
-    const parsed = coachRecommendationResponseSchema.parse(candidate);
+    const parsed = parseRecommendationCandidate(candidate);
     const filteredRoot = filterRecommendedNode(parsed.recommendation.root, options);
     if (!filteredRoot) {
       throw new Error("DeepSeek 没有返回可用的官方推荐积木。");

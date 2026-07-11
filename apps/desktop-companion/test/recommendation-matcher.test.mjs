@@ -287,6 +287,44 @@ test("analyzeRecommendationProgress returns following when the recommendation pr
   assert.equal(result.currentMatchedNodeCount, 1);
 });
 
+test("analyzeRecommendationProgress does not complete recommendations already present in baseline", () => {
+  const recommendation = {
+    root: {
+      opcode: "event_whenflagclicked",
+      category: "事件",
+      label: "当绿旗被点击",
+      reason: "给脚本一个开始时机。",
+      next: {
+        opcode: "motion_movesteps",
+        category: "运动",
+        label: "移动 10 步",
+        reason: "让角色动起来。"
+      }
+    }
+  };
+
+  const alreadyCompleteProject = projectWithBlocks({
+    hat: block("event_whenflagclicked", {
+      next: "move",
+      topLevel: true
+    }),
+    move: block("motion_movesteps", {
+      parent: "hat"
+    })
+  });
+
+  const result = analyzeRecommendationProgress({
+    baselineProjectData: alreadyCompleteProject,
+    currentProjectData: alreadyCompleteProject,
+    currentTarget: TARGET_META,
+    recommendation
+  });
+
+  assert.equal(result.status, "unchanged");
+  assert.equal(result.baselineMatchedNodeCount, 2);
+  assert.equal(result.currentMatchedNodeCount, 2);
+});
+
 test("analyzeRecommendationProgress returns diverged when unrelated structure is added", () => {
   const recommendation = {
     root: {

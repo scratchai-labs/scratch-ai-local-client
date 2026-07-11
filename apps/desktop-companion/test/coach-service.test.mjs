@@ -499,9 +499,53 @@ test("CoachService keeps valid structured recommendations after dropping invalid
   assert.equal(result.source, "deepseek");
   assert.deepEqual(
     result.coachResponse.recommendedBlocks.map((block) => block.opcode),
-    ["event_whenflagclicked", "motion_movesteps"]
+    ["event_whenflagclicked"]
   );
   assert.equal(result.coachResponse.recommendation.root.next, undefined);
+  assert.equal(result.coachResponse.recommendation.root.substack, undefined);
+});
+
+test("CoachService keeps nested recommendations only on compatible parent blocks", async () => {
+  const service = new CoachService(async () =>
+    createDeepSeekResponse(
+      JSON.stringify({
+        summary: "把移动动作放进重复执行里。",
+        recommendation: {
+          root: {
+            opcode: "control_repeat",
+            category: "控制",
+            label: "重复执行",
+            reason: "让动作重复。",
+            substack: {
+              opcode: "motion_movesteps",
+              category: "运动",
+              label: "移动 10 步",
+              reason: "重复移动。"
+            }
+          }
+        }
+      })
+    )
+  );
+
+  const result = await service.generateHint({
+    snapshot: createSnapshot(),
+    currentTargetPrograms: ["event_whenflagclicked -> motion_movesteps"],
+    programAreaModules: [
+      { id: "control", label: "控制", blockCount: 1 },
+      { id: "motion", label: "运动", blockCount: 1 }
+    ],
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "继续做动作",
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.deepEqual(
+    result.coachResponse.recommendedBlocks.map((block) => block.opcode),
+    ["control_repeat", "motion_movesteps"]
+  );
   assert.equal(result.coachResponse.recommendation.root.substack.opcode, "motion_movesteps");
 });
 
@@ -594,6 +638,130 @@ test("CoachService keeps at most three recommended blocks from DeepSeek", async 
       "control_repeat"
     ]
   );
+});
+
+test("CoachService trims overlong DeepSeek structures instead of falling back", async () => {
+  const service = new CoachService(async () =>
+    createDeepSeekResponse(
+      JSON.stringify({
+        summary: "先补最关键的三步，后面再慢慢加。",
+        recommendation: {
+          root: {
+            opcode: "event_whenflagclicked",
+            category: "事件",
+            label: "当绿旗被点击",
+            reason: "1",
+            next: {
+              opcode: "motion_gotoxy",
+              category: "运动",
+              label: "移到 x: y:",
+              reason: "2",
+              next: {
+                opcode: "control_forever",
+                category: "控制",
+                label: "一直重复",
+                reason: "3",
+                substack: {
+                  opcode: "motion_movesteps",
+                  category: "运动",
+                  label: "移动 10 步",
+                  reason: "4"
+                }
+              }
+            }
+          }
+        }
+      })
+    )
+  );
+
+  const result = await service.generateHint({
+    snapshot: createSnapshot(),
+    currentTargetPrograms: ["event_whenflagclicked -> motion_movesteps"],
+    programAreaModules: [
+      { id: "event", label: "事件", blockCount: 1 },
+      { id: "motion", label: "运动", blockCount: 2 },
+      { id: "control", label: "控制", blockCount: 1 }
+    ],
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "继续做移动",
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.deepEqual(
+    result.coachResponse.recommendedBlocks.map((block) => block.opcode),
+    [
+      "event_whenflagclicked",
+      "motion_gotoxy",
+      "control_forever"
+    ]
+  );
+  assert.equal(result.coachResponse.recommendation.root.next.next.substack, undefined);
+});
+
+test("CoachService strips Scratch node metadata from DeepSeek structures", async () => {
+  const service = new CoachService(async () =>
+    createDeepSeekResponse(
+      JSON.stringify({
+        summary: "用判断和隐藏做一个反馈。",
+        recommendation: {
+          root: {
+            opcode: "control_if",
+            category: "控制",
+            label: "如果...那么",
+            reason: "判断碰撞。",
+            fields: {},
+            inputs: {
+              CONDITION: [2, "condition"],
+              SUBSTACK: [2, "hide"]
+            },
+            condition: {
+              opcode: "sensing_touchingobject",
+              category: "侦测",
+              label: "碰到...？",
+              reason: "检测是否碰到目标。",
+              fields: {
+                TOUCHINGOBJECTMENU: ["Mouse1", "Mouse1"]
+              },
+              inputs: {}
+            },
+            substack: {
+              opcode: "looks_hide",
+              category: "外观",
+              label: "隐藏",
+              reason: "碰到时隐藏。",
+              fields: {},
+              inputs: {}
+            }
+          }
+        }
+      })
+    )
+  );
+
+  const result = await service.generateHint({
+    snapshot: createSnapshot(),
+    currentTargetPrograms: ["event_whenflagclicked -> motion_movesteps"],
+    programAreaModules: [
+      { id: "control", label: "控制", blockCount: 1 },
+      { id: "sensing", label: "侦测", blockCount: 1 },
+      { id: "looks", label: "外观", blockCount: 1 }
+    ],
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "碰到鼠标时隐藏",
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.deepEqual(
+    result.coachResponse.recommendedBlocks.map((block) => block.opcode),
+    ["control_if", "sensing_touchingobject", "looks_hide"]
+  );
+  assert.equal("fields" in result.coachResponse.recommendation.root, false);
+  assert.equal("inputs" in result.coachResponse.recommendation.root.condition, false);
 });
 
 test("CoachService keeps fewer than three recommendations without padding", async () => {

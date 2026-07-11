@@ -44,6 +44,7 @@ const projectUrl = getTextArg(
     '--project-url',
     'https://raw.githubusercontent.com/tesths/scratchai/refs/heads/main/tools/verification/fixtures/projects/cat-and-a-mouse/source/Cat%20and%20a%20Mouse.sb3'
 );
+const requestedProjectFile = argv.get('--project-file') ?? null;
 const deepseekApiKey = getTextArg('--deepseek-api-key', '');
 const learningMode = argv.get('--learning-mode') === 'self-paced' ? 'self-paced' : 'follow-teacher';
 const scratchProjectMode = argv.get('--scratch-project-mode') === 'blank' ? 'blank' : 'load';
@@ -54,14 +55,16 @@ const artifactDir =
 const userDataDir =
     argv.get('--user-data-dir') ??
     path.join(verificationRoot, 'tmp-live-deepseek-seq-userdata');
+const keepUserData = argv.get('--keep-user-data') === 'true';
 const summaryPath = path.join(artifactDir, 'summary.json');
+const failureSummaryPath = path.join(artifactDir, 'failure-summary.json');
 const screenshotPaths = {
     mainInitial: path.join(artifactDir, '01-main-initial.png'),
     settingsBeforeSave: path.join(artifactDir, '02-settings-before-save.png'),
     settingsAfterSave: path.join(artifactDir, '03-settings-after-save.png'),
     mainAfterKeySave: path.join(artifactDir, '04-main-after-key-save.png'),
-    mainFormFilled: path.join(artifactDir, '05-main-form-filled.png'),
-    mainProjectUrlResult: path.join(artifactDir, '06-main-project-url-result.png'),
+    settingsAfterManualMode: path.join(artifactDir, '05-settings-after-manual-mode.png'),
+    mainAfterManualMode: path.join(artifactDir, '06-main-after-manual-mode.png'),
     mainScratchConnected: path.join(artifactDir, '07-main-scratch-connected.png'),
     scratchProjectLoaded: path.join(
         artifactDir,
@@ -138,13 +141,20 @@ async function waitFor(predicate, options = {}) {
 
     while (Date.now() < deadline) {
         lastValue = await predicate();
-        if (lastValue) {
+        if (lastValue && lastValue.__retryableError !== true) {
             return lastValue;
         }
         await sleep(interval);
     }
 
-    throw new Error(options.errorMessage ?? `Timed out after ${timeout}ms.`);
+    const suffix = lastValue
+        ? ` Last value: ${JSON.stringify(lastValue).slice(0, 2000)}`
+        : "";
+    const errorMessage =
+        typeof options.errorMessage === 'function'
+            ? options.errorMessage()
+            : (options.errorMessage ?? `Timed out after ${timeout}ms.`);
+    throw new Error(`${errorMessage}${suffix}`);
 }
 
 async function writeScratchConfig(scratchExecutablePath) {
@@ -328,14 +338,69 @@ async function waitForWebSocketOpen(socket, maxWaitMs) {
 }
 
 async function withTargetConnection(target, callback) {
-    const socket = new WebSocket(target.webSocketDebuggerUrl);
-    await waitForWebSocketOpen(socket, timeoutMs);
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+        const socket = new WebSocket(target.webSocketDebuggerUrl);
+        try {
+            await waitForWebSocketOpen(socket, Math.min(timeoutMs, 5000));
+
+            const connection = new CdpConnection(socket);
+            return await callback(connection);
+        } catch (error) {
+            lastError = error;
+            if (attempt < 5) {
+                await sleep(250 * attempt);
+            }
+        } finally {
+            try {
+                socket.close();
+            } catch {
+                // ignore cleanup errors between retry attempts
+            }
+        }
+    }
+
+    throw lastError ?? new Error('Failed to connect to target websocket.');
+}
+
+async function closeScratchTarget(target) {
+    if (!target?.webSocketDebuggerUrl) {
+        return false;
+    }
 
     try {
-        const connection = new CdpConnection(socket);
-        return await callback(connection);
-    } finally {
-        socket.close();
+        const closeAttempt = withTargetConnection(target, async connection => {
+            await connection.send('Page.enable');
+            await connection.send('Runtime.enable');
+            await connection.send('Runtime.evaluate', {
+                expression: `
+(() => {
+  window.onbeforeunload = null;
+  window.addEventListener('beforeunload', event => {
+    event.stopImmediatePropagation();
+  }, true);
+  return true;
+})()
+                `.trim(),
+                awaitPromise: true,
+                returnByValue: true,
+                userGesture: true
+            }).catch(() => {});
+            const closeResult = connection.send('Page.close').catch(error => ({
+                closeError: error instanceof Error ? error.message : String(error)
+            }));
+            await sleep(500);
+            await connection.send('Page.handleJavaScriptDialog', {accept: true}).catch(() => {});
+            await closeResult;
+            return true;
+        });
+        return await Promise.race([
+            closeAttempt,
+            sleep(5000).then(() => false)
+        ]);
+    } catch {
+        return false;
     }
 }
 
@@ -395,15 +460,6 @@ function buildMainUiSnapshotExpression() {
   aiAnswer: document.querySelector("#ai-answer")?.textContent?.trim() ?? null,
   aiNextStep: document.querySelector("#ai-next-step")?.textContent?.trim() ?? null,
   errorText: document.querySelector("#error")?.textContent?.trim() ?? null,
-  projectUrlInputPresent: document.querySelector("#project-url-input") instanceof HTMLInputElement,
-  projectUrlValue: document.querySelector("#project-url-input") instanceof HTMLInputElement
-    ? document.querySelector("#project-url-input").value
-    : null,
-  learningModeValue: Array.from(document.querySelectorAll('input[name="learning-mode"]'))
-    .find(element => element instanceof HTMLInputElement && element.checked) instanceof HTMLInputElement
-    ? Array.from(document.querySelectorAll('input[name="learning-mode"]'))
-        .find(element => element instanceof HTMLInputElement && element.checked).value
-    : null,
   buttons: {
     launch: document.querySelector("#launch-button") instanceof HTMLButtonElement
       ? document.querySelector("#launch-button").disabled
@@ -416,18 +472,12 @@ function buildMainUiSnapshotExpression() {
       : null,
     generateAi: document.querySelector("#generate-ai-button") instanceof HTMLButtonElement
       ? document.querySelector("#generate-ai-button").disabled
-      : null,
-    analyzeProjectUrl: document.querySelector("#analyze-project-url-button") instanceof HTMLButtonElement
-      ? document.querySelector("#analyze-project-url-button").disabled
       : null
   },
   currentTargetPrograms: Array.from(document.querySelectorAll("#current-target-programs li:not(.empty)"))
     .map(element => (element.textContent || "").trim())
     .filter(Boolean),
   aiRecommendedBlocks: Array.from(document.querySelectorAll("#ai-recommended-blocks li:not(.empty)"))
-    .map(element => (element.textContent || "").trim())
-    .filter(Boolean),
-  aiDetectedIssues: Array.from(document.querySelectorAll("#ai-detected-issues li:not(.empty)"))
     .map(element => (element.textContent || "").trim())
     .filter(Boolean)
 }))()
@@ -442,6 +492,9 @@ function buildSettingsSnapshotExpression() {
   status: document.querySelector("#settings-status")?.textContent?.trim() ?? null,
   modelValue: document.querySelector("#settings-custom-ai-model") instanceof HTMLSelectElement
     ? document.querySelector("#settings-custom-ai-model").value
+    : null,
+  hintTriggerModeValue: document.querySelector("#settings-ai-hint-trigger-mode") instanceof HTMLSelectElement
+    ? document.querySelector("#settings-ai-hint-trigger-mode").value
     : null,
   feedback: document.querySelector("#settings-feedback")?.textContent?.trim() ?? null,
   errorText: document.querySelector("#settings-error")?.textContent?.trim() ?? null,
@@ -493,35 +546,77 @@ async function readMainState(target) {
 }
 
 async function waitForMainUiSnapshot(target, predicate, errorMessage) {
+    let lastSnapshot = null;
     return await waitFor(async () => {
-        const snapshot = await readMainUiSnapshot(target);
-        return predicate(snapshot) ? snapshot : null;
+        try {
+            const snapshot = await readMainUiSnapshot(target);
+            lastSnapshot = snapshot;
+            return predicate(snapshot) ? snapshot : null;
+        } catch (error) {
+            return {
+                __retryableError: true,
+                error: error instanceof Error ? error.message : String(error)
+            };
+        }
     }, {
         timeoutMs,
         intervalMs: 400,
-        errorMessage
+        errorMessage: () => {
+            const suffix = lastSnapshot
+                ? ` Last UI snapshot: ${JSON.stringify(lastSnapshot).slice(0, 2000)}`
+                : "";
+            return `${errorMessage}${suffix}`;
+        }
     });
 }
 
 async function waitForSettingsSnapshot(target, predicate, errorMessage) {
+    let lastSnapshot = null;
     return await waitFor(async () => {
-        const snapshot = await readSettingsSnapshot(target);
-        return predicate(snapshot) ? snapshot : null;
+        try {
+            const snapshot = await readSettingsSnapshot(target);
+            lastSnapshot = snapshot;
+            return predicate(snapshot) ? snapshot : null;
+        } catch (error) {
+            return {
+                __retryableError: true,
+                error: error instanceof Error ? error.message : String(error)
+            };
+        }
     }, {
         timeoutMs,
         intervalMs: 400,
-        errorMessage
+        errorMessage: () => {
+            const suffix = lastSnapshot
+                ? ` Last settings snapshot: ${JSON.stringify(lastSnapshot).slice(0, 2000)}`
+                : "";
+            return `${errorMessage}${suffix}`;
+        }
     });
 }
 
 async function waitForMainState(target, predicate, errorMessage) {
+    let lastState = null;
     return await waitFor(async () => {
-        const state = await readMainState(target);
-        return predicate(state) ? state : null;
+        try {
+            const state = await readMainState(target);
+            lastState = state;
+            return predicate(state) ? state : null;
+        } catch (error) {
+            return {
+                __retryableError: true,
+                error: error instanceof Error ? error.message : String(error)
+            };
+        }
     }, {
         timeoutMs,
         intervalMs: 400,
-        errorMessage
+        errorMessage: () => {
+            const suffix = lastState
+                ? ` Last state: ${JSON.stringify(lastState).slice(0, 2000)}`
+                : "";
+            return `${errorMessage}${suffix}`;
+        }
     });
 }
 
@@ -535,8 +630,9 @@ async function clickButton(target, selector) {
     return { ok: false, error: "button-not-found" };
   }
 
+  const disabledBefore = button.disabled;
   button.click();
-  return { ok: true, disabledImmediately: button.disabled };
+  return { ok: true, disabledBefore, disabledImmediately: button.disabled };
 })()
         `.trim()
     );
@@ -573,41 +669,26 @@ async function setSettingsApiKey(target, apiKey) {
     return result.value ?? {};
 }
 
-async function setMainFormValues(target, {projectUrlValue, learningModeValue}) {
+async function setSelectValue(target, selector, value) {
     const result = await evaluateExpressionInTarget(
         target,
         `
 (() => {
-  const projectUrlInput = document.querySelector("#project-url-input");
-  const learningModeInput = document.querySelector(
-    'input[name="learning-mode"][value=' + JSON.stringify(${JSON.stringify(learningModeValue)}) + ']'
-  );
-  if (!(projectUrlInput instanceof HTMLInputElement)) {
-    return { ok: false, error: "project-url-input-missing" };
-  }
-  if (!(learningModeInput instanceof HTMLInputElement)) {
-    return { ok: false, error: "learning-mode-input-missing" };
+  const select = document.querySelector(${JSON.stringify(selector)});
+  if (!(select instanceof HTMLSelectElement)) {
+    return { ok: false, error: "select-not-found" };
   }
 
-  projectUrlInput.value = ${JSON.stringify(projectUrlValue)};
-  projectUrlInput.dispatchEvent(new Event("input", { bubbles: true }));
-  projectUrlInput.dispatchEvent(new Event("change", { bubbles: true }));
-
-  learningModeInput.checked = true;
-  learningModeInput.dispatchEvent(new Event("input", { bubbles: true }));
-  learningModeInput.dispatchEvent(new Event("change", { bubbles: true }));
-
-  return {
-    ok: true,
-    projectUrlValue: projectUrlInput.value,
-    learningModeValue: learningModeInput.value
-  };
+  select.value = ${JSON.stringify(value)};
+  select.dispatchEvent(new Event("input", { bubbles: true }));
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+  return { ok: true, value: select.value };
 })()
         `.trim()
     );
 
     if (!result.ok) {
-        throw new Error(result.error ?? 'Failed to fill the main form.');
+        throw new Error(result.error ?? `Failed to set ${selector}.`);
     }
 
     return result.value ?? {};
@@ -812,6 +893,21 @@ async function fetchProjectBuffer(url) {
     return Buffer.from(arrayBuffer);
 }
 
+async function readProjectBuffer() {
+    if (requestedProjectFile) {
+        await ensureReadable(requestedProjectFile);
+        return {
+            source: requestedProjectFile,
+            buffer: await readFile(requestedProjectFile)
+        };
+    }
+
+    return {
+        source: projectUrl,
+        buffer: await fetchProjectBuffer(projectUrl)
+    };
+}
+
 async function main() {
     assert(deepseekApiKey.trim().length > 0, 'A non-empty DeepSeek API key is required.');
     await ensureReadable(electronExe);
@@ -820,8 +916,9 @@ async function main() {
     assert(scratchExe, 'No supported Scratch executable path was found for the live sequence test.');
     await ensureReadable(scratchExe);
 
-    const projectBuffer = await fetchProjectBuffer(projectUrl);
-    assert(projectBuffer.length > 0, `The project URL did not return any data: ${projectUrl}`);
+    const projectInput = await readProjectBuffer();
+    const projectBuffer = projectInput.buffer;
+    assert(projectBuffer.length > 0, `The project input did not return any data: ${projectInput.source}`);
 
     await removeDirectoryWithRetries(artifactDir);
     await removeDirectoryWithRetries(userDataDir);
@@ -847,6 +944,7 @@ async function main() {
     );
 
     let launchedScratchProcess = null;
+    let scratchTarget = null;
 
     try {
         const mainTargetResult = await waitForTargets(
@@ -856,19 +954,26 @@ async function main() {
         );
         const mainTarget = mainTargetResult.preferredTarget;
 
+        const initialMainState = await waitForMainState(
+            mainTarget,
+            candidate =>
+                candidate.status === 'waiting' &&
+                candidate.scratchExecutablePath === scratchExe &&
+                candidate.aiStatus === 'idle',
+            'The desktop companion state did not expose the configured Scratch path.'
+        );
         const initialMainUi = await waitForMainUiSnapshot(
             mainTarget,
             candidate =>
-                candidate.projectUrlInputPresent === true &&
                 candidate.buttons?.launch === false &&
                 candidate.buttons?.settings === false &&
+                candidate.buttons?.generateAi === true &&
                 typeof candidate.status === 'string' &&
                 candidate.status.length > 0 &&
                 typeof candidate.scratchPath === 'string' &&
                 candidate.scratchPath.includes('Scratch'),
             'The main desktop companion UI did not finish rendering.'
         );
-        const initialMainState = await readMainState(mainTarget);
         await captureScreenshot(mainTarget, screenshotPaths.mainInitial);
 
         const settingsClick = await clickButton(mainTarget, '#settings-button');
@@ -887,7 +992,9 @@ async function main() {
                 candidate.title?.includes('DeepSeek') &&
                 candidate.buttons?.save === false &&
                 typeof candidate.modelValue === 'string' &&
-                candidate.modelValue.length > 0,
+                candidate.modelValue.length > 0 &&
+                typeof candidate.hintTriggerModeValue === 'string' &&
+                candidate.hintTriggerModeValue.length > 0,
             'The DeepSeek settings window did not finish rendering.'
         );
         await captureScreenshot(settingsTarget, screenshotPaths.settingsBeforeSave);
@@ -926,54 +1033,49 @@ async function main() {
         );
         await captureScreenshot(mainTarget, screenshotPaths.mainAfterKeySave);
 
-        const formFillResult = await setMainFormValues(mainTarget, {
-            projectUrlValue: projectUrl,
-            learningModeValue: learningMode
-        });
-        assert(
-            formFillResult.projectUrlValue === projectUrl && formFillResult.learningModeValue === learningMode,
-            `The main form was not filled correctly: ${JSON.stringify(formFillResult)}`
+        const hintModeChange = await setSelectValue(
+            settingsTarget,
+            '#settings-ai-hint-trigger-mode',
+            'manual'
         );
-        const mainFormFilledUi = await waitForMainUiSnapshot(
-            mainTarget,
-            candidate => candidate.projectUrlValue === projectUrl && candidate.learningModeValue === learningMode,
-            'The main form values did not render in the UI.'
-        );
-        await captureScreenshot(mainTarget, screenshotPaths.mainFormFilled);
-
-        const analyzeClick = await clickButton(mainTarget, '#analyze-project-url-button');
         assert(
-            analyzeClick.ok === true && analyzeClick.disabledImmediately === true,
-            `Analyze project URL button did not respond as expected: ${JSON.stringify(analyzeClick)}`
+            hintModeChange.ok === true && hintModeChange.value === 'manual',
+            `The hint trigger mode select was not set to manual: ${JSON.stringify(hintModeChange)}`
         );
 
-        const projectUrlState = await waitForMainState(
+        const saveHintModeClick = await clickButton(settingsTarget, '#settings-save-ai-hint-trigger-mode-button');
+        assert(
+            saveHintModeClick.ok === true,
+            `Saving manual hint trigger mode failed: ${JSON.stringify(saveHintModeClick)}`
+        );
+
+        const settingsAfterManualMode = await waitForSettingsSnapshot(
+            settingsTarget,
+            candidate =>
+                candidate.hintTriggerModeValue === 'manual' &&
+                typeof candidate.feedback === 'string' &&
+                candidate.feedback.includes('手动点击'),
+            'The DeepSeek settings window did not persist manual hint mode.'
+        );
+        await captureScreenshot(settingsTarget, screenshotPaths.settingsAfterManualMode);
+
+        const mainAfterManualModeState = await waitForMainState(
             mainTarget,
             candidate =>
-                candidate.status === 'waiting' &&
-                candidate.currentTargetName === 'cheese' &&
-                Array.isArray(candidate.currentTargetPrograms) &&
-                candidate.currentTargetPrograms.length > 0 &&
-                candidate.aiStatus === 'ready' &&
-                candidate.aiCoachResponse &&
-                typeof candidate.aiCoachResponse.answerText === 'string' &&
-                candidate.aiCoachResponse.answerText.length > 0,
-            'The project URL analysis flow did not finish successfully.'
+                candidate.aiHintTriggerMode === 'manual' &&
+                candidate.error === undefined,
+            'The main window did not persist manual hint mode.'
         );
-        const projectUrlUi = await waitForMainUiSnapshot(
+        const mainAfterManualModeUi = await waitForMainUiSnapshot(
             mainTarget,
             candidate =>
-                candidate.currentTarget === 'cheese' &&
-                Array.isArray(candidate.currentTargetPrograms) &&
-                candidate.currentTargetPrograms.length > 0 &&
-                typeof candidate.aiAnswer === 'string' &&
-                candidate.aiAnswer.length > 0 &&
-                typeof candidate.aiNextStep === 'string' &&
-                candidate.aiNextStep.length > 0 &&
-                (candidate.errorText === '' || candidate.errorText === null),
-            'The project URL analysis results did not render correctly.'
+                typeof candidate.aiConfigSummary === 'string' &&
+                candidate.aiConfigSummary.length > 0 &&
+                candidate.buttons?.generateAi === true &&
+                candidate.errorText === '',
+            'The main window did not show the expected pre-Scratch manual hint state.'
         );
-        await captureScreenshot(mainTarget, screenshotPaths.mainProjectUrlResult);
+        await captureScreenshot(mainTarget, screenshotPaths.mainAfterManualMode);
 
         const launchClick = await clickButton(mainTarget, '#launch-button');
         assert(
@@ -998,7 +1100,8 @@ async function main() {
             candidate =>
                 candidate.status === 'connected' &&
                 candidate.scratchExecutablePath === scratchExe &&
-                candidate.error === undefined,
+                candidate.error === undefined &&
+                candidate.aiHintTriggerMode === 'manual',
             'The desktop companion did not connect to Scratch.'
         );
         const connectedMainUi = await waitForMainUiSnapshot(
@@ -1017,16 +1120,16 @@ async function main() {
             pickScratchTarget,
             'Failed to find the Scratch debug target.'
         );
-        const scratchTarget = scratchTargetResult.preferredTarget;
+        scratchTarget = scratchTargetResult.preferredTarget;
 
         let loadProjectResult = null;
         let scratchProjectState = null;
         let scratchProjectUi = null;
 
         if (scratchProjectMode === 'load') {
-            loadProjectResult = await loadProjectFromBuffer(
+                loadProjectResult = await loadProjectFromBuffer(
                 scratchTarget,
-                projectUrl,
+                projectInput.source,
                 projectBuffer.toString('base64')
             );
             assert(
@@ -1085,8 +1188,15 @@ async function main() {
 
         const generateAiClick = await clickButton(mainTarget, '#generate-ai-button');
         assert(
-            generateAiClick.ok === true && generateAiClick.disabledImmediately === true,
+            generateAiClick.ok === true && generateAiClick.disabledBefore === false,
             `Generate AI button did not respond as expected: ${JSON.stringify(generateAiClick)}`
+        );
+        const liveAiLoadingState = await waitForMainState(
+            mainTarget,
+            candidate =>
+                candidate.status === 'connected' &&
+                candidate.aiStatus === 'loading',
+            'The live AI hint request did not enter loading state after clicking Generate AI.'
         );
 
         const liveAiState = await waitForMainState(
@@ -1098,7 +1208,6 @@ async function main() {
                 typeof candidate.aiModel === 'string' &&
                 candidate.aiModel.length > 0 &&
                 typeof candidate.aiLastUpdatedAt === 'string' &&
-                candidate.aiLastUpdatedAt !== projectUrlState.aiLastUpdatedAt &&
                 candidate.aiCoachResponse &&
                 typeof candidate.aiCoachResponse.answerText === 'string' &&
                 candidate.aiCoachResponse.answerText.length > 0 &&
@@ -1110,12 +1219,13 @@ async function main() {
             mainTarget,
             candidate =>
                 typeof candidate.aiStatus === 'string' &&
-                candidate.aiStatus.includes('DeepSeek') &&
-                !candidate.aiStatus.includes('本地提示') &&
+                candidate.aiStatus.length > 0 &&
                 typeof candidate.aiAnswer === 'string' &&
                 candidate.aiAnswer.length > 0 &&
-                typeof candidate.aiNextStep === 'string' &&
-                candidate.aiNextStep.length > 0,
+                Array.isArray(candidate.aiRecommendedBlocks) &&
+                candidate.aiRecommendedBlocks.length > 0 &&
+                candidate.buttons?.generateAi === false &&
+                candidate.errorText === '',
             'The live AI result did not render as a DeepSeek response in the UI.'
         );
         await captureScreenshot(mainTarget, screenshotPaths.mainLiveAiResult);
@@ -1124,7 +1234,7 @@ async function main() {
             artifactDir,
             summaryPath,
             screenshots: Object.values(screenshotPaths),
-            projectUrl,
+            projectSource: projectInput.source,
             learningMode,
             scratchProjectMode,
             electronExe,
@@ -1152,8 +1262,6 @@ async function main() {
                 scratch: sanitizeProcessInfo(launchedScratchProcess)
             },
             checks: {
-                projectUrlAiProvider: projectUrlState.aiProvider,
-                projectUrlAiModel: projectUrlState.aiModel,
                 liveAiProvider: liveAiState.aiProvider,
                 liveAiModel: liveAiState.aiModel,
                 scratchCurrentTarget:
@@ -1167,21 +1275,48 @@ async function main() {
             settingsAfterSave,
             mainStateAfterKeySave,
             mainAfterKeySaveUi,
-            mainFormFilledUi,
-            projectUrlState,
-            projectUrlUi,
+            hintModeChange,
+            saveHintModeClick,
+            settingsAfterManualMode,
+            mainAfterManualModeUi,
             connectedMainState,
             connectedMainUi,
             loadProjectResult,
             scratchProjectState,
             scratchProjectUi,
+            liveAiLoadingState,
             liveAiState,
             liveAiUi
         };
 
         await writeFile(summaryPath, `${JSON.stringify(output, null, 2)}\n`, 'utf8');
         process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
+    } catch (error) {
+        const runtimeLog = await readLogSince(0);
+        const failureSummary = {
+            artifactDir,
+            failureSummaryPath,
+            userDataDir,
+            keepUserData,
+            error: error instanceof Error
+                ? {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                }
+                : {
+                    message: String(error)
+                },
+            runtimeLogTail: runtimeLog.slice(-12000),
+            screenshots: Object.values(screenshotPaths)
+        };
+        await writeFile(failureSummaryPath, `${JSON.stringify(failureSummary, null, 2)}\n`, 'utf8');
+        throw error;
     } finally {
+        if (scratchTarget) {
+            await closeScratchTarget(scratchTarget);
+        }
+
         if (child.pid) {
             try {
                 process.kill(child.pid);
@@ -1200,13 +1335,15 @@ async function main() {
 
         await sleep(1200);
 
-        const removedAppData = await removeDirectoryWithRetries(userDataDir, {
-            suppressFinalError: true
-        });
-        if (!removedAppData) {
-            console.warn(
-                `[verify-deepseek-live-seq] Failed to remove temp user data directory after retries: ${userDataDir}`
-            );
+        if (!keepUserData) {
+            const removedAppData = await removeDirectoryWithRetries(userDataDir, {
+                suppressFinalError: true
+            });
+            if (!removedAppData) {
+                console.warn(
+                    `[verify-deepseek-live-seq] Failed to remove temp user data directory after retries: ${userDataDir}`
+                );
+            }
         }
     }
 }

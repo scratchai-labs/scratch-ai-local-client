@@ -759,7 +759,17 @@ test("SessionManager only sends the connected Scratch project when generating hi
           id: "sprite-new",
           name: "角色1",
           isStage: false,
-          blocks: {}
+          blocks: {
+            start: {
+              opcode: "event_whenflagclicked",
+              next: null,
+              parent: null,
+              inputs: {},
+              fields: {},
+              shadow: false,
+              topLevel: true
+            }
+          }
         }
       ]
     }
@@ -769,14 +779,82 @@ test("SessionManager only sends the connected Scratch project when generating hi
 
   const lastOptions = capturedOptions.at(-1);
   assert.equal(lastOptions.snapshot.currentTarget, "角色1");
-  assert.deepEqual(lastOptions.currentTargetPrograms, []);
+  assert.deepEqual(lastOptions.currentTargetPrograms, ["当绿旗被点击"]);
   assert.equal("referenceSnapshot" in lastOptions, false);
   assert.equal("referenceSourceLabel" in lastOptions, false);
 
   const nextState = stateStore.getState();
   assert.equal(nextState.aiProvider, "deepseek");
-  assert.equal(nextState.detail.includes("新项目"), true);
+  assert.equal(nextState.detail.includes("自动刷新下一步建议"), true);
   assert.equal(nextState.detail.includes("教师参考作品"), false);
+});
+
+test("SessionManager clears hints and skips AI requests for blank Scratch projects", async () => {
+  const stateStore = new StateStore();
+  const capturedOptions = [];
+
+  const manager = new SessionManager(stateStore, {
+    bridgeServer: createBridgeServerMock(),
+    platform: "win32",
+    log: () => {},
+    configStore: createConfigStoreMock("C:\\Scratch 3.exe"),
+    loadAiConfig: createAiConfigMock({
+      configured: true,
+      apiKey: "sk-test-demo",
+      source: "custom",
+      customKeyConfigured: true
+    }),
+    coachService: {
+      generateHint: async (options) => {
+        capturedOptions.push(options);
+        return {
+          source: "deepseek",
+          model: "deepseek-v4-flash",
+          coachResponse: {
+            answerText: "先补一个最小起步脚本。",
+            recommendedBlocks: [],
+            nextStep: "先补一个最小起步脚本。",
+            detectedIssues: []
+          }
+        };
+      }
+    },
+    scratchLauncher: {},
+    scratchRemoteDebugger: {}
+  });
+
+  await manager.start();
+  manager.handlePayload({
+    source: "bootstrap",
+    currentTargetId: "sprite-new",
+    currentTargetName: "角色1",
+    currentTargetIsStage: false,
+    toolboxCategories: ["motion", "looks", "control"],
+    projectData: {
+      targets: [
+        {
+          id: "stage",
+          name: "Stage",
+          isStage: true,
+          blocks: {}
+        },
+        {
+          id: "sprite-new",
+          name: "角色1",
+          isStage: false,
+          blocks: {}
+        }
+      ]
+    }
+  });
+
+  await manager.requestAiHint();
+
+  assert.equal(capturedOptions.length, 0);
+  const nextState = stateStore.getState();
+  assert.equal(nextState.aiStatus, "idle");
+  assert.equal(nextState.aiCoachResponse, undefined);
+  assert.equal(nextState.detail.includes("新项目"), true);
 });
 
 test("SessionManager can switch to a saved custom AI key", async () => {

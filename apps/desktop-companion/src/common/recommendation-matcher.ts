@@ -275,7 +275,10 @@ export function analyzeRecommendationProgress(options: RecommendationProgressOpt
   const structureChanged = baselineStructureSignature !== currentStructureSignature;
 
   let status: MatchStatus = "unchanged";
-  if (currentMatchedNodeCount >= totalRecommendedNodeCount) {
+  if (
+    currentMatchedNodeCount >= totalRecommendedNodeCount &&
+    baselineMatchedNodeCount < totalRecommendedNodeCount
+  ) {
     status = "completed";
   } else if (currentMatchedNodeCount > baselineMatchedNodeCount) {
     status = "following";

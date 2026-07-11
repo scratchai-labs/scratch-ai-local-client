@@ -97,7 +97,7 @@ test("CoachingSession ignores blank projects until the first real block appears"
     currentTargetPrograms: [],
     currentTargetScriptXmlList: []
   });
-  assert.equal(blank.action, "idle");
+  assert.equal(blank.action, "clear-hint");
 
   const firstBlock = observe(session, createLinearProjectData(["event_whenflagclicked"]));
   assert.equal(firstBlock.action, "scheduled");
@@ -110,6 +110,34 @@ test("CoachingSession ignores blank projects until the first real block appears"
   const due = session.consumeDueRequest();
   assert.equal(due.action, "request");
   assert.equal(due.reason, "auto-change");
+});
+
+test("CoachingSession clears stale hints and refuses manual requests for blank projects", () => {
+  const { session } = createSession();
+  const baseline = createLinearProjectData(["event_whenflagclicked"]);
+
+  observe(session, baseline);
+  session.markRequestStarted();
+  session.markRequestFinished({
+    response: {
+      recommendation: RECOMMEND_MOVE
+    },
+    baselineProjectData: baseline,
+    baselineTarget: TARGET
+  });
+
+  const blank = observe(session, createProjectData({}), {
+    currentTargetPrograms: [],
+    currentTargetScriptXmlList: []
+  });
+  assert.equal(blank.action, "clear-hint");
+
+  const manualBlank = session.requestManualHint();
+  assert.equal(manualBlank.action, "clear-hint");
+
+  const firstBlock = observe(session, createLinearProjectData(["event_whenflagclicked"]));
+  assert.equal(firstBlock.action, "scheduled");
+  assert.equal(firstBlock.keepExistingHint, true);
 });
 
 test("CoachingSession debounces auto changes and only requests the latest state", () => {
@@ -266,6 +294,29 @@ test("CoachingSession lets manual requests bypass auto interval but skips duplic
 
   const duplicateManual = session.requestManualHint();
   assert.equal(duplicateManual.action, "idle");
+});
+
+test("CoachingSession does not auto request when identity changes in manual mode", () => {
+  const { session } = createSession();
+
+  observe(session, createProjectData({}), {
+    mode: "manual",
+    projectId: "project-a",
+    currentTargetPrograms: [],
+    currentTargetScriptXmlList: []
+  });
+
+  const projectChanged = observe(session, createLinearProjectData(["event_whenflagclicked"]), {
+    mode: "manual",
+    projectId: "project-b"
+  });
+
+  assert.equal(projectChanged.action, "idle");
+  assert.equal(session.consumeDueRequest(), undefined);
+
+  const firstManual = session.requestManualHint();
+  assert.equal(firstManual.action, "request");
+  assert.equal(firstManual.reason, "manual");
 });
 
 test("CoachingSession resets memory when the project identity changes or exits", () => {

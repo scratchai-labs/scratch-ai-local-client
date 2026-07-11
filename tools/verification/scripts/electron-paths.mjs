@@ -4,8 +4,6 @@ export function getDefaultElectronBinaryPath(workspaceRoot) {
   if (process.platform === "darwin") {
     return path.join(
       workspaceRoot,
-      "apps",
-      "desktop-companion",
       "node_modules",
       "electron",
       "dist",
@@ -18,8 +16,6 @@ export function getDefaultElectronBinaryPath(workspaceRoot) {
 
   return path.join(
     workspaceRoot,
-    "apps",
-    "desktop-companion",
     "node_modules",
     "electron",
     "dist",

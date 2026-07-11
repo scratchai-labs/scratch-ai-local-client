@@ -342,6 +342,7 @@ export class SessionManager {
   async requestAiHint(goal?: string) {
     if (!goal) {
       const decision = this.coachingSession.requestManualHint();
+      this.log(`Manual AI hint requested action=${decision.action}`);
       if (decision.action === "idle") {
         return;
       }
@@ -376,6 +377,7 @@ export class SessionManager {
     }
 
     this.coachingSession.markRequestStarted();
+    this.log(`AI hint request started goal=${JSON.stringify(trimText(goal))}`);
     this.pendingRequestBaseline = requestSnapshot;
     this.stateStore.update({
       ...this.getAiStatePatch(),
@@ -409,6 +411,7 @@ export class SessionManager {
     if (result.warning) {
       this.log("DeepSeek live hint fell back to local heuristics", result.warning);
     }
+    this.log(`AI hint request finished source=${result.source} model=${JSON.stringify(result.model)}`);
 
     this.stateStore.update({
       ...this.getAiStatePatch(),
@@ -838,6 +841,21 @@ export class SessionManager {
           aiError: undefined
         });
       }
+      return;
+    }
+
+    if (decision.action === "clear-hint") {
+      if (this.pendingHintTimer) {
+        this.clearHintTimer(this.pendingHintTimer);
+        this.pendingHintTimer = undefined;
+      }
+      this.stateStore.update({
+        aiStatus: "idle",
+        aiProvider: undefined,
+        aiCoachResponse: undefined,
+        aiLastUpdatedAt: undefined,
+        aiError: undefined
+      });
       return;
     }
 

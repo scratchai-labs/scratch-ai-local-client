@@ -36,6 +36,7 @@ export type RequestReason =
 
 export type SessionDecision =
   | { action: "idle" }
+  | { action: "clear-hint" }
   | { action: "keep-current" }
   | {
       action: "scheduled" | "queued";
@@ -139,12 +140,20 @@ export class CoachingSession {
 
     if (!hasVisibleBlocks(observation)) {
       this.pendingRequest = undefined;
-      return { action: "idle" };
+      this.activeRecommendation = undefined;
+      this.lastManualSignature = undefined;
+      this.lastCompletedSignature = undefined;
+      return { action: "clear-hint" };
     }
 
     if (identityChanged) {
       this.activeRecommendation = undefined;
       this.lastManualSignature = undefined;
+      this.lastCompletedSignature = undefined;
+      if (observation.mode !== "auto") {
+        this.pendingRequest = undefined;
+        return { action: "idle" };
+      }
       return this.scheduleOrQueue("identity-changed", snapshot, false);
     }
 
@@ -205,6 +214,12 @@ export class CoachingSession {
   requestManualHint(): SessionDecision {
     if (!this.latestSnapshot) {
       return { action: "idle" };
+    }
+
+    if (!hasVisibleBlocks(this.latestSnapshot)) {
+      this.pendingRequest = undefined;
+      this.lastManualSignature = undefined;
+      return { action: "clear-hint" };
     }
 
     if (this.requestRunning) {

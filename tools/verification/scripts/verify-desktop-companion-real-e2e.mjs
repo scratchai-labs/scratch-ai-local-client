@@ -279,6 +279,52 @@ async function evaluateExpressionInTarget(target, expression) {
     }
 }
 
+async function closeScratchTarget(target) {
+    if (!target?.webSocketDebuggerUrl) {
+        return false;
+    }
+
+    const closeAttempt = (async () => {
+        const socket = new WebSocket(target.webSocketDebuggerUrl);
+        await waitForWebSocketOpen(socket, Math.min(timeoutMs, 5000));
+        try {
+            const connection = new CdpConnection(socket);
+            await connection.send('Page.enable');
+            await connection.send('Runtime.enable');
+            await connection.send('Runtime.evaluate', {
+                expression: `
+(() => {
+  window.onbeforeunload = null;
+  window.addEventListener('beforeunload', event => {
+    event.stopImmediatePropagation();
+  }, true);
+  return true;
+})()
+                `.trim(),
+                awaitPromise: true,
+                returnByValue: true,
+                userGesture: true
+            }).catch(() => {});
+            const closeResult = connection.send('Page.close').catch(error => ({
+                closeError: error instanceof Error ? error.message : String(error)
+            }));
+            await sleep(500);
+            await connection.send('Page.handleJavaScriptDialog', {accept: true}).catch(() => {});
+            await closeResult;
+            return true;
+        } catch {
+            return false;
+        } finally {
+            socket.close();
+        }
+    })();
+
+    return await Promise.race([
+        closeAttempt,
+        sleep(5000).then(() => false)
+    ]);
+}
+
 function buildCompanionUiSnapshotExpression() {
     return `
 (() => ({
@@ -573,6 +619,7 @@ async function main() {
     );
 
     let launchedScratchProcess = null;
+    let scratchTarget = null;
     try {
         const companionTargetResult = await waitForTargets(
             companionDebugPort,
@@ -622,10 +669,11 @@ async function main() {
             pickScratchTarget,
             'Failed to find the Scratch debug target.'
         );
+        scratchTarget = scratchTargetResult.preferredTarget;
 
         const projectFileBase64 = (await readFile(projectFile)).toString('base64');
         const loadProjectResult = await evaluateExpressionInTarget(
-            scratchTargetResult.preferredTarget,
+            scratchTarget,
             buildLoadProjectExpression(projectFile, projectFileBase64)
         );
         assert(
@@ -798,6 +846,10 @@ async function main() {
 
         process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
     } finally {
+        if (scratchTarget) {
+            await closeScratchTarget(scratchTarget);
+        }
+
         if (child.pid) {
             try {
                 process.kill(child.pid);
