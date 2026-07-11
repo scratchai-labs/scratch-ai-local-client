@@ -36,7 +36,7 @@ await packager({
     executableName: 'ScratchDesktopCompanion',
     name: 'ScratchDesktopCompanion',
     ignore: [
-        /\/release(?:-(?:single|installer))?(?:-(?:with-key|no-key))?($|\/)/,
+        /\/release(?:-(?:single|installer))?(?:-no-key)?($|\/)/,
         /\/test($|\/)/
     ]
 });

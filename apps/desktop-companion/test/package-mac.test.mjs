@@ -77,16 +77,6 @@ test("getMacPackageArtifactInfo exposes the root app bundle name for dir targets
   });
 });
 
-test("getMacPackageArtifactInfo keeps with-key variants explicit", () => {
-  assert.deepEqual(getMacPackageArtifactInfo("with-key", "dmg"), {
-    target: "dmg",
-    outputDirName: "release-dmg-with-key",
-    artifactFileName: "ScratchDesktopCompanion-with-key.dmg",
-    distributionFileName: "ScratchDesktopCompanion-with-key-mac.dmg",
-    bundleFileName: "ScratchDesktopCompanion.app"
-  });
-});
-
 test("buildMacBuilderConfig disables signing by default for internal macOS builds", () => {
   const config = buildMacBuilderConfig({
     appDir,
@@ -105,7 +95,7 @@ test("buildMacBuilderConfig disables signing by default for internal macOS build
 test("buildMacBuilderConfig allows explicit signing identity overrides", () => {
   const config = buildMacBuilderConfig({
     appDir,
-    outputDir: "/tmp/scratchai/apps/desktop-companion/release-dmg-with-key",
+    outputDir: "/tmp/scratchai/apps/desktop-companion/release-dmg-no-key",
     target: "dmg",
     env: {
       [MAC_SIGN_IDENTITY_ENV_NAME]: "Apple Development: Example (ABCDE12345)"

@@ -24,7 +24,7 @@ git push origin v0.1.0
 
 也可以在 GitHub Actions 页面手动运行 `Desktop Release Artifacts`，填写 `release_version`，例如 `v0.1.0`。
 
-正式 Release 会附带从 Windows / macOS runner 打出的可下载文件，用户可在 GitHub Releases 页面直接下载。版本号必须类似 `v0.1.0` 或 `v0.1.0-beta.1`。
+正式 Release 只附带 4 个无 Key 可下载文件，用户可在 GitHub Releases 页面直接下载。版本号必须类似 `v0.1.0` 或 `v0.1.0-beta.1`。
 
 ## Actions artifact 名称
 
@@ -39,7 +39,6 @@ Windows：
 
 - `ScratchDesktopCompanion-portable.exe`
 - `ScratchDesktopCompanion-setup.exe`
-- `ScratchDesktopCompanion-win-unpacked/`
 
 macOS：
 
@@ -69,5 +68,6 @@ npm run package:mac:dmg
 
 ## 当前边界
 
+- 不发布、也不保留任何 `with-key` 预置 Key 版本
 - 当前不会自动做 macOS 签名、公证或 notarization 发布流程
 - `installers/` 是产物收口目录，不纳入 git

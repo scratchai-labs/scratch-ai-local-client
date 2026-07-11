@@ -7,9 +7,7 @@ import { fileURLToPath } from "node:url";
 import { copyFileWithRetry, copyPathWithRetry } from "./copy-with-retry.mjs";
 import { getWindowsDistributionArtifactInfo } from "./package-artifact-layout.mjs";
 import {
-  PACKAGED_KEY_MODE_ENV_NAME,
   getPackageVariantMeta,
-  resolvePackagedDeepSeekConfig,
   runBuildForVariant
 } from "./package-variant.mjs";
 
@@ -84,13 +82,6 @@ export function buildBundleSubprocessArgs(buildInfo) {
   ];
 }
 
-function ensureWithKeyVariantCanBuild(sourceConfig) {
-  resolvePackagedDeepSeekConfig(sourceConfig, {
-    ...process.env,
-    [PACKAGED_KEY_MODE_ENV_NAME]: "with-key"
-  });
-}
-
 async function getSha256(filePath) {
   const buffer = await readFile(filePath);
   return createHash("sha256").update(buffer).digest("hex").toUpperCase();
@@ -112,10 +103,6 @@ function getReleaseSummaryLines({ generatedAt, bundleDir, artifacts }) {
 }
 
 export async function main() {
-  const sourceConfig = JSON.parse(await readFile(getSourceConfigPath(), "utf8"));
-
-  ensureWithKeyVariantCanBuild(sourceConfig);
-
   const bundleTimestamp = getBundleTimestamp();
   const bundleDir = path.join(bundleRootDir, bundleTimestamp);
 
@@ -124,14 +111,12 @@ export async function main() {
 
   const buildPlan = [
     { kind: "installer", variant: "no-key" },
-    { kind: "portable", variant: "no-key" },
-    { kind: "installer", variant: "with-key" },
-    { kind: "portable", variant: "with-key" }
+    { kind: "portable", variant: "no-key" }
   ];
 
   const artifacts = [];
 
-  for (const variant of ["no-key", "with-key"]) {
+  for (const variant of ["no-key"]) {
     runBuildForVariant(appDir, variant);
 
     for (const kind of ["installer", "portable"]) {

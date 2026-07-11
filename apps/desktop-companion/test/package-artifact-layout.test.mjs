@@ -15,22 +15,18 @@ test("package artifact layout exposes root distribution names for Windows and ma
     directoryBundleDirName: "ScratchDesktopCompanion-win32-x64"
   });
 
-  assert.deepEqual(layoutModule.getWindowsDistributionArtifactInfo("with-key"), {
-    portableFileName: "ScratchDesktopCompanion-with-key-portable.exe",
-    installerFileName: "ScratchDesktopCompanion-with-key-setup.exe",
-    unpackedDirName: "ScratchDesktopCompanion-with-key-win-unpacked",
-    directoryBundleDirName: "ScratchDesktopCompanion-with-key-win32-x64"
-  });
-
   assert.deepEqual(layoutModule.getMacDistributionArtifactInfo("no-key"), {
     appBundleName: "ScratchDesktopCompanion-mac.app",
     zipFileName: "ScratchDesktopCompanion-mac.zip",
     dmgFileName: "ScratchDesktopCompanion-mac.dmg"
   });
 
-  assert.deepEqual(layoutModule.getMacDistributionArtifactInfo("with-key"), {
-    appBundleName: "ScratchDesktopCompanion-with-key-mac.app",
-    zipFileName: "ScratchDesktopCompanion-with-key-mac.zip",
-    dmgFileName: "ScratchDesktopCompanion-with-key-mac.dmg"
-  });
+  assert.throws(
+    () => layoutModule.getWindowsDistributionArtifactInfo("with-key"),
+    /Unsupported package variant "with-key"/
+  );
+  assert.throws(
+    () => layoutModule.getMacDistributionArtifactInfo("with-key"),
+    /Unsupported package variant "with-key"/
+  );
 });

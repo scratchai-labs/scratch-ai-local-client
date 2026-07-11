@@ -147,14 +147,19 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release-upload
-          find release-assets -maxdepth 3 -type f \( \
-            -name "*.exe" -o \
-            -name "*.zip" -o \
-            -name "*.dmg" -o \
-            -name "SHA256SUMS.txt" -o \
-            -name "RELEASE-NOTES.md" \
-          \) -print -exec cp {} release-upload/ \;
-          test "$(find release-upload -type f | wc -l)" -gt 0
+          cp release-assets/ScratchDesktopCompanion-portable.exe release-upload/
+          cp release-assets/ScratchDesktopCompanion-setup.exe release-upload/
+          cp release-assets/ScratchDesktopCompanion-mac.zip release-upload/
+          cp release-assets/ScratchDesktopCompanion-mac.dmg release-upload/
+          test "$(find release-upload -type f | wc -l)" -eq 4
+
+      - name: Delete Existing Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release delete "${{ needs.prepare.outputs.version }}" --cleanup-tag=false --yes || true
 
       - uses: softprops/action-gh-release@v2
         with:

@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 
 import {
   DEFAULT_PACKAGED_DEEPSEEK_API_KEY,
-  PACKAGED_API_KEY_ENV_NAME,
   PACKAGED_KEY_MODE_ENV_NAME,
   parsePackageVariantArg,
+  validatePackageVariant,
   resolvePackagedDeepSeekConfig
 } from '../scripts/package-variant.mjs';
 
@@ -30,22 +30,15 @@ test('resolvePackagedDeepSeekConfig forces placeholder key for no-key builds', (
   assert.equal(resolved.config.model, 'deepseek-v4-flash');
 });
 
-test('resolvePackagedDeepSeekConfig strips packaged keys even for with-key builds', () => {
-  const resolved = resolvePackagedDeepSeekConfig(
-    {
-      apiKey: 'sk-source-demo',
-      model: 'deepseek-v4-pro'
-    },
-    {
-      [PACKAGED_KEY_MODE_ENV_NAME]: 'with-key',
-      [PACKAGED_API_KEY_ENV_NAME]: '  sk-env-demo  '
-    }
+test('package variants reject with-key builds to avoid packaged secrets', () => {
+  assert.throws(
+    () => validatePackageVariant('with-key'),
+    /Unsupported package variant "with-key"/
   );
-
-  assert.equal(resolved.mode, 'with-key');
-  assert.equal(resolved.configured, false);
-  assert.equal(resolved.config.apiKey, DEFAULT_PACKAGED_DEEPSEEK_API_KEY);
-  assert.equal(resolved.config.model, 'deepseek-v4-pro');
+  assert.throws(
+    () => parsePackageVariantArg(['node', 'script.mjs', '--variant=with-key']),
+    /Unsupported package variant "with-key"/
+  );
 });
 
 test('resolvePackagedDeepSeekConfig strips packaged keys for source builds too', () => {

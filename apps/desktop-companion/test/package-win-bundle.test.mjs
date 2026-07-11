@@ -14,7 +14,7 @@ async function probeBundleModule() {
     "import { pathToFileURL } from 'node:url';",
     "const moduleUrl = pathToFileURL(path.join(process.cwd(), 'scripts', 'package-win-bundle.mjs')).href;",
     "const mod = await import(moduleUrl);",
-    "const portableBuild = mod.getArtifactBuildInfo('portable', 'with-key');",
+    "const portableBuild = mod.getArtifactBuildInfo('portable', 'no-key');",
     "const installerBuild = mod.getArtifactBuildInfo('installer', 'no-key');",
     "process.stdout.write(JSON.stringify({",
     "  exportKeys: Object.keys(mod).sort(),",
@@ -52,7 +52,7 @@ test("package-win-bundle child build args skip redundant installer copies", asyn
   const result = await probeBundleModule();
 
   assert.deepEqual(result.portableArgs.slice(1), [
-    "--variant=with-key",
+    "--variant=no-key",
     "--skip-build",
     "--skip-installers-copy"
   ]);
@@ -66,10 +66,10 @@ test("package-win-bundle child build args skip redundant installer copies", asyn
 test("package-win-bundle portable artifacts expose the root win-unpacked target", async () => {
   const result = await probeBundleModule();
 
-  assert.equal(result.portableBundleFileName, "ScratchDesktopCompanion-with-key-portable.exe");
+  assert.equal(result.portableBundleFileName, "ScratchDesktopCompanion-portable.exe");
   assert.match(
     result.portableRootUnpackedPath,
-    /ScratchDesktopCompanion-with-key-win-unpacked$/
+    /ScratchDesktopCompanion-win-unpacked$/
   );
 });
 
