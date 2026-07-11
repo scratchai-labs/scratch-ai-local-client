@@ -31,16 +31,20 @@ export function resolvePreferredScratchLaunchLocale(
   preferredLocales?: readonly (string | null | undefined)[],
   fallbackLocale?: string | null
 ) {
+  const normalizedPreferredLocales = (preferredLocales ?? [])
+    .map((locale) => normalizeScratchLaunchLocale(locale))
+    .filter((locale): locale is string => Boolean(locale));
+  const preferredChineseLocale = normalizedPreferredLocales.find((locale) => locale.startsWith("zh-"));
   const normalizedFallbackLocale = normalizeScratchLaunchLocale(fallbackLocale);
+  if (normalizedFallbackLocale?.startsWith("en") && preferredChineseLocale) {
+    return preferredChineseLocale;
+  }
   if (normalizedFallbackLocale) {
     return normalizedFallbackLocale;
   }
 
-  for (const locale of preferredLocales ?? []) {
-    const normalizedLocale = normalizeScratchLaunchLocale(locale);
-    if (normalizedLocale) {
-      return normalizedLocale;
-    }
+  if (normalizedPreferredLocales.length > 0) {
+    return normalizedPreferredLocales[0];
   }
 
   return undefined;
