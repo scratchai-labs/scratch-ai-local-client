@@ -23,9 +23,9 @@ test("readonly workspace options use local media assets and reduced scale", () =
   assert.ok(READONLY_WORKSPACE_SCALE < 1);
 });
 
-test("scratch workspace fallback text prefers provided label and has a safe default", () => {
-  assert.equal(resolveScratchWorkspaceFallbackText("当绿旗被点击"), "当绿旗被点击");
-  assert.equal(resolveScratchWorkspaceFallbackText("  重复执行  "), "重复执行");
-  assert.equal(resolveScratchWorkspaceFallbackText(""), "积木暂时无法渲染");
-  assert.equal(resolveScratchWorkspaceFallbackText(undefined), "积木暂时无法渲染");
+test("scratch workspace fallback avoids replacing native blocks with plain block text", () => {
+  assert.equal(resolveScratchWorkspaceFallbackText("当绿旗被点击"), "Scratch 积木正在刷新，请稍等一下。");
+  assert.equal(resolveScratchWorkspaceFallbackText("  重复执行  "), "Scratch 积木正在刷新，请稍等一下。");
+  assert.equal(resolveScratchWorkspaceFallbackText(""), "Scratch 积木正在刷新，请稍等一下。");
+  assert.equal(resolveScratchWorkspaceFallbackText(undefined), "Scratch 积木正在刷新，请稍等一下。");
 });

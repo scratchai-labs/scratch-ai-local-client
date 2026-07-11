@@ -674,8 +674,81 @@ test("SessionManager queues an automatic hint refresh when Scratch blocks change
 
   resolveFirstRequest();
   await flushAsyncWork();
-  await fakeTimer.advance(15000);
+  await fakeTimer.advance(3000);
 
+  assert.equal(capturedOptions.length, 2);
+  assert.deepEqual(capturedOptions[1].currentTargetPrograms, [
+    "当绿旗被点击 -> 移动 10 步 -> 右转 15 度"
+  ]);
+});
+
+test("SessionManager auto refreshes changed Scratch blocks after three quiet seconds", async () => {
+  const stateStore = new StateStore();
+  const capturedOptions = [];
+  const fakeTimer = createFakeTimer();
+
+  const manager = new SessionManager(stateStore, {
+    bridgeServer: createBridgeServerMock(),
+    platform: "win32",
+    log: () => {},
+    configStore: createConfigStoreMock("C:\\Scratch 3.exe"),
+    loadAiConfig: createAiConfigMock({
+      configured: true,
+      apiKey: "sk-test-demo",
+      source: "custom",
+      customKeyConfigured: true
+    }),
+    coachService: {
+      generateHint: async (options) => {
+        capturedOptions.push(options);
+        return {
+          source: "deepseek",
+          model: "deepseek-v4-flash",
+          coachResponse: {
+            answerText: "继续补下一块。",
+            recommendedBlocks: [],
+            nextStep: "继续补下一块。",
+            detectedIssues: []
+          }
+        };
+      }
+    },
+    scratchLauncher: {},
+    scratchRemoteDebugger: {},
+    now: fakeTimer.now,
+    setTimeout: fakeTimer.setTimeout,
+    clearTimeout: fakeTimer.clearTimeout
+  });
+
+  await manager.start();
+
+  manager.handlePayload({
+    source: "test",
+    currentTargetId: "sprite-a",
+    currentTargetName: "Cat",
+    toolboxCategories: ["event", "motion"],
+    projectData: createLinearProjectData(["event_whenflagclicked", "motion_movesteps"])
+  });
+
+  await fakeTimer.advance(3000);
+  assert.equal(capturedOptions.length, 1);
+
+  manager.handlePayload({
+    source: "test",
+    currentTargetId: "sprite-a",
+    currentTargetName: "Cat",
+    toolboxCategories: ["event", "motion"],
+    projectData: createLinearProjectData([
+      "event_whenflagclicked",
+      "motion_movesteps",
+      "motion_turnright"
+    ])
+  });
+
+  await fakeTimer.advance(2999);
+  assert.equal(capturedOptions.length, 1);
+
+  await fakeTimer.advance(1);
   assert.equal(capturedOptions.length, 2);
   assert.deepEqual(capturedOptions[1].currentTargetPrograms, [
     "当绿旗被点击 -> 移动 10 步 -> 右转 15 度"

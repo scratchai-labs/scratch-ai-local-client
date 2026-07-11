@@ -6,7 +6,6 @@ import type {
 } from "../common/types";
 
 const AUTO_DEBOUNCE_MS = 3_000;
-const AUTO_MIN_INTERVAL_MS = 15_000;
 
 interface CurrentTargetMeta {
   id?: string;
@@ -119,8 +118,6 @@ export class CoachingSession {
 
   private requestRunning = false;
 
-  private lastAutoRequestAt?: number;
-
   private lastCompletedSignature?: string;
 
   private lastManualSignature?: string;
@@ -200,7 +197,6 @@ export class CoachingSession {
     const pending = this.pendingRequest;
     this.pendingRequest = undefined;
     if (pending.reason !== "manual") {
-      this.lastAutoRequestAt = this.now();
     }
 
     return {
@@ -269,7 +265,6 @@ export class CoachingSession {
     this.pendingRequest = undefined;
     this.activeRecommendation = undefined;
     this.requestRunning = false;
-    this.lastAutoRequestAt = undefined;
     this.lastCompletedSignature = undefined;
     this.lastManualSignature = undefined;
     this.currentIdentity = undefined;
@@ -315,11 +310,6 @@ export class CoachingSession {
   }
 
   private getNextAutoRunAt() {
-    const debounceReadyAt = this.now() + AUTO_DEBOUNCE_MS;
-    const intervalReadyAt =
-      typeof this.lastAutoRequestAt === "number"
-        ? this.lastAutoRequestAt + AUTO_MIN_INTERVAL_MS
-        : 0;
-    return Math.max(debounceReadyAt, intervalReadyAt);
+    return this.now() + AUTO_DEBOUNCE_MS;
   }
 }

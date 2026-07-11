@@ -123,6 +123,12 @@ const buildConfigs = [
     format: "esm"
   },
   {
+    entryPoints: [path.join(__dirname, "src/main/scratch-launcher.ts")],
+    outfile: path.join(distDir, "scratch-launcher.js"),
+    platform: "node",
+    format: "esm"
+  },
+  {
     entryPoints: [path.join(__dirname, "src/main/platform-adapter.ts")],
     outfile: path.join(distDir, "platform-adapter.js"),
     platform: "node",

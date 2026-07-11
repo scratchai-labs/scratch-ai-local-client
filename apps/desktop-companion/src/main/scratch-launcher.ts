@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import path from "node:path";
 
-function buildScratchLaunchArgs(debugPort: number) {
+export function buildScratchLaunchArgs(debugPort: number) {
   return [`--remote-debugging-port=${debugPort}`];
 }
 

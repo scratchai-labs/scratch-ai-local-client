@@ -1,6 +1,6 @@
 export const SCRATCH_WORKSPACE_MEDIA_PATH = "./assets/scratch-blocks-media/";
 export const READONLY_WORKSPACE_SCALE = 0.64;
-const DEFAULT_WORKSPACE_FALLBACK_TEXT = "积木暂时无法渲染";
+const DEFAULT_WORKSPACE_FALLBACK_TEXT = "Scratch 积木正在刷新，请稍等一下。";
 
 interface ReadonlyWorkspaceOptionsArgs {
   scratchTheme: unknown;
@@ -35,6 +35,5 @@ export function createReadonlyWorkspaceOptions({
 }
 
 export function resolveScratchWorkspaceFallbackText(value?: string | null) {
-  const trimmed = typeof value === "string" ? value.trim() : "";
-  return trimmed || DEFAULT_WORKSPACE_FALLBACK_TEXT;
+  return DEFAULT_WORKSPACE_FALLBACK_TEXT;
 }

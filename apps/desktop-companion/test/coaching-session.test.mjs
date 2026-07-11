@@ -159,7 +159,7 @@ test("CoachingSession debounces auto changes and only requests the latest state"
   assert.deepEqual(due.snapshot.currentTargetPrograms, ["当绿旗被点击 -> 移动 10 步"]);
 });
 
-test("CoachingSession keeps at least 15 seconds between automatic requests", () => {
+test("CoachingSession refreshes changed blocks after the 3 second quiet window", () => {
   const { session, clock } = createSession();
 
   observe(session, createLinearProjectData(["event_whenflagclicked"]));
@@ -174,9 +174,9 @@ test("CoachingSession keeps at least 15 seconds between automatic requests", () 
     currentTargetScriptXmlList: ["<xml>say</xml>"]
   });
   assert.equal(scheduled.action, "scheduled");
-  assert.equal(scheduled.runAt, 18000);
+  assert.equal(scheduled.runAt, 7000);
 
-  clock.advance(13999);
+  clock.advance(2999);
   assert.equal(session.consumeDueRequest()?.action ?? "idle", "idle");
 
   clock.advance(1);
@@ -204,9 +204,9 @@ test("CoachingSession allows only one running request and chases the latest stat
     }
   });
   assert.equal(finished.action, "scheduled");
-  assert.equal(finished.runAt, 18000);
+  assert.equal(finished.runAt, 6000);
 
-  clock.advance(15000);
+  clock.advance(3000);
   const due = session.consumeDueRequest();
   assert.equal(due.action, "request");
   assert.deepEqual(due.snapshot.currentTargetPrograms, ["当绿旗被点击 -> 移动 10 步"]);
