@@ -55,6 +55,12 @@ const buildConfigs = [
     format: "esm"
   },
   {
+    entryPoints: [path.join(__dirname, "src/common/recommendation-matcher.ts")],
+    outfile: path.join(distDir, "recommendation-matcher.js"),
+    platform: "browser",
+    format: "esm"
+  },
+  {
     entryPoints: [path.join(__dirname, "src/main/coach-service.ts")],
     outfile: path.join(distDir, "coach-service.js"),
     platform: "node",
