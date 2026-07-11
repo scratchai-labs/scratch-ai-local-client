@@ -162,7 +162,7 @@ const coachResponseSchema = z.object({
     .optional(),
   recommendedBlocks: z.array(recommendedBlockSchema),
   nextStep: z.string(),
-  detectedIssues: z.array(detectedIssueSchema),
+  detectedIssues: z.array(detectedIssueSchema).default([]),
   followUpQuestion: z.string().optional()
 });
 

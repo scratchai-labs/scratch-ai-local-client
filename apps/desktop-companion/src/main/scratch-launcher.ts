@@ -4,8 +4,50 @@ import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import path from "node:path";
 
-export function buildScratchLaunchArgs(debugPort: number) {
-  return [`--remote-debugging-port=${debugPort}`];
+export function normalizeScratchLaunchLocale(locale?: string | null) {
+  const normalized = String(locale ?? "").trim().replace("_", "-");
+  if (!normalized) {
+    return undefined;
+  }
+
+  const parts = normalized.split("-").filter(Boolean);
+  const [language] = parts;
+  if (!language) {
+    return undefined;
+  }
+
+  if (language.toLowerCase() === "zh") {
+    const hasTraditionalScriptOrRegion = parts
+      .slice(1)
+      .some((part) => ["hant", "tw", "hk", "mo"].includes(part.toLowerCase()));
+    return hasTraditionalScriptOrRegion ? "zh-TW" : "zh-CN";
+  }
+
+  const region = parts.slice(1).find((part) => part.length === 2 || part.length === 3);
+  return region ? `${language.toLowerCase()}-${region.toUpperCase()}` : language.toLowerCase();
+}
+
+export function resolvePreferredScratchLaunchLocale(
+  preferredLocales?: readonly (string | null | undefined)[],
+  fallbackLocale?: string | null
+) {
+  for (const locale of preferredLocales ?? []) {
+    const normalizedLocale = normalizeScratchLaunchLocale(locale);
+    if (normalizedLocale) {
+      return normalizedLocale;
+    }
+  }
+
+  return normalizeScratchLaunchLocale(fallbackLocale);
+}
+
+export function buildScratchLaunchArgs(debugPort: number, locale?: string | null) {
+  const args = [`--remote-debugging-port=${debugPort}`];
+  const normalizedLocale = normalizeScratchLaunchLocale(locale);
+  if (normalizedLocale) {
+    args.push(`--lang=${normalizedLocale}`);
+  }
+  return args;
 }
 
 async function getAvailablePort() {
@@ -34,12 +76,16 @@ async function getAvailablePort() {
 }
 
 export class ScratchLauncher {
+  constructor(
+    private readonly localeProvider: () => string | undefined = () => Intl.DateTimeFormat().resolvedOptions().locale
+  ) {}
+
   async launch(scratchExecutablePath: string) {
     await access(scratchExecutablePath);
 
     const debugPort = await getAvailablePort();
     const processEvents = new EventEmitter();
-    const child = spawn(scratchExecutablePath, buildScratchLaunchArgs(debugPort), {
+    const child = spawn(scratchExecutablePath, buildScratchLaunchArgs(debugPort, this.localeProvider()), {
       cwd: path.dirname(scratchExecutablePath),
       stdio: "ignore",
       windowsHide: false

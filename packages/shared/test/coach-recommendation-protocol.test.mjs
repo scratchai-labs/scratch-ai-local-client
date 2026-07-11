@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { coachRecommendationResponseSchema } from "../src/index.js";
+import { coachRecommendationResponseSchema, desktopCompanionStateSchema } from "../src/index.js";
 
 test("parses one connected recommendation structure with at most three blocks", () => {
   const response = coachRecommendationResponseSchema.parse({
@@ -95,4 +95,18 @@ test("rejects extra fields and model-provided XML", () => {
 
   assert.equal(withExtraField.success, false);
   assert.equal(withRawXml.success, false);
+});
+
+test("desktop companion mock state accepts coach responses without detected issues", () => {
+  const state = desktopCompanionStateSchema.parse({
+    status: "connected",
+    statusText: "已连接到 Scratch Desktop",
+    aiCoachResponse: {
+      answerText: "试着先让角色动起来。",
+      recommendedBlocks: [],
+      nextStep: "拖一个移动积木到脚本里。"
+    }
+  });
+
+  assert.deepEqual(state.aiCoachResponse.detectedIssues, []);
 });

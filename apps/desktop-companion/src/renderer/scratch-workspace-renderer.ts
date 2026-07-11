@@ -145,6 +145,34 @@ function registerReadonlyValueBlock(
   };
 }
 
+function registerReadonlyFieldValueStatementBlock(
+  blockType: string,
+  message0: string,
+  fieldName: string,
+  inputName: string,
+  extensions: string[]
+) {
+  ScratchBlocks.Blocks[blockType] = {
+    init: function initReadonlyFieldValueStatementBlock(this: ScratchBlocks.Block) {
+      this.jsonInit({
+        message0,
+        args0: [
+          {
+            type: "field_input",
+            name: fieldName,
+            text: ""
+          },
+          {
+            type: "input_value",
+            name: inputName
+          }
+        ],
+        extensions
+      });
+    }
+  };
+}
+
 function ensureScratchBlocksInitialized() {
   if (scratchBlocksInitialized) {
     return;
@@ -190,10 +218,13 @@ function ensureScratchBlocksInitialized() {
     "colours_pen",
     "shape_statement"
   ]);
-  registerReadonlyValueBlock("pen_changePenSizeBy", "将画笔粗细增加 %1", "SIZE", [
-    "colours_pen",
-    "shape_statement"
-  ]);
+  registerReadonlyFieldValueStatementBlock(
+    "pen_changePenSizeBy",
+    "将画笔 %1 增加 %2",
+    "SIZE",
+    "SIZE",
+    ["colours_pen", "shape_statement"]
+  );
 
   ScratchBlocks.Blocks.event_whenbackdropswitchesto = {
     init: function initBackdropSwitchBlock(this: ScratchBlocks.Block) {
