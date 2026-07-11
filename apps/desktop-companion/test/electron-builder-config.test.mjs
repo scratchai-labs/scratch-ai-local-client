@@ -28,7 +28,7 @@ test("desktop companion electron-builder base config pins electronVersion for wo
   });
 
   assert.equal(config.electronVersion, "41.3.0");
-  assert.equal(config.publish, "never");
+  assert.equal(config.publish, undefined);
   assert.deepEqual(config.files, ["dist/**/*", "node_modules/**/*", "package.json"]);
 });
 

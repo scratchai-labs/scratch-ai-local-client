@@ -6,6 +6,7 @@
 
 ## 已完成
 
+- 2026-07-11：修复 `v0.1.0` 发布出包失败；定位到 `electron-builder` 配置中的 `publish: "never"` 被当作 publisher provider 解析，导致 Windows / macOS 打包步骤失败。已改为在程序化 `build()` 调用参数中禁用发布，保留 GitHub Release workflow 负责上传 Release assets；已完成桌面端全量测试和本地 macOS zip 出包验证。
 - 2026-07-11：完成桌面伴随程序 GitHub Release 自动发布链路；`Desktop Release Artifacts` 保留 PR / main 的 Windows 与 macOS Actions artifact，同时支持 `v*` tag 或手动填写 `release_version` 创建正式 GitHub Release，并上传 Windows portable / installer 与 macOS zip / dmg 产物；已补 workflow 回归测试和中英文发布文档。
 - 2026-07-11：完成一轮完整测试；根级自动化回归通过（shared 10 项、verification 33 项、desktop-companion 134 项），桌面端 UI 自动化通过并刷新 mock 截图；真实 Scratch bridge `cat-motion` 操作验证已成功捕获 `manual-project-mutation:cat-motion-ran` payload，确认 Scratch 操作后桥接数据会更新（脚本收尾清理阶段触发 120s 超时，但核心断言已输出成功）；打包 mac app 后完成真实桌面 E2E，覆盖受控启动 Scratch、加载猫鼠 `.sb3`、教学软件自动更新当前角色程序、自动提示模式文案、设置切换手动模式和重连注入日志。
 - 2026-07-11：完成 6 个自学辅导切片完整验收与修复；code review 发现并修复空白作品旧提示/手动请求、无效结构关系、baseline 已存在推荐误判完成、手动模式加载项目后自动请求、DeepSeek 超长或携带 `fields`/`inputs` 推荐结构导致 fallback、Electron 路径和真实 E2E 退出弹窗残留问题。已完成根级自动化测试、桌面 UI 截图回归，以及真实 Scratch + DeepSeek live 点击/截图验收；live E2E 生成 10 张截图并确认结束后无残留 Scratch 自动化进程。

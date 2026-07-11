@@ -170,6 +170,7 @@ async function main() {
   await build({
     projectDir: appDir,
     targets: undefined,
+    publish: "never",
     config
   });
 
