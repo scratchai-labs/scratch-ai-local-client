@@ -229,6 +229,8 @@ test("CoachService sends DeepSeek V4 chat completions requests in JSON non-think
   assert.deepEqual(capturedRequest.body.response_format, { type: "json_object" });
   assert.equal(capturedRequest.body.messages.length, 2);
   assert.equal(capturedRequest.body.messages[0].content.includes("不要直接给完整答案"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("直接对学生说“你”"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("不要用“学生”“老师”“用户”等第三人称称呼"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("只允许从以下 Scratch 官方 opcode 白名单中选择"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("summary"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("recommendation.root"), true);
@@ -241,6 +243,51 @@ test("CoachService sends DeepSeek V4 chat completions requests in JSON non-think
   assert.equal(capturedRequest.body.messages[0].content.includes("不要把积木顺序一次性全部告诉学生"), false);
   assert.equal(capturedRequest.body.messages[0].content.includes("最接近"), false);
   assert.equal(capturedRequest.body.messages[1].content.includes("直接给出按顺序连接的具体积木"), true);
+});
+
+test("CoachService fallback speaks directly to the student", async () => {
+  const service = new CoachService();
+
+  const result = await service.generateHint({
+    snapshot: {
+      ...createSnapshot(),
+      toolboxCategories: ["事件", "控制", "侦测"],
+      programAreaModules: [
+        { id: "event", label: "事件", blockCount: 1 },
+        { id: "control", label: "控制", blockCount: 1 },
+        { id: "sensing", label: "侦测", blockCount: 1 }
+      ],
+      sprites: [
+        {
+          ...createSnapshot().sprites[0],
+          blockCount: 4,
+          scripts: [
+            {
+              spriteName: "Cat",
+              event: "when green flag clicked",
+              blockSequence: ["当绿旗被点击", "一直重复", "碰到...？"],
+              blockOpcodes: ["event_whenflagclicked", "control_forever", "sensing_touchingobject"]
+            }
+          ]
+        }
+      ],
+      detectedConcepts: ["event", "control", "sensing"]
+    },
+    currentTargetPrograms: ["event_whenflagclicked -> control_forever -> sensing_touchingobject"],
+    programAreaModules: [
+      { id: "event", label: "事件", blockCount: 1 },
+      { id: "control", label: "控制", blockCount: 1 },
+      { id: "sensing", label: "侦测", blockCount: 1 }
+    ],
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "做一个有规则的小游戏",
+    aiConfig: createAiConfig({ configured: false, apiKey: "" })
+  });
+
+  assert.equal(result.source, "fallback");
+  assert.equal(result.coachResponse.answerText.includes("学生"), false);
+  assert.equal(result.coachResponse.answerText.includes("你"), true);
 });
 
 test("CoachService falls back when DeepSeek returns invalid JSON content", async () => {

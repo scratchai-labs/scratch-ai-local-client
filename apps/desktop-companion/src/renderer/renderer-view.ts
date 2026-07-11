@@ -352,6 +352,27 @@ function createRecommendedReasonList(documentRef: MinimalDocument, reasons: stri
   return list;
 }
 
+function buildRecommendedStructureFromBlocks(blocks: RecommendedBlock[]): RecommendedBlockStructure | null {
+  const nodes = blocks.slice(0, MAX_RECOMMENDED_BLOCKS).map((block): RecommendedBlockNode => ({
+    opcode: block.opcode,
+    category: block.category,
+    label: block.label,
+    reason: block.reason
+  }));
+
+  if (nodes.length === 0) {
+    return null;
+  }
+
+  for (let index = 0; index < nodes.length - 1; index += 1) {
+    nodes[index].next = nodes[index + 1];
+  }
+
+  return {
+    root: nodes[0]
+  };
+}
+
 function renderCurrentTargetScriptXmlList(
   documentRef: MinimalDocument,
   container: MinimalElement | null | undefined,
@@ -434,8 +455,15 @@ function renderRecommendedBlockCards(
     return;
   }
 
+  const blockStructure = buildRecommendedStructureFromBlocks(blocks);
   const firstBlock = blocks[0];
-  item.append(createScratchWorkspaceInline(documentRef, buildRecommendedBlockXml(firstBlock), response?.answerText ?? firstBlock.label));
+  item.append(
+    createScratchWorkspaceInline(
+      documentRef,
+      blockStructure ? buildRecommendedStructureXml(blockStructure) : buildRecommendedBlockXml(firstBlock),
+      response?.answerText ?? firstBlock.label
+    )
+  );
   item.append(createRecommendedReasonList(documentRef, getRecommendedReasonItems(response)));
 
   container.append(item);

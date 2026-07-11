@@ -27,9 +27,9 @@ import type {
 const DEFAULT_FALLBACK_MODEL = "local-heuristic";
 const DEFAULT_DEEPSEEK_MAX_TOKENS = 2048;
 export const DEFAULT_HINT_ONLY_SYSTEM_PROMPT =
-  "你是 Scratch 小学编程助教。请只根据学生当前作品，给出具体、可执行、面向小学生的中文提示，但不要直接给完整答案，不要写完整脚本。你必须先判断学生当前项目已经做到哪一步，再给出当前最适合尝试的 1 到 3 个按顺序连接的关键积木。所有自然语言必须使用中文，不要出现英文 opcode、英文积木名、英文字段解释，避免中英混杂。recommendation.root 里的 opcode 必须使用 Scratch 官方积木 opcode，不要编造不存在的 opcode。";
+  "你是 Scratch 小学编程助教。请只根据学生当前作品，给出具体、可执行、面向小学生的中文提示，但不要直接给完整答案，不要写完整脚本。所有展示给学生的自然语言都必须直接对学生说“你”，不要用“学生”“老师”“用户”等第三人称称呼。你必须先判断学生当前项目已经做到哪一步，再给出当前最适合尝试的 1 到 3 个按顺序连接的关键积木。所有自然语言必须使用中文，不要出现英文 opcode、英文积木名、英文字段解释，避免中英混杂。recommendation.root 里的 opcode 必须使用 Scratch 官方积木 opcode，不要编造不存在的 opcode。";
 const HINT_ONLY_OUTPUT_REQUIREMENTS =
-  "输出必须是一个 JSON 对象，字段只能包含 summary、recommendation。summary 是一句给学生看的简短中文提示。recommendation.root 是按顺序连接的具体积木结构，最多 3 个积木节点；每个节点必须包含 opcode、category、label、reason。使用 next 表示下一个顺序积木，使用 condition 表示条件输入，使用 substack 表示内部执行分支，使用 substack2 表示否则分支。不要输出 Markdown，不要输出额外解释，不要输出追问、诊断、示例或 XML。";
+  "输出必须是一个 JSON 对象，字段只能包含 summary、recommendation。summary 是一句直接给学生看的简短中文提示，必须使用“你”来称呼学生。recommendation.root 是按顺序连接的具体积木结构，最多 3 个积木节点；每个节点必须包含 opcode、category、label、reason。使用 next 表示下一个顺序积木，使用 condition 表示条件输入，使用 substack 表示内部执行分支，使用 substack2 表示否则分支。不要输出 Markdown，不要输出额外解释，不要输出追问、诊断、示例或 XML。";
 const RECOMMENDED_OPCODE_WHITELIST_REQUIREMENTS =
   `recommendation 里的 opcode 只允许从以下 Scratch 官方 opcode 白名单中选择：${SUPPORTED_RECOMMENDED_BLOCK_OPCODES.join("、")}。如果不确定具体 opcode，就不要返回那一块，不要替换成其他积木。`;
 const HINT_ONLY_USER_PROMPT =
@@ -151,7 +151,7 @@ function buildBlockSuggestionFromOpcode(opcode: string) {
     case "motion_gotoxy":
       return createRecommendedBlock("motion_gotoxy", "运动", "移到 x: y:", "先把角色放到需要的起点位置。");
     case "motion_movesteps":
-      return createRecommendedBlock("motion_movesteps", "运动", "移动 10 步", "先让角色动起来，学生更容易看到效果。");
+      return createRecommendedBlock("motion_movesteps", "运动", "移动 10 步", "先让角色动起来，你会更容易看到效果。");
     case "motion_pointtowards":
       return createRecommendedBlock("motion_pointtowards", "运动", "面向...", "如果角色要跟随某个目标，先让方向正确。");
     case "control_forever":
@@ -169,7 +169,7 @@ function buildBlockSuggestionFromOpcode(opcode: string) {
     case "looks_show":
       return createRecommendedBlock("looks_show", "外观", "显示", "让角色在该出现的时候可见。");
     case "looks_sayforsecs":
-      return createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "给学生一个看得见的反馈，方便调试。");
+      return createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "给角色一个看得见的反馈，方便你调试。");
     default:
       return null;
   }
@@ -184,7 +184,7 @@ function buildGenericFallbackCoachResponse(options: GenerateCoachHintOptions): C
   const detectedIssues: CoachResponse["detectedIssues"] = [];
 
   let nextStep = `先围绕 ${currentTarget} 补一个更清晰的小目标。`;
-  let answerText = `我看到 ${currentTarget} 现在主要用了 ${describeModules(programAreaModules)}。下一步先收紧范围，只补一个学生自己也能完成的小功能。`;
+  let answerText = `我看到 ${currentTarget} 现在主要用了 ${describeModules(programAreaModules)}。下一步先收紧范围，只补一个你自己也能完成的小功能。`;
   let followUpQuestion = "你希望这个角色下一步对什么做出反应，比如按键、碰撞还是计分？";
 
   if (currentTargetPrograms.length === 0 || !currentSprite || currentSprite.blockCount === 0) {
@@ -195,7 +195,7 @@ function buildGenericFallbackCoachResponse(options: GenerateCoachHintOptions): C
     recommendedBlocks.push(
       createRecommendedBlock("event_whenflagclicked", "事件", "当绿旗被点击", "给脚本一个清楚的开始时机。"),
       createRecommendedBlock("motion_movesteps", "运动", "移动 10 步", "先做一个最直观的动作反馈。"),
-      createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "学生更容易看出脚本已经被触发。", "比如：我开始执行啦"),
+      createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "你会更容易看出脚本已经被触发。", "比如：我开始执行啦"),
       createRecommendedBlock("control_repeat", "控制", "重复执行", "先把刚搭好的动作重复几次，更容易确认脚本真的跑起来了。")
     );
     detectedIssues.push({
@@ -207,17 +207,17 @@ function buildGenericFallbackCoachResponse(options: GenerateCoachHintOptions): C
     followUpQuestion = "你想先让角色动起来，还是先做一个看得见的提示？";
   } else if (!hasOpcodePrefix(opcodes, "event_")) {
     nextStep = "先补一个事件积木，把现有动作接到明确的触发时机后面。";
-    answerText = `现在 ${currentTarget} 已经有动作思路了，但还缺少清楚的“什么时候开始执行”。先补事件，学生会更容易理解流程。`;
+    answerText = `现在 ${currentTarget} 已经有动作思路了，但还缺少清楚的“什么时候开始执行”。先补事件，你会更容易理解流程。`;
     recommendedBlocks.push(
       createRecommendedBlock("event_whenflagclicked", "事件", "当绿旗被点击", "适合先做统一启动。"),
       createRecommendedBlock("event_whenkeypressed", "事件", "当按下某个键", "适合做角色控制或交互触发。"),
       createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "触发后给一个可见反馈，方便调试。"),
-      createRecommendedBlock("motion_movesteps", "运动", "移动 10 步", "把事件后面的第一个动作补简单一点，学生更容易马上看到结果。")
+      createRecommendedBlock("motion_movesteps", "运动", "移动 10 步", "把事件后面的第一个动作补简单一点，你会更容易马上看到结果。")
     );
     detectedIssues.push({
       severity: "warning",
       title: "脚本触发条件不够清楚",
-      description: "学生可能已经拼好了动作，但还缺少“什么时候开始”的事件积木。",
+      description: "当前动作还缺少“什么时候开始”的事件积木。",
       spriteName: currentTarget
     });
     followUpQuestion = "你想让这个角色在绿旗点击时开始，还是在按键时开始？";
@@ -233,17 +233,17 @@ function buildGenericFallbackCoachResponse(options: GenerateCoachHintOptions): C
     followUpQuestion = "你希望它一直循环，还是只循环几次？";
   } else if (hasModule(programAreaModules, "motion") && !hasModule(programAreaModules, "sensing")) {
     nextStep = "在现有动作外面加一个侦测条件，让角色开始根据环境变化行为。";
-    answerText = `现在 ${currentTarget} 已经会动了，下一步很适合补“侦测”。这样学生就能从“会动”进阶到“会判断、会互动”。`;
+    answerText = `现在 ${currentTarget} 已经会动了，下一步很适合补“侦测”。这样你就能从“会动”进阶到“会判断、会互动”。`;
     recommendedBlocks.push(
       createRecommendedBlock("sensing_touchingobject", "侦测", "碰到...？", "让角色开始根据环境做判断。"),
       createRecommendedBlock("control_if", "控制", "如果...那么", "把侦测结果变成真正的行为变化。"),
       createRecommendedBlock("motion_ifonedgebounce", "运动", "碰到边缘就反弹", "适合快速做出可见的互动结果。"),
-      createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "判断成立时给一个提示，学生更容易确认侦测逻辑是否生效。")
+      createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "判断成立时给一个提示，你更容易确认侦测逻辑是否生效。")
     );
     followUpQuestion = "你希望角色碰到边缘、鼠标，还是另一个角色时发生变化？";
   } else if (!hasModule(programAreaModules, "data")) {
     nextStep = "加一个变量，例如“分数”或“时间”，把作品从演示推进到有规则。";
-    answerText = "当前脚本已经不只是单纯动作了。下一步可以加变量，让学生开始理解“状态”会随着事件变化。";
+    answerText = "当前脚本已经不只是单纯动作了。下一步可以加变量，帮你理解“状态”会随着事件变化。";
     recommendedBlocks.push(
       createRecommendedBlock("data_setvariableto", "变量", "将变量设为", "先初始化一个核心变量。"),
       createRecommendedBlock("data_changevariableby", "变量", "将变量增加", "完成动作或满足条件时更新结果。"),

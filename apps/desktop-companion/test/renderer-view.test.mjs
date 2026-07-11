@@ -325,6 +325,68 @@ test("renderState renders Scratch-style block stacks for current programs and re
   );
 });
 
+test("renderState renders all flat recommended blocks in one ordered stack", () => {
+  const documentRef = createFakeDocument();
+  const aiRecommendedBlocksElement = createFakeListElement("ul");
+  const aiStatusElement = createFakeListElement("p");
+
+  renderState(
+    {
+      status: "connected",
+      statusText: "已连接到 Scratch Desktop",
+      toolboxCategories: [],
+      usedExtensions: [],
+      loadedExtensions: [],
+      programAreaModules: [],
+      aiCoachResponse: {
+        answerText: "按顺序试试这三块。",
+        nextStep: "按顺序试试这三块。",
+        detectedIssues: [],
+        recommendedBlocks: [
+          {
+            opcode: "data_setvariableto",
+            category: "变量",
+            label: "将变量设为",
+            reason: "先初始化一个核心变量。"
+          },
+          {
+            opcode: "data_changevariableby",
+            category: "变量",
+            label: "将变量增加",
+            reason: "完成动作或满足条件时更新结果。"
+          },
+          {
+            opcode: "looks_sayforsecs",
+            category: "外观",
+            label: "说 2 秒",
+            reason: "变量变化后给一个可见反馈。"
+          }
+        ]
+      }
+    },
+    {
+      documentRef,
+      aiStatusElement,
+      aiRecommendedBlocksElement
+    }
+  );
+
+  assert.equal(aiStatusElement.textContent, "看这 3 个积木，按顺序试一试。");
+  assert.equal(aiRecommendedBlocksElement.children.length, 1);
+  assert.match(
+    aiRecommendedBlocksElement.children[0].children[0].children[0].dataset.xml,
+    /type="data_setvariableto"[\s\S]*type="data_changevariableby"[\s\S]*type="looks_sayforsecs"/
+  );
+  assert.deepEqual(
+    aiRecommendedBlocksElement.children[0].children[1].children.map((child) => child.textContent),
+    [
+      "先初始化一个核心变量。",
+      "完成动作或满足条件时更新结果。",
+      "变量变化后给一个可见反馈。"
+    ]
+  );
+});
+
 test("renderState renders one connected structured recommendation and hides examples", () => {
   const documentRef = createFakeDocument();
   const aiRecommendedBlocksElement = createFakeListElement("ul");

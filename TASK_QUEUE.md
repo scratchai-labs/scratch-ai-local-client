@@ -6,6 +6,8 @@
 
 ## 已完成
 
+- 2026-07-11：修复 macOS 人工测试反馈；“下一步提示”改为直接面向学生说“你”，DeepSeek prompt 明确禁止第三人称称呼；推荐积木区域会把扁平返回的 1-3 个积木串成一组 Scratch workspace 展示，不再只渲染第一块。已补 CoachService 和 renderer 回归测试，并通过桌面端 135 项测试。
+- 2026-07-11：运行当前 macOS 版本桌面伴随程序供人工用户测试；按现有文档使用正常联调启动，不带 mock 环境变量；修复后已重启到最新源码版进程。
 - 2026-07-11：补齐导出规则文档口径；将双语 README 的旧 GitHub Actions artifacts 分发说明改为正式 GitHub Releases 只导出 4 个无 Key 包，并在架构风险点中明确正式导出矩阵固定为 Windows portable / setup、macOS zip / dmg。
 - 2026-07-11：维护发布收尾文档；同步 README、路线图和中英文发布说明到最终口径：正式分发通过 GitHub Releases 自动发布 4 个无 Key 包，重复发布会先清空旧 Release assets，`with-key` 打包入口禁用且不得保留历史 asset，GitHub 自动生成的源码 zip/tar.gz 不属于本项目上传的 Release 资产。
 - 2026-07-11：继续收口 `v0.1.0` GitHub Release 资产；远端页面仍残留旧 `with-key` Windows 产物，本轮将发布前清理改为逐个删除旧 Release asset，并在上传前校验不得残留 `with-key` 或额外资产；Release 仍只 staging 4 个无 Key 文件：Windows portable / setup、macOS zip / dmg。
