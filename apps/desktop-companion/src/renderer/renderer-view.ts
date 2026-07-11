@@ -1,8 +1,13 @@
 import type {
   DesktopCompanionState,
-  RecommendedBlock
+  RecommendedBlock,
+  RecommendedBlockNode,
+  RecommendedBlockStructure
 } from "../common/types";
-import { buildRecommendedBlockXml } from "../common/scratch-block-xml";
+import {
+  buildRecommendedBlockXml,
+  buildRecommendedStructureXml
+} from "../common/scratch-block-xml";
 import { MAX_RECOMMENDED_BLOCKS } from "../common/recommended-blocks";
 
 interface MinimalElement {
@@ -84,12 +89,12 @@ export function formatCurrentTarget(state: DesktopCompanionState) {
   return state.currentTargetIsStage ? `${state.currentTargetName}（舞台）` : state.currentTargetName;
 }
 
-export function formatCurrentTargetPrograms(programs: string[]) {
+export function formatCurrentTargetPrograms(programs: string[] = []) {
   return programs.map((program, index) => `脚本 ${index + 1}: ${program}`);
 }
 
 export function formatProgramAreaModules(
-  modules: Array<{ label: string; blockCount: number }>
+  modules: Array<{ label: string; blockCount: number }> = []
 ) {
   return modules.map((module) => `${module.label} x ${module.blockCount}`);
 }
@@ -100,34 +105,28 @@ function isManualHintTriggerMode(state: DesktopCompanionState) {
 
 export function formatAiStatus(state: DesktopCompanionState) {
   if (state.aiStatus === "loading") {
-    return "AI 正在整理作品并生成下一步提示…";
+    return "正在看你的作品，马上给积木提示。";
   }
 
   if (state.aiStatus === "error") {
-    return state.aiError ?? "AI 提示暂时不可用。";
+    return "提示暂时没有刷新；先继续搭积木。";
   }
 
-  if (state.aiCoachResponse && state.aiProvider === "deepseek") {
-    const modelText = state.aiModel ? `（${state.aiModel}）` : "";
-    return `当前提示来源：DeepSeek${modelText}，生成时间：${formatTimestamp(state.aiLastUpdatedAt)}`;
-  }
-
-  if (state.aiCoachResponse && state.aiProvider === "fallback") {
-    return state.aiError
-      ? "DeepSeek 暂时不可用，已自动切到基础提示。"
-      : "当前提示来源：基础提示。需要更完整结果时，可到“DeepSeek 设置”里保存本机 API Key。";
+  const recommendedCount = countRecommendedReasonItems(state.aiCoachResponse);
+  if (state.aiCoachResponse && recommendedCount > 0) {
+    return `看这 ${recommendedCount} 个积木，按顺序试一试。`;
   }
 
   if (state.status === "connected") {
     return isManualHintTriggerMode(state)
-      ? "Scratch 已连接。点击“生成下一步提示”后，我会基于当前作品给出下一步建议。"
-      : "Scratch 已连接。继续修改积木后，我会基于当前作品自动刷新下一步建议。";
+      ? "先自己搭一会儿；需要提示时点一下按钮。"
+      : "先自己搭一会儿；需要时看右边的积木提示。";
   }
 
   if (!state.aiConfigured) {
     return isManualHintTriggerMode(state)
-      ? "还没配置本机 DeepSeek Key 也可以先用。点击“生成下一步提示”后，程序会先给基础提示；需要更完整结果时，再到“DeepSeek 设置”里保存 API Key。"
-      : "还没配置本机 DeepSeek Key 也可以先用。自动模式下，程序会先给基础提示；需要更完整结果时，再到“DeepSeek 设置”里保存 API Key。";
+      ? "需要提示时点一下按钮。"
+      : "先自己搭一会儿；需要时看右边的积木提示。";
   }
 
   return "准备好了：先选择 Scratch 软件，打开已选 Scratch，再读取当前作品。";
@@ -210,12 +209,14 @@ export function formatDefaultNextStep(state: DesktopCompanionState) {
 }
 
 export function formatRecommendedBlocks(state: DesktopCompanionState) {
+  const recommendationReasons = collectRecommendedStructureReasons(state.aiCoachResponse?.recommendation);
+  if (recommendationReasons.length > 0) {
+    return recommendationReasons;
+  }
+
   return (state.aiCoachResponse?.recommendedBlocks ?? [])
     .slice(0, MAX_RECOMMENDED_BLOCKS)
-    .map((block) => {
-      const exampleText = block.example ? `；示例：${block.example}` : "";
-      return `${block.category} / ${block.label}：${block.reason}${exampleText}`;
-    });
+    .map((block) => block.reason);
 }
 
 export function formatDetectedIssues(state: DesktopCompanionState) {
@@ -301,6 +302,56 @@ function createScratchWorkspaceInline(
   return inline;
 }
 
+function collectRecommendedNodeReasons(
+  node: RecommendedBlockNode | undefined,
+  reasons: string[] = []
+) {
+  if (!node || reasons.length >= MAX_RECOMMENDED_BLOCKS) {
+    return reasons;
+  }
+
+  if (node.reason) {
+    reasons.push(node.reason);
+  }
+
+  collectRecommendedNodeReasons(node.condition, reasons);
+  collectRecommendedNodeReasons(node.substack, reasons);
+  collectRecommendedNodeReasons(node.substack2, reasons);
+  collectRecommendedNodeReasons(node.next, reasons);
+  return reasons.slice(0, MAX_RECOMMENDED_BLOCKS);
+}
+
+function collectRecommendedStructureReasons(structure: RecommendedBlockStructure | undefined) {
+  return collectRecommendedNodeReasons(structure?.root).slice(0, MAX_RECOMMENDED_BLOCKS);
+}
+
+function getRecommendedReasonItems(response: DesktopCompanionState["aiCoachResponse"]) {
+  const structureReasons = collectRecommendedStructureReasons(response?.recommendation);
+  if (structureReasons.length > 0) {
+    return structureReasons;
+  }
+
+  return (response?.recommendedBlocks ?? [])
+    .slice(0, MAX_RECOMMENDED_BLOCKS)
+    .map((block) => block.reason)
+    .filter(Boolean);
+}
+
+function countRecommendedReasonItems(response: DesktopCompanionState["aiCoachResponse"]) {
+  return getRecommendedReasonItems(response).length;
+}
+
+function createRecommendedReasonList(documentRef: MinimalDocument, reasons: string[]) {
+  const list = documentRef.createElement("ul");
+  list.className = "recommended-reason-list";
+  for (const reason of reasons.slice(0, MAX_RECOMMENDED_BLOCKS)) {
+    const item = documentRef.createElement("li");
+    item.textContent = reason;
+    list.append(item);
+  }
+  return list;
+}
+
 function renderCurrentTargetScriptXmlList(
   documentRef: MinimalDocument,
   container: MinimalElement | null | undefined,
@@ -333,15 +384,33 @@ function renderCurrentTargetScriptXmlList(
 function renderRecommendedBlockCards(
   documentRef: MinimalDocument,
   container: MinimalElement | null | undefined,
-  blocks: RecommendedBlock[],
+  response: DesktopCompanionState["aiCoachResponse"],
   emptyText: string
 ) {
   if (!container) {
     return;
   }
 
+  const structure = response?.recommendation;
+  const blocks = response?.recommendedBlocks ?? [];
+
   container.replaceChildren();
   if (blocks.length === 0) {
+    if (structure) {
+      const item = documentRef.createElement("li");
+      item.className = "hint-item recommended-structure-item";
+      item.append(
+        createScratchWorkspaceInline(
+          documentRef,
+          buildRecommendedStructureXml(structure),
+          response?.answerText ?? structure.root.label
+        )
+      );
+      item.append(createRecommendedReasonList(documentRef, collectRecommendedStructureReasons(structure)));
+      container.append(item);
+      return;
+    }
+
     const empty = documentRef.createElement("li");
     empty.className = "empty";
     empty.textContent = emptyText;
@@ -349,26 +418,36 @@ function renderRecommendedBlockCards(
     return;
   }
 
-  for (const block of blocks.slice(0, MAX_RECOMMENDED_BLOCKS)) {
-    const item = documentRef.createElement("li");
-    item.className = "hint-item recommended-block-item";
+  const item = documentRef.createElement("li");
+  item.className = "hint-item recommended-structure-item";
 
-    item.append(createScratchWorkspaceInline(documentRef, buildRecommendedBlockXml(block), block.label));
-    item.append(createTextChild(documentRef, "p", "recommended-block-reason", block.reason));
-
-    if (block.example) {
-      item.append(createTextChild(documentRef, "p", "recommended-block-example", `示例：${block.example}`));
-    }
-
+  if (structure) {
+    item.append(
+      createScratchWorkspaceInline(
+        documentRef,
+        buildRecommendedStructureXml(structure),
+        response?.answerText ?? structure.root.label
+      )
+    );
+    item.append(createRecommendedReasonList(documentRef, collectRecommendedStructureReasons(structure)));
     container.append(item);
+    return;
   }
+
+  const firstBlock = blocks[0];
+  item.append(createScratchWorkspaceInline(documentRef, buildRecommendedBlockXml(firstBlock), response?.answerText ?? firstBlock.label));
+  item.append(createRecommendedReasonList(documentRef, getRecommendedReasonItems(response)));
+
+  container.append(item);
 }
 
 export function renderState(state: DesktopCompanionState, elements: RendererElements) {
   const currentTargetScriptXmlList = state.currentTargetScriptXmlList ?? [];
+  const currentTargetPrograms = state.currentTargetPrograms ?? [];
+  const programAreaModules = state.programAreaModules ?? [];
 
   if (elements.statusElement) {
-    elements.statusElement.textContent = state.statusText;
+    elements.statusElement.textContent = state.statusText ?? "";
     if (elements.statusElement.dataset) {
       elements.statusElement.dataset.status = state.status;
     }
@@ -407,14 +486,14 @@ export function renderState(state: DesktopCompanionState, elements: RendererElem
       elements.documentRef,
       elements.currentTargetProgramsElement,
       currentTargetScriptXmlList,
-      state.currentTargetPrograms,
+      currentTargetPrograms,
       "当前角色还没有可读取的脚本。"
     );
   } else {
     renderList(
       elements.documentRef,
       elements.currentTargetProgramsElement,
-      formatCurrentTargetPrograms(state.currentTargetPrograms),
+      formatCurrentTargetPrograms(currentTargetPrograms),
       "当前角色还没有可读取的脚本。",
       "program-item"
     );
@@ -423,7 +502,7 @@ export function renderState(state: DesktopCompanionState, elements: RendererElem
   renderList(
     elements.documentRef,
     elements.programAreaModulesElement,
-    formatProgramAreaModules(state.programAreaModules),
+    formatProgramAreaModules(programAreaModules),
     "当前角色还没有识别到模块使用情况。",
     "module-item"
   );
@@ -438,17 +517,17 @@ export function renderState(state: DesktopCompanionState, elements: RendererElem
 
   if (elements.aiAnswerElement) {
     elements.aiAnswerElement.textContent =
-      state.aiCoachResponse?.answerText ?? "读取到当前 Scratch 作品后，我会基于你现在的进度给出下一步提示。";
+      state.aiCoachResponse?.answerText ?? "先自己搭一会儿；需要时看右边的积木提示。";
   }
 
   if (elements.aiNextStepElement) {
-    elements.aiNextStepElement.textContent = formatDefaultNextStep(state);
+    elements.aiNextStepElement.textContent = "";
   }
 
   renderRecommendedBlockCards(
     elements.documentRef,
     elements.aiRecommendedBlocksElement,
-    state.aiCoachResponse?.recommendedBlocks ?? [],
+    state.aiCoachResponse,
     "这里会显示适合当前这一步的积木和原因。"
   );
 

@@ -5,7 +5,6 @@ import {
   formatAiStatus,
   formatCompactStatus,
   formatDefaultDetail,
-  formatDefaultNextStep,
   formatCurrentTarget,
   formatCurrentTargetPrograms,
   formatRecommendedBlocks,
@@ -76,7 +75,7 @@ test("formats recommended blocks without exposing English opcodes", () => {
         ]
       }
     }),
-    ["事件 / 当绿旗被点击：先给脚本一个开始时机。"]
+    ["先给脚本一个开始时机。"]
   );
 });
 
@@ -119,9 +118,9 @@ test("formats recommended blocks with at most three items", () => {
       }
     }),
     [
-      "事件 / 当绿旗被点击：1",
-      "运动 / 移动 10 步：2",
-      "控制 / 重复执行：3"
+      "1",
+      "2",
+      "3"
     ]
   );
 });
@@ -137,22 +136,6 @@ test("formats default detail and next step for the new scratch-first flow", () =
     }),
     "已经记住上次选择的 Scratch 软件了。现在点“打开已选 Scratch”即可继续使用。"
   );
-  assert.equal(
-    formatDefaultNextStep({}),
-    "先选择 Scratch 软件。"
-  );
-  assert.equal(
-    formatDefaultNextStep({
-      scratchExecutablePath: "C:\\Scratch 3.exe"
-    }),
-    "点击“打开已选 Scratch”。"
-  );
-  assert.equal(
-    formatDefaultNextStep({
-      status: "connected"
-    }),
-    "先看当前提示完成这一小步；你继续改积木时，我会自动刷新下一步提示。"
-  );
 });
 
 test("formats local-only AI guidance without teacher sb3 wording", () => {
@@ -166,7 +149,7 @@ test("formats local-only AI guidance without teacher sb3 wording", () => {
     formatAiStatus({
       status: "connected"
     }),
-    "Scratch 已连接。继续修改积木后，我会基于当前作品自动刷新下一步建议。"
+    "先自己搭一会儿；需要时看右边的积木提示。"
   );
 });
 
@@ -179,18 +162,11 @@ test("formats manual hint mode guidance for connected Scratch", () => {
     "Scratch 已连接。现在可以直接读取当前作品，并生成下一步提示。"
   );
   assert.equal(
-    formatDefaultNextStep({
-      status: "connected",
-      aiHintTriggerMode: "manual"
-    }),
-    "先看当前提示完成这一小步；学生补完后，再点击“生成下一步提示”。"
-  );
-  assert.equal(
     formatAiStatus({
       status: "connected",
       aiHintTriggerMode: "manual"
     }),
-    "Scratch 已连接。点击“生成下一步提示”后，我会基于当前作品给出下一步建议。"
+    "先自己搭一会儿；需要提示时点一下按钮。"
   );
 });
 
@@ -331,7 +307,7 @@ test("renderState renders Scratch-style block stacks for current programs and re
   );
 
   assert.equal(aiRecommendedBlocksElement.children.length, 1);
-  assert.equal(aiRecommendedBlocksElement.children[0].className, "hint-item recommended-block-item");
+  assert.equal(aiRecommendedBlocksElement.children[0].className, "hint-item recommended-structure-item");
   assert.equal(aiRecommendedBlocksElement.children[0].children[0].className, "scratch-workspace-inline");
   assert.equal(aiRecommendedBlocksElement.children[0].children[0].children[0].className, "scratch-workspace-host");
   assert.match(
@@ -340,8 +316,97 @@ test("renderState renders Scratch-style block stacks for current programs and re
   );
   assert.equal(
     aiRecommendedBlocksElement.children[0].children[0].children[0].dataset.fallbackText,
-    "移动 10 步"
+    "先让小猫动起来。"
   );
-  assert.equal(aiRecommendedBlocksElement.children[0].children[1].textContent, "先做一个最容易看见的动作。");
-  assert.equal(aiRecommendedBlocksElement.children[0].children[2].textContent, "示例：比如让小猫往前走一步");
+  assert.equal(aiRecommendedBlocksElement.children[0].children[1].className, "recommended-reason-list");
+  assert.deepEqual(
+    aiRecommendedBlocksElement.children[0].children[1].children.map((child) => child.textContent),
+    ["先做一个最容易看见的动作。"]
+  );
+});
+
+test("renderState renders one connected structured recommendation and hides examples", () => {
+  const documentRef = createFakeDocument();
+  const aiRecommendedBlocksElement = createFakeListElement("ul");
+  const aiStatusElement = createFakeListElement("p");
+  const aiAnswerElement = createFakeListElement("p");
+  const aiNextStepElement = createFakeListElement("span");
+
+  renderState(
+    {
+      status: "connected",
+      statusText: "已连接到 Scratch Desktop",
+      toolboxCategories: [],
+      usedExtensions: [],
+      loadedExtensions: [],
+      programAreaModules: [],
+      aiProvider: "deepseek",
+      aiModel: "deepseek-v4-flash",
+      aiLastUpdatedAt: "2026-07-11T00:00:00.000Z",
+      aiCoachResponse: {
+        answerText: "让小猫先开始动起来。",
+        nextStep: "这里不应该再单独显示。",
+        detectedIssues: [
+          {
+            severity: "warning",
+            title: "这里不应该显示",
+            description: "诊断不面向低年级学生"
+          }
+        ],
+        recommendedBlocks: [
+          {
+            opcode: "event_whenflagclicked",
+            category: "事件",
+            label: "当绿旗被点击",
+            reason: "先给脚本一个开始。",
+            example: "不要显示示例"
+          },
+          {
+            opcode: "motion_movesteps",
+            category: "运动",
+            label: "移动 10 步",
+            reason: "让角色动起来。"
+          }
+        ],
+        recommendation: {
+          root: {
+            opcode: "event_whenflagclicked",
+            category: "事件",
+            label: "当绿旗被点击",
+            reason: "先给脚本一个开始。",
+            next: {
+              opcode: "motion_movesteps",
+              category: "运动",
+              label: "移动 10 步",
+              reason: "让角色动起来。"
+            }
+          }
+        }
+      }
+    },
+    {
+      documentRef,
+      aiStatusElement,
+      aiAnswerElement,
+      aiNextStepElement,
+      aiRecommendedBlocksElement
+    }
+  );
+
+  assert.equal(aiStatusElement.textContent, "看这 2 个积木，按顺序试一试。");
+  assert.equal(aiAnswerElement.textContent, "让小猫先开始动起来。");
+  assert.equal(aiNextStepElement.textContent, "");
+  assert.equal(aiRecommendedBlocksElement.children.length, 1);
+  assert.match(
+    aiRecommendedBlocksElement.children[0].children[0].children[0].dataset.xml,
+    /type="event_whenflagclicked"[\s\S]*type="motion_movesteps"/
+  );
+  assert.deepEqual(
+    aiRecommendedBlocksElement.children[0].children[1].children.map((child) => child.textContent),
+    ["先给脚本一个开始。", "让角色动起来。"]
+  );
+  assert.equal(JSON.stringify(aiRecommendedBlocksElement).includes("不要显示示例"), false);
+  assert.equal(JSON.stringify(aiRecommendedBlocksElement).includes("这里不应该显示"), false);
+  assert.equal(aiStatusElement.textContent.includes("DeepSeek"), false);
+  assert.equal(aiStatusElement.textContent.includes("生成时间"), false);
 });

@@ -25,6 +25,14 @@ test("main window keeps current target programs and recommended blocks in an equ
   assert.doesNotMatch(html, /\.program-recommend-grid\s*\{\s*grid-template-columns:\s*1fr;/);
 });
 
+test("main window keeps the student hint panel to one sentence without a separate next step", async () => {
+  const html = await readFile(new URL("../src/renderer/index.html", import.meta.url), "utf8");
+
+  assert.match(html, /<p id="ai-answer" class="status-line">/);
+  assert.doesNotMatch(html, /id="ai-next-step"/);
+  assert.doesNotMatch(html, /<strong>下一步：<\/strong>/);
+});
+
 test("main window defines Scratch-style block colors for the program and recommendation panels", async () => {
   const html = await readFile(new URL("../src/renderer/index.html", import.meta.url), "utf8");
 

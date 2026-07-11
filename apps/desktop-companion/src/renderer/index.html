@@ -276,15 +276,6 @@
         color: var(--muted);
       }
 
-      .next-step-box {
-        padding: 11px 12px;
-        border-radius: var(--card-radius);
-        border: 1px solid #bfdbfe;
-        background: linear-gradient(180deg, #eff6ff 0%, #f8fbff 100%);
-        font-size: var(--text-body);
-        line-height: 1.6;
-      }
-
       .summary-grid,
       .detail-stack,
       .program-recommend-grid {
@@ -367,7 +358,7 @@
       }
 
       .scratch-script-item,
-      .recommended-block-item {
+      .recommended-structure-item {
         background: #fff;
       }
 
@@ -445,22 +436,26 @@
         display: none !important;
       }
 
-      .recommended-block-item {
+      .recommended-structure-item {
         display: grid;
         gap: 10px;
         align-content: start;
       }
 
-      .recommended-block-reason {
+      .recommended-reason-list {
+        display: grid;
+        gap: 6px;
+      }
+
+      .recommended-reason-list li {
+        min-height: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
         font-size: var(--text-note);
         line-height: 1.55;
         color: var(--ink);
-      }
-
-      .recommended-block-example {
-        font-size: var(--text-mini);
-        line-height: 1.5;
-        color: var(--muted);
       }
 
       #error {
@@ -554,11 +549,7 @@
             <h2>下一步提示</h2>
             <div class="status-copy">
               <p id="ai-status" class="status-line muted">正在整理当前状态…</p>
-              <p id="ai-answer" class="status-line">读取到当前 Scratch 作品后，我会基于你现在的进度给出下一步提示。</p>
-              <div class="next-step-box">
-                <strong>下一步：</strong>
-                <span id="ai-next-step">先选择 Scratch 软件。</span>
-              </div>
+              <p id="ai-answer" class="status-line">先自己搭一会儿；需要时看右边的积木提示。</p>
             </div>
           </section>
 
