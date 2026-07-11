@@ -37,8 +37,9 @@ test("normalizeScratchLaunchLocale ignores empty locales", () => {
   assert.equal(normalizeScratchLaunchLocale(undefined), undefined);
 });
 
-test("resolvePreferredScratchLaunchLocale prefers system language list before fallback locale", () => {
-  assert.equal(resolvePreferredScratchLaunchLocale(["zh-Hans-CN", "en-US"], "en-US"), "zh-CN");
-  assert.equal(resolvePreferredScratchLaunchLocale(["", "ja_JP"], "en-US"), "ja-JP");
+test("resolvePreferredScratchLaunchLocale keeps the app locale before system language list", () => {
+  assert.equal(resolvePreferredScratchLaunchLocale(["en-US", "zh-Hans-CN"], "zh-CN"), "zh-CN");
+  assert.equal(resolvePreferredScratchLaunchLocale(["zh-Hans-CN", "en-US"], "en-US"), "en-US");
+  assert.equal(resolvePreferredScratchLaunchLocale(["", "ja_JP"], undefined), "ja-JP");
   assert.equal(resolvePreferredScratchLaunchLocale([], "fr-fr"), "fr-FR");
 });

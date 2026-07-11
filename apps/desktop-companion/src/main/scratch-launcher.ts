@@ -31,6 +31,11 @@ export function resolvePreferredScratchLaunchLocale(
   preferredLocales?: readonly (string | null | undefined)[],
   fallbackLocale?: string | null
 ) {
+  const normalizedFallbackLocale = normalizeScratchLaunchLocale(fallbackLocale);
+  if (normalizedFallbackLocale) {
+    return normalizedFallbackLocale;
+  }
+
   for (const locale of preferredLocales ?? []) {
     const normalizedLocale = normalizeScratchLaunchLocale(locale);
     if (normalizedLocale) {
@@ -38,7 +43,7 @@ export function resolvePreferredScratchLaunchLocale(
     }
   }
 
-  return normalizeScratchLaunchLocale(fallbackLocale);
+  return undefined;
 }
 
 export function buildScratchLaunchArgs(debugPort: number, locale?: string | null) {
