@@ -109,6 +109,47 @@ function flushAsyncWork() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+function createFakeTimer() {
+  let currentTime = 0;
+  let nextId = 1;
+  const timers = new Map();
+
+  return {
+    now: () => currentTime,
+    setTimeout: (callback, delayMs) => {
+      const id = nextId;
+      nextId += 1;
+      timers.set(id, {
+        callback,
+        runAt: currentTime + Math.max(0, delayMs)
+      });
+      return id;
+    },
+    clearTimeout: (id) => {
+      timers.delete(id);
+    },
+    advance: async (ms) => {
+      currentTime += ms;
+      let ran = true;
+      while (ran) {
+        ran = false;
+        const dueTimers = [...timers.entries()]
+          .filter(([, timer]) => timer.runAt <= currentTime)
+          .sort((a, b) => a[1].runAt - b[1].runAt);
+        for (const [id, timer] of dueTimers) {
+          if (!timers.has(id)) {
+            continue;
+          }
+          timers.delete(id);
+          timer.callback();
+          ran = true;
+          await flushAsyncWork();
+        }
+      }
+    }
+  };
+}
+
 function createLinearProjectData(opcodes) {
   const blocks = {};
 
@@ -554,6 +595,7 @@ test("SessionManager does not auto refresh hints when hint trigger mode is manua
 test("SessionManager queues an automatic hint refresh when Scratch blocks change during loading", async () => {
   const stateStore = new StateStore();
   const capturedOptions = [];
+  const fakeTimer = createFakeTimer();
   let resolveFirstRequest;
   let requestCount = 0;
   const firstRequestGate = new Promise((resolve) => {
@@ -591,7 +633,10 @@ test("SessionManager queues an automatic hint refresh when Scratch blocks change
       }
     },
     scratchLauncher: {},
-    scratchRemoteDebugger: {}
+    scratchRemoteDebugger: {},
+    now: fakeTimer.now,
+    setTimeout: fakeTimer.setTimeout,
+    clearTimeout: fakeTimer.clearTimeout
   });
 
   await manager.start();
@@ -605,6 +650,9 @@ test("SessionManager queues an automatic hint refresh when Scratch blocks change
   });
 
   await flushAsyncWork();
+  assert.equal(capturedOptions.length, 0);
+
+  await fakeTimer.advance(3000);
   assert.equal(capturedOptions.length, 1);
   assert.deepEqual(capturedOptions[0].currentTargetPrograms, ["当绿旗被点击 -> 移动 10 步"]);
 
@@ -620,12 +668,13 @@ test("SessionManager queues an automatic hint refresh when Scratch blocks change
     ])
   });
 
+  await fakeTimer.advance(3000);
   await flushAsyncWork();
   assert.equal(capturedOptions.length, 1);
 
   resolveFirstRequest();
   await flushAsyncWork();
-  await flushAsyncWork();
+  await fakeTimer.advance(15000);
 
   assert.equal(capturedOptions.length, 2);
   assert.deepEqual(capturedOptions[1].currentTargetPrograms, [
@@ -895,6 +944,7 @@ test("SessionManager saves AI hint trigger mode and exposes it in state", async 
 test("SessionManager saves a custom teacher prompt and reuses it for hint generation", async () => {
   const stateStore = new StateStore();
   const capturedOptions = [];
+  const fakeTimer = createFakeTimer();
 
   const manager = new SessionManager(stateStore, {
     bridgeServer: createBridgeServerMock(),
@@ -924,7 +974,10 @@ test("SessionManager saves a custom teacher prompt and reuses it for hint genera
       }
     },
     scratchLauncher: {},
-    scratchRemoteDebugger: {}
+    scratchRemoteDebugger: {},
+    now: fakeTimer.now,
+    setTimeout: fakeTimer.setTimeout,
+    clearTimeout: fakeTimer.clearTimeout
   });
 
   await manager.start();
@@ -968,7 +1021,7 @@ test("SessionManager saves a custom teacher prompt and reuses it for hint genera
     }
   });
 
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await fakeTimer.advance(3000);
 
   const lastOptions = capturedOptions.at(-1);
   assert.equal(lastOptions.customSystemPrompt, "请优先提醒碰撞和加分。");

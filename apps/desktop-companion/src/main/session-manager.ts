@@ -10,6 +10,7 @@ import {
 import { buildDesktopInjectionScript } from "./bridge-script";
 import { ScratchBridgeServer } from "./bridge-server";
 import { CoachService, DEFAULT_HINT_ONLY_SYSTEM_PROMPT } from "./coach-service";
+import { CoachingSession } from "./coaching-session";
 import { loadDeepSeekConfig } from "./deepseek-config";
 import { createScratchPlatformAdapter } from "./platform-adapter";
 import { writeRuntimeLog } from "./runtime-log";
@@ -21,6 +22,7 @@ import { buildCurrentTargetScriptXmlList } from "../common/scratch-block-xml";
 import { normalizeAiHintTriggerMode } from "../common/types";
 import type { LoadedDeepSeekConfig } from "./deepseek-config";
 import type { ScratchPlatformAdapter } from "./platform-adapter";
+import type { RequestSnapshot, SessionDecision } from "./coaching-session";
 import type {
   AiHintTriggerMode,
   CurrentTargetScriptDescriptor,
@@ -47,6 +49,9 @@ interface SessionManagerDependencies {
   loadAiConfig?: typeof loadDeepSeekConfig;
   platform?: string;
   platformAdapter?: ScratchPlatformAdapter;
+  now?: () => number;
+  setTimeout?: (callback: () => void, delayMs: number) => unknown;
+  clearTimeout?: (timer: unknown) => void;
 }
 
 type ScratchLaunchSession = Awaited<ReturnType<ScratchLauncher["launch"]>>;
@@ -128,6 +133,8 @@ export class SessionManager {
 
   private readonly platformAdapter: ScratchPlatformAdapter;
 
+  private readonly now: () => number;
+
   private config: {
     scratchExecutablePath?: string;
     customAiApiKey?: string;
@@ -148,11 +155,15 @@ export class SessionManager {
 
   private isLaunching = false;
 
-  private autoHintRefreshRunning = false;
+  private readonly coachingSession: CoachingSession;
 
-  private queuedAutoHintSignature?: string;
+  private readonly setHintTimer: (callback: () => void, delayMs: number) => unknown;
 
-  private lastAutoHintSignature?: string;
+  private readonly clearHintTimer: (timer: unknown) => void;
+
+  private pendingHintTimer?: unknown;
+
+  private pendingRequestBaseline?: RequestSnapshot;
 
   constructor(
     private readonly stateStore: StateStore,
@@ -189,6 +200,12 @@ export class SessionManager {
       dependencies.platformAdapter ??
       createScratchPlatformAdapter(dependencies.platform ?? process.platform);
     this.platform = this.platformAdapter.id;
+    this.now = dependencies.now ?? Date.now;
+    this.coachingSession = new CoachingSession({
+      now: this.now
+    });
+    this.setHintTimer = dependencies.setTimeout ?? setTimeout;
+    this.clearHintTimer = dependencies.clearTimeout ?? clearTimeout;
   }
 
   getCurrentState() {
@@ -230,7 +247,7 @@ export class SessionManager {
     this.unsubscribeLaunchExit = undefined;
     this.activeLaunchSession = undefined;
     this.liveProjectSnapshot = null;
-    this.resetAutoHintRefreshState();
+    this.resetCoachingState();
     this.flushBridgeConnectionWaiters(false);
     await this.bridgeServer.stop();
   }
@@ -305,35 +322,46 @@ export class SessionManager {
       aiError: undefined
     });
 
-    if (this.getAiHintTriggerMode() === "manual") {
-      this.queuedAutoHintSignature = undefined;
-      return;
-    }
-
     const currentState = this.stateStore.getState();
-    const signature = this.buildAutoHintRefreshSignature(
-      currentState.currentTargetId,
-      currentState.currentTargetName,
-      currentState.currentTargetPrograms,
-      currentState.currentTargetScriptXmlList
-    );
-
-    if (currentState.status === "connected" && this.liveProjectSnapshot && signature) {
-      this.queueAutoHintRefresh(signature);
+    if (currentState.status === "connected" && this.liveProjectSnapshot) {
+      this.applySessionDecision(
+        this.coachingSession.observeProject({
+          mode: this.getAiHintTriggerMode(),
+          target: {
+            id: currentState.currentTargetId,
+            name: currentState.currentTargetName
+          },
+          projectData: this.liveProjectSnapshot,
+          currentTargetPrograms: currentState.currentTargetPrograms,
+          currentTargetScriptXmlList: currentState.currentTargetScriptXmlList
+        })
+      );
     }
   }
 
   async requestAiHint(goal?: string) {
+    if (!goal) {
+      const decision = this.coachingSession.requestManualHint();
+      if (decision.action === "idle") {
+        return;
+      }
+      if (decision.action === "request") {
+        await this.runAiHintRequest(decision.snapshot, goal);
+        return;
+      }
+      this.applySessionDecision(decision);
+      return;
+    }
+
+    const snapshot = this.coachingSession.getLatestSnapshot();
+    await this.runAiHintRequest(snapshot, goal);
+  }
+
+  private async runAiHintRequest(requestSnapshot?: RequestSnapshot, goal?: string) {
     await this.refreshAiConfig();
 
     const currentState = this.stateStore.getState();
     const activeSnapshot = this.liveProjectSnapshot;
-    const currentHintSignature = this.buildAutoHintRefreshSignature(
-      currentState.currentTargetId,
-      currentState.currentTargetName,
-      currentState.currentTargetPrograms,
-      currentState.currentTargetScriptXmlList
-    );
 
     if (!activeSnapshot) {
       this.stateStore.update({
@@ -347,11 +375,11 @@ export class SessionManager {
       return;
     }
 
+    this.coachingSession.markRequestStarted();
+    this.pendingRequestBaseline = requestSnapshot;
     this.stateStore.update({
       ...this.getAiStatePatch(),
       aiStatus: "loading",
-      aiProvider: undefined,
-      aiCoachResponse: undefined,
       aiLastUpdatedAt: undefined,
       aiError: undefined
     });
@@ -363,9 +391,7 @@ export class SessionManager {
         aiStatus: "error",
         aiError: "AI 配置尚未加载完成，请稍后重试。"
       });
-      if (currentHintSignature) {
-        this.lastAutoHintSignature = currentHintSignature;
-      }
+      this.applySessionDecision(this.coachingSession.markRequestFinished());
       return;
     }
 
@@ -394,9 +420,14 @@ export class SessionManager {
       aiError: result.warning
     });
 
-    if (currentHintSignature) {
-      this.lastAutoHintSignature = currentHintSignature;
-    }
+    this.applySessionDecision(
+      this.coachingSession.markRequestFinished({
+        response: result.coachResponse,
+        baselineProjectData: this.pendingRequestBaseline?.projectData,
+        baselineTarget: this.pendingRequestBaseline?.target
+      })
+    );
+    this.pendingRequestBaseline = undefined;
   }
 
   async launchScratchNow() {
@@ -517,13 +548,6 @@ export class SessionManager {
       this.liveProjectSnapshot = snapshot;
     }
 
-    const nextAutoHintSignature = this.buildAutoHintRefreshSignature(
-      payload.currentTargetId,
-      payload.currentTargetName,
-      currentTargetPrograms,
-      currentTargetScriptXmlList
-    );
-
     this.stateStore.update({
       status: "connected",
       statusText: "已连接到 Scratch Desktop",
@@ -553,8 +577,19 @@ export class SessionManager {
       );
     }
 
-    if (snapshot && this.getAiHintTriggerMode() === "auto" && nextAutoHintSignature) {
-      this.queueAutoHintRefresh(nextAutoHintSignature);
+    if (snapshot && payload.projectData && typeof payload.projectData === "object") {
+      const decision = this.coachingSession.observeProject({
+        mode: this.getAiHintTriggerMode(),
+        target: {
+          id: payload.currentTargetId,
+          name: payload.currentTargetName
+        },
+        projectData: payload.projectData,
+        currentTargetPrograms,
+        currentTargetScriptXmlList
+      });
+
+      this.applySessionDecision(decision);
     }
     this.flushBridgeConnectionWaiters(true);
   }
@@ -689,14 +724,14 @@ export class SessionManager {
     this.unsubscribeLaunchExit = undefined;
     this.activeLaunchSession = undefined;
     this.liveProjectSnapshot = null;
-    this.resetAutoHintRefreshState();
+    this.resetCoachingState();
     this.flushBridgeConnectionWaiters(false);
     this.setWaitingState("Scratch 已关闭，请重新点击“打开已选 Scratch”。");
   }
 
   private setWaitingState(detail?: string) {
     this.liveProjectSnapshot = null;
-    this.resetAutoHintRefreshState();
+    this.resetCoachingState();
 
     const scratchExecutablePath = this.config.scratchExecutablePath;
     const hasScratchPath = typeof scratchExecutablePath === "string" && scratchExecutablePath.length > 0;
@@ -778,66 +813,67 @@ export class SessionManager {
     return normalizeAiHintTriggerMode(this.config.aiHintTriggerMode);
   }
 
-  private resetAutoHintRefreshState() {
-    this.autoHintRefreshRunning = false;
-    this.queuedAutoHintSignature = undefined;
-    this.lastAutoHintSignature = undefined;
+  private resetCoachingState() {
+    if (this.pendingHintTimer) {
+      this.clearHintTimer(this.pendingHintTimer);
+      this.pendingHintTimer = undefined;
+    }
+    this.pendingRequestBaseline = undefined;
+    this.coachingSession.reset();
   }
 
-  private buildAutoHintRefreshSignature(
-    currentTargetId: string | undefined,
-    currentTargetName: string | undefined,
-    currentTargetPrograms: string[],
-    currentTargetScriptXmlList: string[]
-  ) {
-    return JSON.stringify({
-      currentTargetId: currentTargetId ?? "",
-      currentTargetName: currentTargetName ?? "",
-      currentTargetPrograms,
-      currentTargetScriptXmlList
-    });
-  }
-
-  private queueAutoHintRefresh(signature: string) {
-    if (this.getAiHintTriggerMode() !== "auto") {
+  private applySessionDecision(decision: SessionDecision | undefined) {
+    if (!decision) {
       return;
     }
 
-    if (this.lastAutoHintSignature === signature || this.queuedAutoHintSignature === signature) {
-      return;
-    }
-
-    this.queuedAutoHintSignature = signature;
-    if (this.autoHintRefreshRunning) {
-      return;
-    }
-
-    void this.flushAutoHintRefreshQueue().catch((error) => {
-      this.log("Automatic hint refresh after Scratch change failed", error);
-    });
-  }
-
-  private async flushAutoHintRefreshQueue() {
-    if (this.autoHintRefreshRunning) {
-      return;
-    }
-
-    while (this.queuedAutoHintSignature && this.getAiHintTriggerMode() === "auto" && this.liveProjectSnapshot) {
-      const signature = this.queuedAutoHintSignature;
-      this.queuedAutoHintSignature = undefined;
-
-      if (this.lastAutoHintSignature === signature) {
-        continue;
+    if (decision.action === "scheduled") {
+      this.scheduleDueHintRequest(decision.runAt);
+      if (!decision.keepExistingHint) {
+        this.stateStore.update({
+          aiStatus: "loading",
+          aiProvider: undefined,
+          aiCoachResponse: undefined,
+          aiLastUpdatedAt: undefined,
+          aiError: undefined
+        });
       }
-
-      this.autoHintRefreshRunning = true;
-      try {
-        await this.requestAiHint();
-      } finally {
-        this.autoHintRefreshRunning = false;
-        this.lastAutoHintSignature = signature;
-      }
+      return;
     }
+
+    if (decision.action === "queued" && !decision.keepExistingHint) {
+      this.stateStore.update({
+        aiStatus: "loading",
+        aiProvider: undefined,
+        aiCoachResponse: undefined,
+        aiLastUpdatedAt: undefined,
+        aiError: undefined
+      });
+      return;
+    }
+
+    if (decision.action === "request") {
+      void this.runAiHintRequest(decision.snapshot).catch((error) => {
+        this.log("Automatic hint request failed", error);
+      });
+    }
+  }
+
+  private scheduleDueHintRequest(runAt?: number) {
+    if (this.pendingHintTimer) {
+      this.clearHintTimer(this.pendingHintTimer);
+      this.pendingHintTimer = undefined;
+    }
+
+    if (typeof runAt !== "number") {
+      return;
+    }
+
+    const delayMs = Math.max(0, runAt - this.now());
+    this.pendingHintTimer = this.setHintTimer(() => {
+      this.pendingHintTimer = undefined;
+      this.applySessionDecision(this.coachingSession.consumeDueRequest());
+    }, delayMs);
   }
 
   private buildProjectSnapshot(

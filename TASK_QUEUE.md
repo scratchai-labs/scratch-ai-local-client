@@ -6,6 +6,7 @@
 
 ## 已完成
 
+- 2026-07-11：按 TDD 完成自学辅导计划切片 4；新增可注入时钟的 `CoachingSession` 状态机，支持 3 秒静默窗口、15 秒自动请求间隔、单请求运行、请求期间最新状态追赶，并接入推荐 `following` / `completed` / `diverged` 判定。`SessionManager` 已改为通过状态机调度自动/主动请求，空白作品不触发自动请求，主动模式相同签名不重复请求，角色切换或偏离方向会隐藏旧提示并重新分析；已完成状态机单测、桌面端集成测试和根级全量回归。
 - 2026-07-11：按 TDD 完成自学辅导计划切片 3；新增 `recommendation-matcher` 纯函数层，基于当前角色原始 block map 递归匹配结构化推荐，支持顺序连接、条件槽、`SUBSTACK` 和 `SUBSTACK2` 的结构匹配，并区分 `unchanged`、`following`、`completed`、`diverged`。判定逻辑忽略参数值和坐标变化，保持不依赖界面 XML 文本；已完成定向测试，后续会话状态机接入留给切片 4。
 - 2026-07-11：按 TDD 完成自学辅导计划切片 2；`CoachService` 已迁移到 `summary + recommendation.root` 结构化 AI 积木推荐协议，DeepSeek prompt 改为直接给 1–3 个按顺序连接的具体积木，服务层严格解析共享 schema，过滤未知 opcode 和未加载扩展积木；保留旧 `recommendedBlocks` 扁平兼容输出，但不再近似替换、不再补满，全部无效时降级到本地基础提示。已完成 CoachService 定向测试和桌面端定向回归。
 - 2026-07-10：按 TDD 完成自学辅导实施计划切片 1；新增 1–3 个节点的结构化积木推荐协议，支持 `next`、条件槽、`SUBSTACK` 和 `SUBSTACK2`，严格拒绝额外字段、超过 3 个节点和模型原始 XML；客户端新增递归 Scratch Blockly XML 生成入口，同时保留旧扁平协议供下一切片渐进迁移；共享包 10 项、验证工具 32 项、桌面端 95 项测试全部通过。
