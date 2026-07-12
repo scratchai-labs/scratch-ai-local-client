@@ -8,7 +8,7 @@ import type {
   RecommendedBlockStructure
 } from "../common/types";
 
-const AUTO_DEBOUNCE_MS = 3_000;
+const AUTO_DEBOUNCE_MS = 2_000;
 
 interface CurrentTargetMeta {
   id?: string;
@@ -129,6 +129,8 @@ export class CoachingSession {
 
   private lastCompletedSignature?: string;
 
+  private lastRequestedSignature?: string;
+
   private currentIdentity?: string;
 
   constructor(dependencies: CoachingSessionDependencies = {}) {
@@ -146,12 +148,14 @@ export class CoachingSession {
       this.pendingRequest = undefined;
       this.activeRecommendation = undefined;
       this.lastCompletedSignature = undefined;
+      this.lastRequestedSignature = undefined;
       return { action: "clear-hint" };
     }
 
     if (identityChanged) {
       this.activeRecommendation = undefined;
       this.lastCompletedSignature = undefined;
+      this.lastRequestedSignature = undefined;
       if (observation.mode !== "auto") {
         this.pendingRequest = undefined;
         return { action: "idle" };
@@ -184,13 +188,21 @@ export class CoachingSession {
 
       if (progress.status === "diverged") {
         this.activeRecommendation = undefined;
-        return this.scheduleOrQueue("student-diverged", snapshot, false);
+        return this.scheduleOrQueue("student-diverged", snapshot, true);
       }
     }
 
     if (observation.mode !== "auto") {
       this.pendingRequest = undefined;
       return { action: "idle" };
+    }
+
+    if (this.pendingRequest?.snapshot.signature === snapshot.signature) {
+      return { action: "keep-current" };
+    }
+
+    if (this.lastRequestedSignature === snapshot.signature) {
+      return { action: "keep-current" };
     }
 
     return this.scheduleOrQueue("auto-change", snapshot, true);
@@ -227,6 +239,7 @@ export class CoachingSession {
     if (this.requestRunning) {
       return this.scheduleOrQueue("manual", this.latestSnapshot, true);
     }
+    this.pendingRequest = undefined;
     return {
       action: "request",
       reason: "manual",
@@ -235,8 +248,11 @@ export class CoachingSession {
     };
   }
 
-  markRequestStarted() {
+  markRequestStarted(snapshot?: RequestSnapshot) {
     this.requestRunning = true;
+    if (snapshot) {
+      this.lastRequestedSignature = snapshot.signature;
+    }
   }
 
   markRequestFinished(result: RequestResult = {}): SessionDecision {
@@ -266,6 +282,7 @@ export class CoachingSession {
     this.activeRecommendation = undefined;
     this.requestRunning = false;
     this.lastCompletedSignature = undefined;
+    this.lastRequestedSignature = undefined;
     this.currentIdentity = undefined;
   }
 

@@ -487,7 +487,7 @@ export class SessionManager {
       return;
     }
 
-    this.coachingSession.markRequestStarted();
+    this.coachingSession.markRequestStarted(requestSnapshot);
     this.log(`AI hint request started goal=${JSON.stringify(trimText(goal))}`);
     this.pendingRequestBaseline = requestSnapshot;
     this.stateStore.update({
@@ -634,6 +634,8 @@ export class SessionManager {
     }
 
     const payload = parsed.data as ScratchStatePayload;
+    const source = typeof payload.source === "string" ? payload.source.trim() : "";
+    const isHeartbeat = source === "heartbeat";
     if (typeof payload.scratchLocale === "string" && payload.scratchLocale.trim()) {
       void this.rememberScratchLocale(payload.scratchLocale);
     }
@@ -699,6 +701,11 @@ export class SessionManager {
     this.log(
       `Scratch bridge payload source=${JSON.stringify(payload.source ?? "unknown")} target=${JSON.stringify(payload.currentTargetName ?? "unknown")} programs=${currentTargetPrograms.length} scripts=${currentTargetScriptBlocks.length} workspaceXml=${currentTargetScriptXmlList.length} modules=${programAreaModules.length}`
     );
+
+    if (isHeartbeat && wasConnected) {
+      this.flushBridgeConnectionWaiters(true);
+      return;
+    }
 
     this.stateStore.update({
       status: "connected",

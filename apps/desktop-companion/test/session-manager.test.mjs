@@ -954,7 +954,80 @@ test("SessionManager queues an automatic hint refresh when Scratch blocks change
   ]);
 });
 
-test("SessionManager auto refreshes changed Scratch blocks after three quiet seconds", async () => {
+test("SessionManager keeps the current recommendation visible while a changed block waits for refresh", async () => {
+  const stateStore = new StateStore();
+  const capturedOptions = [];
+  const fakeTimer = createFakeTimer();
+
+  const manager = new SessionManager(stateStore, {
+    bridgeServer: createBridgeServerMock(),
+    platform: "win32",
+    log: () => {},
+    configStore: createConfigStoreMock("C:\\Scratch 3.exe"),
+    loadAiConfig: createAiConfigMock({
+      configured: true,
+      apiKey: "sk-test-demo",
+      source: "custom",
+      customKeyConfigured: true
+    }),
+    coachService: {
+      generateHint: async (options) => {
+        capturedOptions.push(options);
+        return {
+          source: "deepseek",
+          model: "deepseek-v4-flash",
+          coachResponse: {
+            answerText: capturedOptions.length === 1 ? "先移动十步。" : "再右转十五度。",
+            recommendation: {
+              root: { opcode: capturedOptions.length === 1 ? "motion_movesteps" : "motion_turnright" }
+            },
+            recommendedBlocks: [],
+            nextStep: capturedOptions.length === 1 ? "先移动十步。" : "再右转十五度。",
+            detectedIssues: []
+          }
+        };
+      }
+    },
+    scratchLauncher: {},
+    scratchRemoteDebugger: {},
+    now: fakeTimer.now,
+    setTimeout: fakeTimer.setTimeout,
+    clearTimeout: fakeTimer.clearTimeout
+  });
+
+  await manager.start();
+  manager.handlePayload({
+    source: "project-changed",
+    currentTargetId: "sprite-a",
+    currentTargetName: "Cat",
+    toolboxCategories: ["event", "motion"],
+    projectData: createLinearProjectData(["event_whenflagclicked"])
+  });
+
+  await fakeTimer.advance(2000);
+  const currentHint = stateStore.getState().aiCoachResponse;
+  assert.equal(currentHint?.answerText, "先移动十步。");
+
+  manager.handlePayload({
+    source: "workspace-update",
+    currentTargetId: "sprite-a",
+    currentTargetName: "Cat",
+    toolboxCategories: ["event", "motion"],
+    projectData: createLinearProjectData(["event_whenflagclicked", "looks_sayforsecs"])
+  });
+
+  assert.equal(stateStore.getState().aiStatus, "ready");
+  assert.equal(stateStore.getState().aiCoachResponse, currentHint);
+  await fakeTimer.advance(1999);
+  assert.equal(capturedOptions.length, 1);
+  assert.equal(stateStore.getState().aiCoachResponse, currentHint);
+
+  await fakeTimer.advance(1);
+  assert.equal(capturedOptions.length, 2);
+  assert.equal(stateStore.getState().aiCoachResponse?.answerText, "再右转十五度。");
+});
+
+test("SessionManager auto refreshes changed Scratch blocks after two quiet seconds", async () => {
   const stateStore = new StateStore();
   const capturedOptions = [];
   const fakeTimer = createFakeTimer();
@@ -1002,7 +1075,7 @@ test("SessionManager auto refreshes changed Scratch blocks after three quiet sec
     projectData: createLinearProjectData(["event_whenflagclicked", "motion_movesteps"])
   });
 
-  await fakeTimer.advance(3000);
+  await fakeTimer.advance(2000);
   assert.equal(capturedOptions.length, 1);
 
   manager.handlePayload({
@@ -1017,7 +1090,7 @@ test("SessionManager auto refreshes changed Scratch blocks after three quiet sec
     ])
   });
 
-  await fakeTimer.advance(2999);
+  await fakeTimer.advance(1999);
   assert.equal(capturedOptions.length, 1);
 
   await fakeTimer.advance(1);
@@ -1025,6 +1098,72 @@ test("SessionManager auto refreshes changed Scratch blocks after three quiet sec
   assert.deepEqual(capturedOptions[1].currentTargetPrograms, [
     "当绿旗被点击 -> 移动 10 步 -> 右转 15 度"
   ]);
+});
+
+test("SessionManager does not auto request repeatedly from heartbeat payloads with the same project snapshot", async () => {
+  const stateStore = new StateStore();
+  const capturedOptions = [];
+  const fakeTimer = createFakeTimer();
+
+  const manager = new SessionManager(stateStore, {
+    bridgeServer: createBridgeServerMock(),
+    platform: "win32",
+    log: () => {},
+    configStore: createConfigStoreMock("C:\\Scratch 3.exe"),
+    loadAiConfig: createAiConfigMock({
+      configured: true,
+      apiKey: "sk-test-demo",
+      source: "custom",
+      customKeyConfigured: true
+    }),
+    coachService: {
+      generateHint: async (options) => {
+        capturedOptions.push(options);
+        return {
+          source: "deepseek",
+          model: "deepseek-v4-flash",
+          coachResponse: {
+            answerText: "继续补下一块。",
+            recommendedBlocks: [],
+            nextStep: "继续补下一块。",
+            detectedIssues: []
+          }
+        };
+      }
+    },
+    scratchLauncher: {},
+    scratchRemoteDebugger: {},
+    now: fakeTimer.now,
+    setTimeout: fakeTimer.setTimeout,
+    clearTimeout: fakeTimer.clearTimeout
+  });
+
+  await manager.start();
+
+  const projectData = createLinearProjectData(["event_whenflagclicked", "motion_movesteps"]);
+
+  manager.handlePayload({
+    source: "project-changed",
+    currentTargetId: "sprite-a",
+    currentTargetName: "Cat",
+    toolboxCategories: ["event", "motion"],
+    projectData
+  });
+
+  await fakeTimer.advance(2000);
+  assert.equal(capturedOptions.length, 1);
+
+  manager.handlePayload({
+    source: "heartbeat",
+    currentTargetId: "sprite-a",
+    currentTargetName: "Cat",
+    toolboxCategories: ["event", "motion"],
+    projectData
+  });
+
+  await fakeTimer.advance(4000);
+  assert.equal(capturedOptions.length, 1);
+  assert.deepEqual(stateStore.getState().currentTargetPrograms, ["当绿旗被点击 -> 移动 10 步"]);
 });
 
 test("SessionManager reminds for a DeepSeek key instead of generating endless fallback recommendations", async () => {

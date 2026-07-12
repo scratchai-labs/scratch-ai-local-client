@@ -101,9 +101,9 @@ test("CoachingSession ignores blank projects until the first real block appears"
 
   const firstBlock = observe(session, createLinearProjectData(["event_whenflagclicked"]));
   assert.equal(firstBlock.action, "scheduled");
-  assert.equal(firstBlock.runAt, 3000);
+  assert.equal(firstBlock.runAt, 2000);
 
-  clock.advance(2999);
+  clock.advance(1999);
   assert.equal(session.consumeDueRequest()?.action ?? "idle", "idle");
 
   clock.advance(1);
@@ -150,7 +150,7 @@ test("CoachingSession debounces auto changes and only requests the latest state"
     currentTargetScriptXmlList: ["<xml>move</xml>"]
   });
 
-  clock.advance(2999);
+  clock.advance(1999);
   assert.equal(session.consumeDueRequest()?.action ?? "idle", "idle");
 
   clock.advance(1);
@@ -159,11 +159,11 @@ test("CoachingSession debounces auto changes and only requests the latest state"
   assert.deepEqual(due.snapshot.currentTargetPrograms, ["当绿旗被点击 -> 移动 10 步"]);
 });
 
-test("CoachingSession refreshes changed blocks after the 3 second quiet window", () => {
+test("CoachingSession refreshes changed blocks after the 2 second quiet window", () => {
   const { session, clock } = createSession();
 
   observe(session, createLinearProjectData(["event_whenflagclicked"]));
-  clock.advance(3000);
+  clock.advance(2000);
   assert.equal(session.consumeDueRequest().reason, "auto-change");
   session.markRequestStarted();
   session.markRequestFinished({ response: {} });
@@ -174,9 +174,9 @@ test("CoachingSession refreshes changed blocks after the 3 second quiet window",
     currentTargetScriptXmlList: ["<xml>say</xml>"]
   });
   assert.equal(scheduled.action, "scheduled");
-  assert.equal(scheduled.runAt, 7000);
+  assert.equal(scheduled.runAt, 5000);
 
-  clock.advance(2999);
+  clock.advance(1999);
   assert.equal(session.consumeDueRequest()?.action ?? "idle", "idle");
 
   clock.advance(1);
@@ -187,7 +187,7 @@ test("CoachingSession allows only one running request and chases the latest stat
   const { session, clock } = createSession();
 
   observe(session, createLinearProjectData(["event_whenflagclicked"]));
-  clock.advance(3000);
+  clock.advance(2000);
   assert.equal(session.consumeDueRequest().reason, "auto-change");
   session.markRequestStarted();
 
@@ -204,9 +204,9 @@ test("CoachingSession allows only one running request and chases the latest stat
     }
   });
   assert.equal(finished.action, "scheduled");
-  assert.equal(finished.runAt, 6000);
+  assert.equal(finished.runAt, 4000);
 
-  clock.advance(3000);
+  clock.advance(2000);
   const due = session.consumeDueRequest();
   assert.equal(due.action, "request");
   assert.deepEqual(due.snapshot.currentTargetPrograms, ["当绿旗被点击 -> 移动 10 步"]);
@@ -320,11 +320,11 @@ test("CoachingSession does not lose a completed refresh when Scratch emits a tra
   });
   assert.equal(completedAgain.action, "keep-current");
 
-  clock.advance(3000);
+  clock.advance(2000);
   assert.equal(session.consumeDueRequest()?.reason, "recommendation-completed");
 });
 
-test("CoachingSession hides stale hints when the student diverges or switches target", () => {
+test("CoachingSession keeps hints while editing but clears them when switching target", () => {
   const { session } = createSession();
   const baseline = createProjectData({});
 
@@ -340,7 +340,7 @@ test("CoachingSession hides stale hints when the student diverges or switches ta
   const diverged = observe(session, createLinearProjectData(["looks_sayforsecs"]));
   assert.equal(diverged.action, "scheduled");
   assert.equal(diverged.reason, "student-diverged");
-  assert.equal(diverged.keepExistingHint, false);
+  assert.equal(diverged.keepExistingHint, true);
 
   const switched = observe(session, createLinearProjectData(["event_whenflagclicked"], {
     id: "sprite-b",
@@ -360,7 +360,7 @@ test("CoachingSession lets manual requests bypass auto interval and re-request t
   const { session, clock } = createSession();
 
   observe(session, createLinearProjectData(["event_whenflagclicked"]));
-  clock.advance(3000);
+  clock.advance(2000);
   assert.equal(session.consumeDueRequest().reason, "auto-change");
   session.markRequestStarted();
   session.markRequestFinished({ response: {} });
@@ -398,6 +398,36 @@ test("CoachingSession does not auto request when identity changes in manual mode
   const firstManual = session.requestManualHint();
   assert.equal(firstManual.action, "request");
   assert.equal(firstManual.reason, "manual");
+});
+
+test("CoachingSession ignores repeated auto observations with the same signature", () => {
+  const { session, clock } = createSession();
+  const project = createLinearProjectData(["event_whenflagclicked", "motion_movesteps"]);
+
+  const first = observe(session, project, {
+    currentTargetPrograms: ["当绿旗被点击 -> 移动 10 步"],
+    currentTargetScriptXmlList: ["<xml>move</xml>"]
+  });
+  assert.equal(first.action, "scheduled");
+
+  const repeatedBeforeDue = observe(session, project, {
+    currentTargetPrograms: ["当绿旗被点击 -> 移动 10 步"],
+    currentTargetScriptXmlList: ["<xml>move</xml>"]
+  });
+  assert.equal(repeatedBeforeDue.action, "keep-current");
+
+  clock.advance(2000);
+  const due = session.consumeDueRequest();
+  assert.equal(due?.action, "request");
+
+  session.markRequestStarted(due.snapshot);
+  session.markRequestFinished({ response: {} });
+
+  const repeatedAfterRequest = observe(session, project, {
+    currentTargetPrograms: ["当绿旗被点击 -> 移动 10 步"],
+    currentTargetScriptXmlList: ["<xml>move</xml>"]
+  });
+  assert.equal(repeatedAfterRequest.action, "keep-current");
 });
 
 test("CoachingSession resets memory when the project identity changes or exits", () => {
