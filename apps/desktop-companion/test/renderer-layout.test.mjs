@@ -43,13 +43,14 @@ test("main window defines Scratch-style block colors for the program and recomme
 });
 
 
-test("current target program panel shows the live sprite name and scrolls large script collections", async () => {
+test("current target program panel stacks scripts vertically and scrolls large collections", async () => {
   const html = await readFile(new URL("../src/renderer/index.html", import.meta.url), "utf8");
 
   assert.match(html, /<h2 id="current-target-programs-title">当前角色程序<\/h2>/);
   assert.match(html, /<section class="panel detail-panel program-panel">/);
   assert.match(html, /\.program-list\s*\{[\s\S]*max-height:/);
-  assert.match(html, /\.program-list\s*\{[\s\S]*overflow:\s*auto;/);
+  assert.match(html, /\.program-list\s*\{[\s\S]*overflow-y:\s*auto;/);
+  assert.match(html, /\.program-list\s*\{[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\);/);
   assert.match(html, /\.scratch-workspace-frame\s*\{[\s\S]*overflow:\s*auto;/);
 });
 

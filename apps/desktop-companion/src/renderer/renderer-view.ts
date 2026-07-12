@@ -92,18 +92,12 @@ export function formatCurrentTarget(state: DesktopCompanionState) {
   return state.currentTargetIsStage ? `${state.currentTargetName}（舞台）` : state.currentTargetName;
 }
 
-export function formatCurrentTargetProgramsTitle(state: Pick<DesktopCompanionState, "currentTargetName" | "currentTargetIsStage">) {
-  if (!state.currentTargetName) {
-    return "当前角色程序";
-  }
-
-  return state.currentTargetIsStage
-    ? `${formatCurrentTarget(state)}的程序`
-    : `${state.currentTargetName} 的程序`;
+export function formatCurrentTargetProgramsTitle(_state: Pick<DesktopCompanionState, "currentTargetName" | "currentTargetIsStage">) {
+  return "当前角色程序";
 }
 
-export function formatCurrentTargetPrograms(programs: string[] = []) {
-  return programs.map((program, index) => `脚本 ${index + 1}: ${program}`);
+export function formatCurrentTargetPrograms(programs: string[] = [], targetName = "当前角色") {
+  return programs.map((program) => `${targetName}: ${program}`);
 }
 
 export function formatProgramAreaModules(
@@ -442,6 +436,7 @@ function renderCurrentTargetScriptXmlList(
   container: MinimalElement | null | undefined,
   xmlList: string[],
   fallbackPrograms: string[],
+  targetName: string,
   emptyText: string
 ) {
   if (!container) {
@@ -460,7 +455,7 @@ function renderCurrentTargetScriptXmlList(
   for (const [index, xml] of xmlList.entries()) {
     const item = documentRef.createElement("li");
     item.className = "program-item scratch-script-item";
-    item.append(createTextChild(documentRef, "span", "script-pill", `脚本 ${index + 1}`));
+    item.append(createTextChild(documentRef, "span", "script-pill", targetName));
     item.append(createScratchWorkspaceFrame(documentRef, xml, fallbackPrograms[index]));
     container.append(item);
   }
@@ -590,13 +585,14 @@ export function renderState(state: DesktopCompanionState, elements: RendererElem
       elements.currentTargetProgramsElement,
       currentTargetScriptXmlList,
       currentTargetPrograms,
+      formatCurrentTarget(state),
       "当前角色还没有可读取的脚本。"
     );
   } else {
     renderList(
       elements.documentRef,
       elements.currentTargetProgramsElement,
-      formatCurrentTargetPrograms(currentTargetPrograms),
+      formatCurrentTargetPrograms(currentTargetPrograms, formatCurrentTarget(state)),
       "当前角色还没有可读取的脚本。",
       "program-item"
     );

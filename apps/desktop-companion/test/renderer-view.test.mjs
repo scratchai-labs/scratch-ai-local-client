@@ -50,11 +50,11 @@ test("formats current target with stage label", () => {
   assert.equal(formatCurrentTarget({}), "未识别");
 });
 
-test("formats current target program panel title with the live sprite name", () => {
-  assert.equal(formatCurrentTargetProgramsTitle({ currentTargetName: "Cat 2" }), "Cat 2 的程序");
+test("keeps the current target program panel title stable", () => {
+  assert.equal(formatCurrentTargetProgramsTitle({ currentTargetName: "Cat 2" }), "当前角色程序");
   assert.equal(
     formatCurrentTargetProgramsTitle({ currentTargetName: "Stage", currentTargetIsStage: true }),
-    "Stage（舞台）的程序"
+    "当前角色程序"
   );
   assert.equal(formatCurrentTargetProgramsTitle({}), "当前角色程序");
 });
@@ -64,10 +64,10 @@ test("formats current target programs with script labels", () => {
     formatCurrentTargetPrograms([
       "当绿旗被点击 -> 一直重复 -> 移动 10 步",
       "当按下空格键 -> 说 2 秒"
-    ]),
+    ], "Cat 2"),
     [
-      "脚本 1: 当绿旗被点击 -> 一直重复 -> 移动 10 步",
-      "脚本 2: 当按下空格键 -> 说 2 秒"
+      "Cat 2: 当绿旗被点击 -> 一直重复 -> 移动 10 步",
+      "Cat 2: 当按下空格键 -> 说 2 秒"
     ]
   );
 });
@@ -288,7 +288,7 @@ test("renderState updates current role and program text", () => {
   assert.equal(currentTargetElement.textContent, "Cat");
   assert.deepEqual(
     currentTargetProgramsElement.children.map((child) => child.textContent),
-    ["脚本 1: 当绿旗被点击 -> 一直重复 -> 移动 10 步 -> 清空"]
+    ["Cat: 当绿旗被点击 -> 一直重复 -> 移动 10 步 -> 清空"]
   );
   assert.equal(scratchPathElement.textContent, "C:\\Scratch 3.exe");
 });
@@ -337,7 +337,7 @@ test("renderState renders Scratch-style block stacks for current programs and re
 
   assert.equal(currentTargetProgramsElement.children.length, 1);
   assert.equal(currentTargetProgramsElement.children[0].className, "program-item scratch-script-item");
-  assert.equal(currentTargetProgramsElement.children[0].children[0].textContent, "脚本 1");
+  assert.equal(currentTargetProgramsElement.children[0].children[0].textContent, "Cat");
   assert.equal(currentTargetProgramsElement.children[0].children[1].className, "scratch-workspace-frame");
   assert.equal(currentTargetProgramsElement.children[0].children[1].children[0].className, "scratch-workspace-host");
   assert.match(

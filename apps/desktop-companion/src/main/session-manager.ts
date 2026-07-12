@@ -672,14 +672,18 @@ export class SessionManager {
     const currentTargetWorkspaceXmlList = pickRenderableWorkspaceXmlList(
       payload.currentTargetWorkspaceXmlList
     );
+    const generatedCurrentTargetScriptXmlList =
+      payload.projectData && typeof payload.projectData === "object"
+        ? buildCurrentTargetScriptXmlList(payload.projectData as Record<string, unknown>, {
+            id: payload.currentTargetId,
+            name: payload.currentTargetName
+          })
+        : [];
     const currentTargetScriptXmlList =
-      currentTargetWorkspaceXmlList.length > 0
-        ? currentTargetWorkspaceXmlList
-        : payload.projectData && typeof payload.projectData === "object"
-          ? buildCurrentTargetScriptXmlList(payload.projectData as Record<string, unknown>, {
-              id: payload.currentTargetId,
-              name: payload.currentTargetName
-            })
+      generatedCurrentTargetScriptXmlList.length > 0
+        ? generatedCurrentTargetScriptXmlList
+        : currentTargetWorkspaceXmlList.length > 0
+          ? currentTargetWorkspaceXmlList
           : this.stateStore.getState().currentTargetScriptXmlList;
 
     if (

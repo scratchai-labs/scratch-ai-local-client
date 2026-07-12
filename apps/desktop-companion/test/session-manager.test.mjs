@@ -540,7 +540,7 @@ test("SessionManager derives nested stack blocks from projectData", async () => 
   assert.match(nextState.currentTargetScriptXmlList[0], /type="motion_movesteps"/);
 });
 
-test("SessionManager prefers official Scratch workspace XML from bridge payload", async () => {
+test("SessionManager renders each current target script as a separate vertical item", async () => {
   const stateStore = new StateStore();
   const bridgeServer = createBridgeServerMock();
   const manager = new SessionManager(stateStore, {
@@ -587,7 +587,9 @@ test("SessionManager prefers official Scratch workspace XML from bridge payload"
   });
 
   const nextState = stateStore.getState();
-  assert.deepEqual(nextState.currentTargetScriptXmlList, [officialXml]);
+  assert.equal(nextState.currentTargetScriptXmlList.length, 1);
+  assert.notEqual(nextState.currentTargetScriptXmlList[0], officialXml);
+  assert.match(nextState.currentTargetScriptXmlList[0], /type="looks_sayforsecs"/);
 });
 
 test("SessionManager falls back to generated script XML when official workspace XML has no blocks", async () => {

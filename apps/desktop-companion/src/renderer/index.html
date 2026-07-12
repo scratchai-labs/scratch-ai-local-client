@@ -385,8 +385,10 @@
       }
 
       .program-list {
+        grid-template-columns: minmax(0, 1fr);
         max-height: 430px;
-        overflow: auto;
+        overflow-x: hidden;
+        overflow-y: auto;
         padding-right: 4px;
         overscroll-behavior: contain;
       }
