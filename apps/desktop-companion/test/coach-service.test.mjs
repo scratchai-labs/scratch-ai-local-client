@@ -305,6 +305,65 @@ test("CoachService accepts a complete-project usage summary without recommended 
   assert.equal(Object.hasOwn(result.coachResponse, "recommendation"), false);
 });
 
+test("CoachService keeps DeepSeek hints when legacy nextStep is null", async () => {
+  const service = new CoachService(async () =>
+    createDeepSeekResponse(
+      JSON.stringify({
+        summary: "当前项目还缺少碰撞后的反馈，请先补上得分变化。",
+        recommendation: {
+          root: {
+            opcode: "data_changevariableby",
+            category: "变量",
+            label: "将分数增加 1",
+            reason: "让碰撞后出现明确的得分反馈。"
+          }
+        },
+        nextStep: null
+      })
+    )
+  );
+
+  const result = await service.generateHint({
+    snapshot: createSnapshot(),
+    currentTargetPrograms: ["event_whenflagclicked -> motion_movesteps"],
+    programAreaModules: [{ id: "motion", label: "运动", blockCount: 1 }],
+    usedExtensions: [],
+    loadedExtensions: [],
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.equal(result.warning, undefined);
+  assert.equal(result.coachResponse.nextStep, "当前项目还缺少碰撞后的反馈，请先补上得分变化。");
+  assert.equal(result.coachResponse.recommendation?.root.opcode, "data_changevariableby");
+});
+
+test("CoachService keeps completed-project summaries when DeepSeek returns null optional fields", async () => {
+  const service = new CoachService(async () =>
+    createDeepSeekResponse(
+      JSON.stringify({
+        summary: "你的作品已经完整，点击绿旗即可开始体验。",
+        recommendation: null,
+        nextStep: null
+      })
+    )
+  );
+
+  const result = await service.generateHint({
+    snapshot: createSnapshot(),
+    currentTargetPrograms: ["event_whenflagclicked -> motion_movesteps"],
+    programAreaModules: [{ id: "motion", label: "运动", blockCount: 1 }],
+    usedExtensions: [],
+    loadedExtensions: [],
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.equal(result.warning, undefined);
+  assert.equal(result.coachResponse.nextStep, "你的作品已经完整，点击绿旗即可开始体验。");
+  assert.equal(Object.hasOwn(result.coachResponse, "recommendation"), false);
+});
+
 test("CoachService fallback speaks directly to the student", async () => {
   const service = new CoachService();
 

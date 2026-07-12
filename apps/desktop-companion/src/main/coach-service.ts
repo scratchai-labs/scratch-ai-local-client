@@ -680,18 +680,25 @@ function normalizeCoachResponse(rawPayload: unknown, options: GenerateCoachHintO
   }
 
   const candidate = rawPayload as Record<string, unknown>;
-  if (typeof candidate.summary === "string" && candidate.recommendation === undefined) {
-    const parsed = parseRecommendationCandidate(candidate);
-    return {
-      answerText: parsed.summary,
-      recommendedBlocks: [],
-      nextStep: parsed.summary,
-      detectedIssues: []
+  if (typeof candidate.summary === "string") {
+    const structuredCandidate: Record<string, unknown> = {
+      summary: candidate.summary
     };
-  }
+    if (candidate.recommendation !== undefined && candidate.recommendation !== null) {
+      structuredCandidate.recommendation = candidate.recommendation;
+    }
 
-  if (candidate.recommendation && typeof candidate.recommendation === "object") {
-    const parsed = parseRecommendationCandidate(candidate);
+    if (structuredCandidate.recommendation === undefined) {
+      const parsed = parseRecommendationCandidate(structuredCandidate);
+      return {
+        answerText: parsed.summary,
+        recommendedBlocks: [],
+        nextStep: parsed.summary,
+        detectedIssues: []
+      };
+    }
+
+    const parsed = parseRecommendationCandidate(structuredCandidate);
     const rootCandidate = shouldOmitAlreadyUsedRootHat(parsed.recommendation.root, options)
       ? parsed.recommendation.root.next
       : parsed.recommendation.root;
