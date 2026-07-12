@@ -59,7 +59,7 @@ test("next-step hint panel uses compact spacing and a one-line heading row", asy
 
   assert.match(html, /<section class="panel hint-panel">/);
   assert.match(html, /<div class="hint-heading">/);
-  assert.match(html, /\.hint-panel\s*\{[\s\S]*padding:\s*7px 10px;/);
+  assert.match(html, /\.hint-panel\s*\{[\s\S]*padding:\s*9px 12px;/);
   assert.match(html, /\.hint-heading\s*\{[\s\S]*display:\s*flex;/);
 });
 
@@ -71,6 +71,6 @@ test("action and next-step panels use dense layouts to keep program scrolling lo
   assert.match(html, /\.action-panel\s*\{[\s\S]*padding:\s*8px 10px;/);
   assert.match(html, /\.action-heading\s*\{[\s\S]*display:\s*flex;/);
   assert.match(html, /\.summary-card\s*\{[\s\S]*padding:\s*6px 9px;/);
-  assert.match(html, /\.hint-panel\s*\{[\s\S]*padding:\s*7px 10px;/);
+  assert.match(html, /\.hint-panel\s*\{[\s\S]*padding:\s*9px 12px;/);
   assert.doesNotMatch(html, /DeepSeek Key 和“自动 \/ 手动提示”/);
 });
