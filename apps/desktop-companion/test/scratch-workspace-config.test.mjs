@@ -24,8 +24,14 @@ test("readonly workspace options use local media assets and reduced scale", () =
 });
 
 test("scratch workspace fallback avoids replacing native blocks with plain block text", () => {
-  assert.equal(resolveScratchWorkspaceFallbackText("当绿旗被点击"), "Scratch 积木正在刷新，请稍等一下。");
-  assert.equal(resolveScratchWorkspaceFallbackText("  重复执行  "), "Scratch 积木正在刷新，请稍等一下。");
+  assert.equal(
+    resolveScratchWorkspaceFallbackText("当绿旗被点击"),
+    "Scratch 积木暂时没有渲染出来，先看文字版：当绿旗被点击"
+  );
+  assert.equal(
+    resolveScratchWorkspaceFallbackText("  重复执行  "),
+    "Scratch 积木暂时没有渲染出来，先看文字版：重复执行"
+  );
   assert.equal(resolveScratchWorkspaceFallbackText(""), "Scratch 积木正在刷新，请稍等一下。");
   assert.equal(resolveScratchWorkspaceFallbackText(undefined), "Scratch 积木正在刷新，请稍等一下。");
 });

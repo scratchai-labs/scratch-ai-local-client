@@ -568,6 +568,10 @@ export class SessionManager {
       this.liveProjectSnapshot = snapshot;
     }
 
+    this.log(
+      `Scratch bridge payload source=${JSON.stringify(payload.source ?? "unknown")} target=${JSON.stringify(payload.currentTargetName ?? "unknown")} programs=${currentTargetPrograms.length} scripts=${currentTargetScriptBlocks.length} workspaceXml=${currentTargetScriptXmlList.length} modules=${programAreaModules.length}`
+    );
+
     this.stateStore.update({
       status: "connected",
       statusText: "已连接到 Scratch Desktop",
