@@ -85,6 +85,12 @@ const buildConfigs = [
     format: "esm"
   },
   {
+    entryPoints: [path.join(__dirname, "src/main/deepseek-key-validator.ts")],
+    outfile: path.join(distDir, "deepseek-key-validator.js"),
+    platform: "node",
+    format: "esm"
+  },
+  {
     entryPoints: [path.join(__dirname, "src/main/scratch-config-store.ts")],
     outfile: path.join(distDir, "scratch-config-store.js"),
     platform: "node",

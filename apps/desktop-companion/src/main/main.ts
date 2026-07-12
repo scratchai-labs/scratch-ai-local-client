@@ -332,6 +332,13 @@ async function handleSaveCustomAiApiKey(apiKey: string) {
   await sessionManager?.saveCustomAiApiKey(apiKey);
 }
 
+async function handleTestCustomAiApiKey(apiKey?: string) {
+  if (launchOptions.automationActions) {
+    return "自动化模式下未执行 DeepSeek Key 测试。";
+  }
+  return await sessionManager?.testCustomAiApiKey(apiKey);
+}
+
 async function handleClearCustomAiApiKey() {
   if (launchOptions.automationActions) {
     return;
@@ -389,6 +396,9 @@ ipcMain.handle("desktop-companion:request-ai-hint", async (_event, goal?: string
 });
 ipcMain.handle("desktop-companion:save-custom-ai-api-key", async (_event, apiKey: string) => {
   await handleSaveCustomAiApiKey(apiKey);
+});
+ipcMain.handle("desktop-companion:test-custom-ai-api-key", async (_event, apiKey?: string) => {
+  return await handleTestCustomAiApiKey(apiKey);
 });
 ipcMain.handle("desktop-companion:clear-custom-ai-api-key", async () => {
   await handleClearCustomAiApiKey();

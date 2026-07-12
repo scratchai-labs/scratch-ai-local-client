@@ -7,6 +7,7 @@
 
 ## 已完成
 
+- 2026-07-12：为桌面伴随程序 DeepSeek 设置页增加“测试 Key 可用性”；已按官方文档接入 `GET /user/balance` 校验接口，并保留 `GET /models` 可作为后续补充校验参考；设置页现在支持直接测试临时输入或已保存的 Key，可区分“Key 无效 / 余额不足或账号暂不可用 / 可正常调用”，同时补充主进程校验器、IPC、设置页按钮与回归测试，并通过 `desktop-companion` 170 项全量测试。
 - 2026-07-12：调整桌面伴随程序 DeepSeek 使用策略；保存 DeepSeek Key 后会自动把提示触发方式切到 `manual`，避免每 3 秒自动刷新；无 Key 时最多只给 1 次本地 fallback，之后改为明确提醒用户去“DeepSeek 设置”补 Key，不再持续伪装成正常 AI 提示；同时更新主界面和设置页文案，纠正“没 Key 也会一直正常给基础提示”的误导口径。已补 `SessionManager` 回归测试，并通过 `desktop-companion` 164 项全量测试。
 - 2026-07-12：修复桌面伴随程序“第一条推荐后后续改积木不再刷新”的自动提示回归；`CoachingSession` 的完成态去重签名现在包含当前角色真实 block 结构，而不只依赖可见脚本文本/XML，避免真实 `projectData` 已变化却被误判为同一状态；同时保留已排队的 `recommendation-completed` 刷新，不再被 Scratch 编辑过程中的瞬时 `following` 快照错误取消。已补 2 组 `CoachingSession` 回归测试，并通过 `desktop-companion` 163 项全量测试。
 - 2026-07-12：修复桌面伴随程序 AI 提示可观测性与 fallback 推荐误导；主界面“下一步提示”区域新增当前提示来源文案，明确区分 `DeepSeek` 与 `本地基础提示`；同时收窄 fallback 的“已会运动但未用侦测”分支，不再把 `碰到边缘就反弹` 错包进 `如果...那么`，而是直接推荐单块 `碰到边缘就反弹`，并避免已存在该积木时重复推荐。已补 CoachService、SessionManager、renderer 回归测试，并通过 `desktop-companion` 161 项全量测试。

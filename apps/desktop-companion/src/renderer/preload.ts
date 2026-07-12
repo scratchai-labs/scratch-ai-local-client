@@ -29,6 +29,8 @@ const api = {
   saveCustomAiApiKey: async (apiKey: string) => {
     await ipcRenderer.invoke("desktop-companion:save-custom-ai-api-key", apiKey);
   },
+  testCustomAiApiKey: async (apiKey?: string) =>
+    ipcRenderer.invoke("desktop-companion:test-custom-ai-api-key", apiKey),
   clearCustomAiApiKey: async () => {
     await ipcRenderer.invoke("desktop-companion:clear-custom-ai-api-key");
   },

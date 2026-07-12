@@ -15,6 +15,8 @@ test("settings page documents plaintext local key risk without showing keys or p
 
   assert.match(html, /明文保存在当前电脑/);
   assert.match(html, /当前系统用户可读写/);
+  assert.match(html, /测试 Key/);
+  assert.match(html, /settings-test-custom-ai-api-key-button/);
   assert.doesNotMatch(html, /sk-[A-Za-z0-9_-]+/);
   assert.doesNotMatch(html, /desktop-companion\.config\.json/);
 });

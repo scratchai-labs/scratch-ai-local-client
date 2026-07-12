@@ -1471,6 +1471,99 @@ test("SessionManager saves AI hint trigger mode and exposes it in state", async 
   assert.equal(stateStore.getState().aiHintTriggerMode, "auto");
 });
 
+test("SessionManager can test a typed DeepSeek key without saving it", async () => {
+  const stateStore = new StateStore();
+  const testedConfigs = [];
+  const manager = new SessionManager(stateStore, {
+    bridgeServer: createBridgeServerMock(),
+    platform: "win32",
+    log: () => {},
+    configStore: createConfigStoreMock("C:\\Scratch 3.exe"),
+    loadAiConfig: async (_configPath, options) => ({
+      configured: Boolean(options?.customApiKey),
+      apiKey: options?.customApiKey,
+      baseUrl: "https://api.deepseek.com",
+      model: options?.customModel ?? "deepseek-v4-flash",
+      timeoutMs: 20_000,
+      configPath: "C:\\config\\deepseek.config.json",
+      customKeyConfigured: Boolean(options?.customApiKey),
+      source: options?.customApiKey ? "custom" : undefined
+    }),
+    validateDeepSeekApiKey: async (config) => {
+      testedConfigs.push(config);
+      return {
+        message: "DeepSeek Key 可用，当前账号可正常请求 DeepSeek。"
+      };
+    },
+    scratchLauncher: {},
+    scratchRemoteDebugger: {}
+  });
+
+  await manager.start();
+  const message = await manager.testCustomAiApiKey("sk-typed-demo");
+
+  assert.equal(message, "DeepSeek Key 可用，当前账号可正常请求 DeepSeek。");
+  assert.equal(testedConfigs.length, 1);
+  assert.equal(testedConfigs[0].apiKey, "sk-typed-demo");
+  assert.equal(stateStore.getState().aiCustomKeyConfigured, false);
+});
+
+test("SessionManager can test the saved DeepSeek key when no new key is typed", async () => {
+  const stateStore = new StateStore();
+  const testedConfigs = [];
+  const manager = new SessionManager(stateStore, {
+    bridgeServer: createBridgeServerMock(),
+    platform: "win32",
+    log: () => {},
+    configStore: createConfigStoreMock("C:\\Scratch 3.exe"),
+    loadAiConfig: async (_configPath, options) => ({
+      configured: Boolean(options?.customApiKey),
+      apiKey: options?.customApiKey,
+      baseUrl: "https://api.deepseek.com",
+      model: options?.customModel ?? "deepseek-v4-flash",
+      timeoutMs: 20_000,
+      configPath: "C:\\config\\deepseek.config.json",
+      customKeyConfigured: Boolean(options?.customApiKey),
+      source: options?.customApiKey ? "custom" : undefined
+    }),
+    validateDeepSeekApiKey: async (config) => {
+      testedConfigs.push(config);
+      return {
+        message: "DeepSeek Key 可用，当前账号可正常请求 DeepSeek。"
+      };
+    },
+    scratchLauncher: {},
+    scratchRemoteDebugger: {}
+  });
+
+  await manager.start();
+  await manager.saveCustomAiApiKey("sk-saved-demo");
+  const message = await manager.testCustomAiApiKey();
+
+  assert.equal(message, "DeepSeek Key 可用，当前账号可正常请求 DeepSeek。");
+  assert.equal(testedConfigs.at(-1)?.apiKey, "sk-saved-demo");
+});
+
+test("SessionManager requires a typed or saved DeepSeek key before testing", async () => {
+  const stateStore = new StateStore();
+  const manager = new SessionManager(stateStore, {
+    bridgeServer: createBridgeServerMock(),
+    platform: "win32",
+    log: () => {},
+    configStore: createConfigStoreMock("C:\\Scratch 3.exe"),
+    loadAiConfig: createAiConfigMock(),
+    validateDeepSeekApiKey: async () => {
+      throw new Error("should not reach validator");
+    },
+    scratchLauncher: {},
+    scratchRemoteDebugger: {}
+  });
+
+  await manager.start();
+
+  await assert.rejects(() => manager.testCustomAiApiKey(), /请先输入 DeepSeek API Key，或先保存后再测试/);
+});
+
 test("SessionManager saves a custom teacher prompt and reuses it for hint generation", async () => {
   const stateStore = new StateStore();
   const capturedOptions = [];

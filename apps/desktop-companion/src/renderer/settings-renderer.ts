@@ -16,6 +16,9 @@ const customAiApiKeyInput = document.getElementById("settings-custom-ai-api-key"
 const saveCustomAiApiKeyButton = document.getElementById(
   "settings-save-custom-ai-api-key-button"
 ) as HTMLButtonElement | null;
+const testCustomAiApiKeyButton = document.getElementById(
+  "settings-test-custom-ai-api-key-button"
+) as HTMLButtonElement | null;
 const clearCustomAiApiKeyButton = document.getElementById(
   "settings-clear-custom-ai-api-key-button"
 ) as HTMLButtonElement | null;
@@ -78,6 +81,10 @@ function renderState(state: DesktopCompanionState) {
     saveCustomAiApiKeyButton.disabled = state.aiStatus === "loading";
   }
 
+  if (testCustomAiApiKeyButton) {
+    testCustomAiApiKeyButton.disabled = state.aiStatus === "loading";
+  }
+
   if (clearCustomAiApiKeyButton) {
     clearCustomAiApiKeyButton.disabled = state.aiStatus === "loading" || !state.aiCustomKeyConfigured;
   }
@@ -128,6 +135,30 @@ saveCustomAiApiKeyButton?.addEventListener("click", () => {
       window.setTimeout(() => {
         if (saveCustomAiApiKeyButton) {
           saveCustomAiApiKeyButton.disabled = false;
+        }
+      }, 400);
+    });
+});
+
+testCustomAiApiKeyButton?.addEventListener("click", () => {
+  testCustomAiApiKeyButton.disabled = true;
+  const apiKey = customAiApiKeyInput?.value?.trim() ?? "";
+
+  void Promise.resolve()
+    .then(() => {
+      clearError();
+      return getDesktopCompanionApi().testCustomAiApiKey(apiKey || undefined);
+    })
+    .then((message) => {
+      showMessage(message, "success");
+    })
+    .catch((error) => {
+      showMessage(error instanceof Error ? error.message : "测试 DeepSeek API Key 失败，请查看日志。", "error");
+    })
+    .finally(() => {
+      window.setTimeout(() => {
+        if (testCustomAiApiKeyButton) {
+          testCustomAiApiKeyButton.disabled = false;
         }
       }, 400);
     });

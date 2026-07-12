@@ -12,6 +12,7 @@ import { ScratchBridgeServer } from "./bridge-server";
 import { CoachService, DEFAULT_HINT_ONLY_SYSTEM_PROMPT } from "./coach-service";
 import { CoachingSession } from "./coaching-session";
 import { loadDeepSeekConfig } from "./deepseek-config";
+import { validateDeepSeekApiKey } from "./deepseek-key-validator";
 import { createScratchPlatformAdapter } from "./platform-adapter";
 import { writeRuntimeLog } from "./runtime-log";
 import { ScratchExecutableConfigStore } from "./scratch-config-store";
@@ -49,6 +50,7 @@ interface SessionManagerDependencies {
   buildInjectionScript?: typeof buildDesktopInjectionScript;
   coachService?: Pick<CoachService, "generateHint">;
   loadAiConfig?: typeof loadDeepSeekConfig;
+  validateDeepSeekApiKey?: typeof validateDeepSeekApiKey;
   platform?: string;
   platformAdapter?: ScratchPlatformAdapter;
   now?: () => number;
@@ -166,6 +168,8 @@ export class SessionManager {
 
   private readonly loadAiConfig: typeof loadDeepSeekConfig;
 
+  private readonly validateDeepSeekApiKey: typeof validateDeepSeekApiKey;
+
   private readonly platform: string;
 
   private readonly platformAdapter: ScratchPlatformAdapter;
@@ -236,6 +240,7 @@ export class SessionManager {
     this.buildInjectionScript = dependencies.buildInjectionScript ?? buildDesktopInjectionScript;
     this.coachService = dependencies.coachService ?? new CoachService();
     this.loadAiConfig = dependencies.loadAiConfig ?? loadDeepSeekConfig;
+    this.validateDeepSeekApiKey = dependencies.validateDeepSeekApiKey ?? validateDeepSeekApiKey;
     this.platformAdapter =
       dependencies.platformAdapter ??
       createScratchPlatformAdapter(dependencies.platform ?? process.platform);
@@ -362,6 +367,37 @@ export class SessionManager {
       ...this.getAiStatePatch(),
       aiError: undefined
     });
+  }
+
+  async testCustomAiApiKey(apiKey?: string) {
+    const typedKey = trimText(apiKey);
+    const savedKey = trimText(this.config.customAiApiKey) ?? trimText(this.aiConfig?.apiKey);
+    const keyToTest = typedKey ?? savedKey;
+
+    if (!keyToTest) {
+      throw new Error("请先输入 DeepSeek API Key，或先保存后再测试。");
+    }
+
+    const source = typedKey ? "typed" : "saved";
+    const validationConfig = await this.loadAiConfig(undefined, {
+      customApiKey: keyToTest,
+      customModel: trimText(this.config.customAiModel)
+    });
+
+    if (!validationConfig.configured || !trimText(validationConfig.apiKey)) {
+      throw new Error("请先输入有效的 DeepSeek API Key，再测试。");
+    }
+
+    this.log(`Testing DeepSeek API key source=${source}`);
+
+    try {
+      const result = await this.validateDeepSeekApiKey(validationConfig);
+      this.log(`DeepSeek API key test passed source=${source} model=${JSON.stringify(validationConfig.model)}`);
+      return result.message;
+    } catch (error) {
+      this.log(`DeepSeek API key test failed source=${source}`, error);
+      throw error;
+    }
   }
 
   async saveCustomAiPrompt(prompt: string) {

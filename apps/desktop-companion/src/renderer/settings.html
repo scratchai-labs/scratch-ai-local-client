@@ -243,13 +243,14 @@
 
       <section class="panel">
         <h2>DeepSeek API Key</h2>
-        <p class="note">Key 会明文保存在当前电脑，并限制为当前系统用户可读写。保存后会直接用于在线提示，并默认切到手动点击；清除后不再请求 DeepSeek，只会临时给一次基础提示，随后提醒你先补 Key。</p>
+        <p class="note">Key 会明文保存在当前电脑，并限制为当前系统用户可读写。你可以先输入再点“测试 Key”检查是否真的可用；保存后会直接用于在线提示，并默认切到手动点击；清除后不再请求 DeepSeek，只会临时给一次基础提示，随后提醒你先补 Key。</p>
         <input
           id="settings-custom-ai-api-key"
           type="password"
           placeholder="输入 DeepSeek API Key"
         />
         <div class="action-row">
+          <button id="settings-test-custom-ai-api-key-button" class="button secondary" type="button">测试 Key</button>
           <button id="settings-save-custom-ai-api-key-button" class="button primary" type="button">保存 Key</button>
           <button id="settings-clear-custom-ai-api-key-button" class="button secondary" type="button">清除 Key</button>
         </div>
