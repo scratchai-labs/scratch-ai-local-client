@@ -91,3 +91,5 @@
 - 2026-05-05：完成 workspace 收口与目录重构；移出 `apps/server` 主线，将 `Windows-Test` 迁移为 `tools/verification`，统一根锁文件、忽略规则、清理脚本与 CI，保证项目在新电脑上 clone 后可继续做 Windows / macOS 开发、测试与出包。
 
 - 2026-07-12：修复过滤已有事件帽子后偶发回退本地基础提示；根因是帽子后的首个节点可能是不能独立显示的侦测/运算值积木，而后续仍有可渲染积木。现会沿 next 链继续寻找首个可渲染的新积木结构，避免丢弃整次 DeepSeek 返回；已补回归测试并通过 desktop-companion 176 项测试。
+
+- 2026-07-12：发布桌面伴随程序 v0.2.0；版本包含 DeepSeek Key 测试、提示来源展示、推荐积木渲染与刷新稳定性、Scratch 语言恢复等改进。发布流程通过 v0.2.0 tag 自动构建 Windows portable/setup 与 macOS zip/dmg，并创建 GitHub Release。

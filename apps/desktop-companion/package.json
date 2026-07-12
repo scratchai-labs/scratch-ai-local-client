@@ -1,6 +1,6 @@
 {
   "name": "@scratch-ai/desktop-companion",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "author": "Ju",
   "description": "Electron desktop companion app for Scratch AI Coach",
