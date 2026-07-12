@@ -6,6 +6,7 @@
 
 ## 已完成
 
+- 2026-07-12：维护 Scratch 语言恢复与推荐积木渲染相关文档；同步 README、开发状态、架构与维护说明，补充受控启动沿用 Scratch 上次语言、桥接层语言来源、只读 ScratchBlocks 语言初始化和排障日志口径。本轮为文档收尾，不引入代码行为变更。
 - 2026-07-12：按官方 Scratch 源码修复语言持久化与只读积木语言初始化；Scratch GUI 语言切换会更新 Redux locale 与 `document.documentElement.lang`，桥接脚本现同时读取 Redux、DOM lang 和 VM locale，并监听 `lang` 变化立即上报；推荐积木只读 workspace 不再硬编码简体，而是按当前文档语言初始化 `ScratchMsgs`。已通过 desktop-companion 144 项全量测试，并完成真实验证：切到繁体后配置写入 `lastScratchLocale: zh-tw`，关闭 Scratch 后再次启动日志包含 `--lang=zh-TW`。
 - 2026-07-11：修正 Scratch 语言启动语义；目标不是完全移除 `--lang`，而是读取 Scratch 界面中上次实际选择的语言并沿用，避免系统语言、固定中文或固定英文覆盖用户偏好。桥接脚本会记录 Scratch Redux 当前 locale，本地配置持久化后，下次受控启动仅用该 locale 生成 `--lang`。
 - 2026-07-11：继续修复人工测试反馈；撤掉 Scratch 受控启动的 `--lang` 强制参数，避免覆盖用户在 Scratch 内选择的语言；同时让本地 fallback 推荐变成结构化推荐，学生按推荐加完积木后能刷新到下一组推荐。已通过定向测试和 desktop-companion 138 项全量测试。

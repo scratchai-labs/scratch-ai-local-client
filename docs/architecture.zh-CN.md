@@ -36,6 +36,7 @@ Electron 桌面工具，源码拆成三层：
 
 - 探测 Windows 与 macOS 常见 Scratch 安装位置
 - 受控启动 Scratch Desktop 并附带 `--remote-debugging-port`
+- 受控启动会沿用桥接层上次记录到的 Scratch 内部语言；尚未记录时不强行传 `--lang`
 - 向 Scratch renderer 注入只读桥接脚本
 - 读取当前角色、项目数据、脚本序列、模块摘要
 - 把 `当前角色程序 / 推荐积木` 渲染成 Scratch 原版只读积木
@@ -73,13 +74,14 @@ Electron 桌面工具，源码拆成三层：
 4. 桌面工具受控启动 Scratch Desktop
 5. 通过 `http://127.0.0.1:<port>/json/list` 找到真实编辑页
 6. 通过 CDP 注入只读桥接脚本
-7. 桥接脚本回传 `projectData`、当前角色和模块信息
+7. 桥接脚本回传 `projectData`、当前角色、模块信息和 Scratch 当前语言
 8. `SessionManager` 结合 `@scratch-ai/shared` 生成项目快照和角色脚本文本摘要
-9. `SessionManager` 额外把 `projectData` 转成 `currentTargetScriptXmlList`
-10. `StateStore` 更新状态，渲染层先生成 workspace 宿主节点
-11. `renderScratchWorkspaces(...)` 使用 `scratch-blocks` 把 XML 加载成只读 SVG
-12. 用户请求 AI 提示时，桌面端直接调用 DeepSeek 或本地 fallback
-13. `CoachService` 严格解析 DeepSeek 返回的 `summary + recommendation.root`，过滤不可用 opcode，并保留 `recommendedBlocks` 扁平兼容输出
+9. `SessionManager` 持久化 Scratch 当前语言；下次受控启动会把已记录语言标准化成 `--lang=<locale>`
+10. `SessionManager` 额外把 `projectData` 转成 `currentTargetScriptXmlList`
+11. `StateStore` 更新状态，渲染层先生成 workspace 宿主节点
+12. `renderScratchWorkspaces(...)` 按当前文档语言初始化 `ScratchMsgs`，再使用 `scratch-blocks` 把 XML 加载成只读 SVG
+13. 用户请求 AI 提示时，桌面端直接调用 DeepSeek 或本地 fallback
+14. `CoachService` 严格解析 DeepSeek 返回的 `summary + recommendation.root`，过滤不可用 opcode，并保留 `recommendedBlocks` 扁平兼容输出
 
 关键约束：
 
@@ -101,6 +103,7 @@ Electron 桌面工具，源码拆成三层：
 - `apps/desktop-companion/src/renderer/scratch-workspace-renderer.ts`
   - 负责初始化 `ScratchBlocks.inject(...)`、`clearWorkspaceAndLoadFromXml(...)`、尺寸自适应和只读动态菜单兜底
   - 当前只读 workspace 统一使用本地 `scratch-blocks/media`，缩放比例也已下调得更紧凑
+  - `ScratchMsgs` 语言跟随当前文档语言，不再固定为 `zh-cn`
 - `apps/desktop-companion/build.mjs`
   - 负责复制 `scratch-blocks/media`
 
@@ -112,3 +115,4 @@ Electron 桌面工具，源码拆成三层：
 - `tools/verification/artifacts/` 不再进 git，需要通过文档和 CI artifact 回看验证结果
 - 推荐积木白名单外的新 opcode，先扩 `src/common/scratch-block-xml.ts` 的默认模板，再决定是否放行到 AI 输出
 - 新出现的扩展块、动态菜单块或特殊 mutation，可能还需要在只读渲染层补兜底定义
+- Scratch 语言问题优先从桥接日志排查：确认是否记录到 `Scratch locale remembered`，以及下一次受控启动是否带对应 `--lang`

@@ -9,7 +9,7 @@
 
 1. 打开桌面工具，自动识别本机是否已安装 Scratch。
 2. 如果没有识别到路径，Windows 手动选择 `Scratch.exe`、`Scratch 3.exe` 或桌面快捷方式；macOS 手动选择 `Scratch.app`、`Scratch Desktop.app` 或应用包里的可执行文件。
-3. 点击 `打开已选 Scratch`，由桌面工具受控启动 Scratch。
+3. 点击 `打开已选 Scratch`，由桌面工具受控启动 Scratch；如果之前已经桥接到 Scratch 并记录过用户在 Scratch 内选择的语言，下次启动会沿用该语言。
 4. 桌面工具通过 CDP 注入只读桥接脚本并建立连接。
 5. 读取当前角色、项目快照和当前角色脚本，并生成只读 Scratch 积木视图。
 6. 默认在连接成功后、以及后续积木状态变化时自动刷新下一步提示；如果在设置里切到手动模式，也可以继续点击 `生成下一步提示` 主动请求 DeepSeek，并返回下一步建议和推荐积木；推荐积木同样按 Scratch 原版样式展示。
@@ -57,6 +57,7 @@
 - 支持解析桌面快捷方式 `.lnk`
 - 支持识别 `/Applications` 和 `~/Applications` 下的 `Scratch.app` / `Scratch Desktop.app` / `Scratch 3.app`
 - 受控启动 Scratch，并附带 `--remote-debugging-port=<port>`
+- 受控启动会优先沿用 Scratch 界面里上次实际选择的语言；桥接脚本会记录 Scratch 官方 Redux locale、`document.documentElement.lang` 和 VM locale，并持久化为 `lastScratchLocale`
 - 通过 Chrome DevTools Protocol 向 Scratch renderer 注入只读桥接脚本
 - 桌面端基于 `projectData` 推导 `currentTargetPrograms`
 - 桌面端基于 `projectData` 生成 `currentTargetScriptXmlList`
@@ -86,6 +87,7 @@
 当前显示细节补充：
 
 - 只读 workspace 统一走本地 `scratch-blocks/media` 资源，不再依赖外部默认地址
+- 只读 workspace 的 `ScratchMsgs` 会按当前文档语言初始化，不再硬编码简体中文；如果 Scratch 内切到繁体、韩语等语言，推荐积木渲染会跟随当前语言状态
 - 只读积木缩放已继续下调，当前固定比例为 `0.64`，主窗口里会比初版更紧凑
 - 推荐积木如果遇到未支持 opcode，会先在 `coach-service` 里做归一化，再进入 XML 渲染链路，避免直接出现“有推荐但渲染失败”
 
@@ -271,6 +273,7 @@ C:\Users\<当前用户名>\AppData\Roaming\scratch-desktop-companion\desktop-com
 - `verify-deepseek-live-seq.mjs` 这类依赖真实线上模型的脚本仍需要可用的 DeepSeek Key
 - 部分机房部署与开机自启 SOP 仍以 Windows 环境为例，macOS 对应运维文档还不完整
 - 当前主路线仍然是“受控启动 Scratch + CDP 注入”，不是“用户手工打开 Scratch 后再附着”
+- Scratch 语言沿用依赖桥接脚本至少成功收到过一次 Scratch 状态；首次受控启动且尚未记录语言时，只传调试端口，不强行指定中文或英文
 - 界面不再展示模块和扩展，但这些字段仍作为兼容状态保留
 - `tools/verification/scripts/verify-scratch-local.mjs` 更适合做 CDP 冒烟检查，不是最终产品验收结论
 - 推荐积木链路现在已经对白名单内常用官方 opcode 做了模板覆盖和自动降级；如果将来扩大推荐范围，优先同步 `src/common/scratch-block-xml.ts` 的白名单与默认模板
