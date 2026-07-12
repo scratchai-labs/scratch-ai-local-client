@@ -25,10 +25,11 @@
 
 ### 2026-07-12 收尾状态
 
+- 推荐积木链路新增共享 `recommended-structure` 净化层：主进程接收 AI 结构化推荐后会先剔除非法 `root / next / condition / substack` 关系，renderer 在生成 Scratch XML 前再净化一次；旧扁平 `recommendedBlocks` 线性链路也只会串联可渲染节点，避免复杂推荐重新退回文字版。
 - 语言恢复已按 Scratch 官方实现收口：Scratch GUI 切换语言会更新 Redux `locales.locale` 与 `document.documentElement.lang`，桥接脚本现在同时读取 Redux、DOM lang 和 VM `getLocale()`，并监听 `lang` 变化立即上报。
 - 伴随程序只在已经记录过 Scratch 内部语言时才给下次受控启动追加 `--lang=<locale>`；例如繁体会持久化为 `lastScratchLocale: "zh-tw"`，下次启动标准化为 `--lang=zh-TW`。
 - 只读推荐积木的 `scratch-blocks` 初始化不再硬编码 `zh-cn`，而是按当前文档语言设置 `ScratchMsgs`，避免 Scratch 已切到其他语言但推荐积木仍显示简体。
-- 本轮验证结果：`npm run test --workspace=@scratch-ai/desktop-companion` 通过 `144` 项；真实 macOS 验证覆盖“切到繁体 -> 关闭 Scratch -> 再次从伴随程序打开 -> 日志包含 --lang=zh-TW”。
+- 本轮验证结果：`npm run test --workspace=@scratch-ai/desktop-companion` 通过 `160` 项；真实 macOS 验证覆盖“切到繁体 -> 关闭 Scratch -> 再次从伴随程序打开 -> 日志包含 --lang=zh-TW”，真实桌面窗口也已确认“当前角色程序 / 推荐积木”均可稳定渲染复杂结构。
 
 ## 2. 这轮收敛完成了什么
 
@@ -48,7 +49,8 @@
 - 新增状态字段 `currentTargetScriptXmlList`
 - 原有 `currentTargetPrograms` 文本链路保留，继续给 AI、兼容层和排障使用
 - `scratch-blocks` 图标资源已统一切到本地 `media` 目录，不再依赖默认外链
-- 推荐积木现在收敛到一份官方 opcode 白名单；如果 AI 返回未支持或编造的 opcode，会先自动映射到安全、可渲染的官方积木
+- 推荐积木现在收敛到一份官方 opcode 白名单；如果 AI 返回未支持或编造的 opcode，会直接丢弃，不再做近似映射
+- 推荐积木结构如果存在非法关系，会在主进程与 renderer 双端净化，优先保留仍然可渲染的合法部分
 - 只读积木语言现在跟随当前文档语言初始化 `ScratchMsgs`，不再固定为简体中文
 - 只读积木缩放已继续下调，当前固定比例为 `0.64`
 - 最初切换到官方 `scratch-blocks` 只读渲染的核心提交为 `f725ffe`，整体变更量为 `18 files changed, 1528 insertions(+), 291 deletions(-)`
@@ -197,7 +199,8 @@
 - `packages/shared`
 - `apps/desktop-companion`
 - `apps/desktop-companion/test/scratch-block-xml.test.mjs` 已覆盖嵌套控制积木、推荐积木默认输入 XML 和一批常用官方 opcode 模板
-- `apps/desktop-companion/test/coach-service.test.mjs` 已覆盖推荐积木白名单提示词约束与坏 opcode 自动降级
+- `apps/desktop-companion/test/coach-service.test.mjs` 已覆盖推荐积木白名单提示词约束、结构净化和坏 opcode 丢弃
+- `apps/desktop-companion/test/recommended-structure.test.mjs` 已覆盖推荐结构净化规则
 - `apps/desktop-companion/test/scratch-workspace-config.test.mjs` 已覆盖本地 media 路径和只读缩放比例
 - `apps/desktop-companion/test/bridge-script.test.mjs` 已覆盖语言从 Redux、DOM lang、VM locale 兜底读取，以及 `lang` 变化监听
 - `apps/desktop-companion/test/scratch-workspace-renderer-source.test.mjs` 已覆盖只读积木渲染器不得硬编码简体中文

@@ -40,7 +40,7 @@ Electron 桌面工具，源码拆成三层：
 - 向 Scratch renderer 注入只读桥接脚本
 - 读取当前角色、项目数据、脚本序列、模块摘要
 - 把 `当前角色程序 / 推荐积木` 渲染成 Scratch 原版只读积木
-- 推荐积木链路会先做官方 opcode 白名单归一化，AI 给出未支持或编造的 opcode 时会自动降级到安全、可渲染的官方积木
+- 推荐积木链路会先做官方 opcode 白名单与结构关系净化；AI 给出未支持 opcode 时会直接丢弃，对仍可保留的复杂结构则会删除非法 `root / next / condition / substack` 关系后再渲染
 - 直接调用 DeepSeek 生成“下一步提示”
 
 ### `packages/shared`
@@ -81,7 +81,8 @@ Electron 桌面工具，源码拆成三层：
 11. `StateStore` 更新状态，渲染层先生成 workspace 宿主节点
 12. `renderScratchWorkspaces(...)` 按当前文档语言初始化 `ScratchMsgs`，再使用 `scratch-blocks` 把 XML 加载成只读 SVG
 13. 用户请求 AI 提示时，桌面端直接调用 DeepSeek 或本地 fallback
-14. `CoachService` 严格解析 DeepSeek 返回的 `summary + recommendation.root`，过滤不可用 opcode，并保留 `recommendedBlocks` 扁平兼容输出
+14. `CoachService` 严格解析 DeepSeek 返回的 `summary + recommendation.root`，过滤不可用 opcode，并对结构化推荐先做一轮关系净化
+15. 渲染层在真正生成推荐积木 XML 前再次净化结构；如果只剩扁平 `recommendedBlocks`，也只会串联可渲染节点
 
 关键约束：
 
@@ -100,6 +101,8 @@ Electron 桌面工具，源码拆成三层：
 
 - `apps/desktop-companion/src/common/scratch-block-xml.ts`
   - 负责顶层脚本排序、`next`、`SUBSTACK / SUBSTACK2`、shadow input、变量/列表/广播字段，以及推荐积木白名单和默认模板
+- `apps/desktop-companion/src/common/recommended-structure.ts`
+  - 负责推荐结构净化，约束 reporter / hat / 条件槽 / 子堆栈 的合法关系
 - `apps/desktop-companion/src/renderer/scratch-workspace-renderer.ts`
   - 负责初始化 `ScratchBlocks.inject(...)`、`clearWorkspaceAndLoadFromXml(...)`、尺寸自适应和只读动态菜单兜底
   - 当前只读 workspace 统一使用本地 `scratch-blocks/media`，缩放比例也已下调得更紧凑
@@ -114,5 +117,6 @@ Electron 桌面工具，源码拆成三层：
 - GitHub Releases 的正式导出规则固定为 4 个无 Key 包：Windows portable / setup、macOS zip / dmg；本地只承诺当前平台可出包
 - `tools/verification/artifacts/` 不再进 git，需要通过文档和 CI artifact 回看验证结果
 - 推荐积木白名单外的新 opcode，先扩 `src/common/scratch-block-xml.ts` 的默认模板，再决定是否放行到 AI 输出
+- 若复杂推荐再次出现“文字兜底”，优先检查 `recommended-structure` 净化是否把根节点或关键关系裁掉，再检查 renderer 是否还停留在旧实例
 - 新出现的扩展块、动态菜单块或特殊 mutation，可能还需要在只读渲染层补兜底定义
 - Scratch 语言问题优先从桥接日志排查：确认是否记录到 `Scratch locale remembered`，以及下一次受控启动是否带对应 `--lang`

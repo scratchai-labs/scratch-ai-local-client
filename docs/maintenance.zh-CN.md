@@ -103,6 +103,7 @@
 - `packages/shared` 职责变化
 - `tools/verification` 目录或定位变化
 - AI 调用链路变化
+- 推荐积木结构校验、净化或渲染兜底规则变化
 
 ### `apps/desktop-companion/*.md`
 
@@ -115,6 +116,7 @@
 - 真机验证入口变化
 - 打包命令变化
 - `src/main` / `src/renderer` / `src/common` 结构变化
+- 推荐积木白名单、结构净化、渲染失败兜底文案变化
 
 ### `tools/verification/*.md`
 
