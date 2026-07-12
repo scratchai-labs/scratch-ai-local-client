@@ -82,6 +82,140 @@ function createSnapshot() {
   };
 }
 
+function createProjectDataWithBroadcastDependencies() {
+  return {
+    targets: [
+      {
+        id: "sprite-cat-2",
+        name: "Cat 2",
+        isStage: false,
+        variables: {},
+        blocks: {
+          catStart: {
+            opcode: "event_whenbroadcastreceived",
+            next: "catForever",
+            parent: null,
+            inputs: {},
+            fields: { BROADCAST_OPTION: ["Level Up", "broadcast-level-up"] },
+            shadow: false,
+            topLevel: true
+          },
+          catForever: {
+            opcode: "control_forever",
+            next: null,
+            parent: "catStart",
+            inputs: { SUBSTACK: [2, "catPoint"] },
+            fields: {},
+            shadow: false,
+            topLevel: false
+          },
+          catPoint: {
+            opcode: "motion_pointtowards",
+            next: "catMove",
+            parent: "catForever",
+            inputs: { TOWARDS: [1, "catTargetMenu"] },
+            fields: {},
+            shadow: false,
+            topLevel: false
+          },
+          catTargetMenu: {
+            opcode: "motion_pointtowards_menu",
+            next: null,
+            parent: "catPoint",
+            inputs: {},
+            fields: { TOWARDS: ["Mouse1", null] },
+            shadow: true,
+            topLevel: false
+          },
+          catMove: {
+            opcode: "motion_movesteps",
+            next: null,
+            parent: "catPoint",
+            inputs: { STEPS: [1, [4, "3"]] },
+            fields: {},
+            shadow: false,
+            topLevel: false
+          }
+        }
+      },
+      {
+        id: "sprite-cheese",
+        name: "cheese",
+        isStage: false,
+        variables: {},
+        blocks: {
+          cheeseStart: {
+            opcode: "event_whenflagclicked",
+            next: "waitUntil",
+            parent: null,
+            inputs: {},
+            fields: {},
+            shadow: false,
+            topLevel: true
+          },
+          waitUntil: {
+            opcode: "control_wait_until",
+            next: "scoreIf",
+            parent: "cheeseStart",
+            inputs: { CONDITION: [2, "touchingMouse"] },
+            fields: {},
+            shadow: false,
+            topLevel: false
+          },
+          touchingMouse: {
+            opcode: "sensing_touchingobject",
+            next: null,
+            parent: "waitUntil",
+            inputs: { TOUCHINGOBJECTMENU: [1, "touchingMenu"] },
+            fields: {},
+            shadow: false,
+            topLevel: false
+          },
+          touchingMenu: {
+            opcode: "sensing_touchingobjectmenu",
+            next: null,
+            parent: "touchingMouse",
+            inputs: {},
+            fields: { TOUCHINGOBJECTMENU: ["Mouse1", null] },
+            shadow: true,
+            topLevel: false
+          },
+          scoreIf: {
+            opcode: "control_if",
+            next: null,
+            parent: "waitUntil",
+            inputs: { CONDITION: [2, "scoreEquals"], SUBSTACK: [2, "levelUpBroadcast"] },
+            fields: {},
+            shadow: false,
+            topLevel: false
+          },
+          scoreEquals: {
+            opcode: "operator_equals",
+            next: null,
+            parent: "scoreIf",
+            inputs: {
+              OPERAND1: [3, [12, "Score", "score-id"], [10, ""]],
+              OPERAND2: [1, [10, "5"]]
+            },
+            fields: {},
+            shadow: false,
+            topLevel: false
+          },
+          levelUpBroadcast: {
+            opcode: "event_broadcast",
+            next: null,
+            parent: "scoreIf",
+            inputs: { BROADCAST_INPUT: [1, [11, "Level Up", "broadcast-level-up"]] },
+            fields: {},
+            shadow: false,
+            topLevel: false
+          }
+        }
+      }
+    ]
+  };
+}
+
 function createReferenceSnapshot() {
   return {
     projectId: "reference-project",
@@ -195,6 +329,7 @@ test("CoachService sends DeepSeek V4 chat completions requests in JSON non-think
 
   const result = await service.generateHint({
     snapshot: createSnapshot(),
+    projectData: createProjectDataWithBroadcastDependencies(),
     currentTargetPrograms: ["event_whenflagclicked -> motion_movesteps"],
     programAreaModules: [
       {
@@ -265,6 +400,19 @@ test("CoachService sends DeepSeek V4 chat completions requests in JSON non-think
 
   const promptContext = JSON.parse(capturedRequest.body.messages[1].content.split("\n\n").at(-1));
   assert.equal(promptContext.snapshotRule.includes("最新项目快照"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("从绿旗开始检查实际可达路径"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("不能声称学生可以控制角色"), true);
+  assert.equal(promptContext.projectScriptEvidence.playerInputEvidence.length, 0);
+  assert.equal(promptContext.projectScriptEvidence.targets.length, 2);
+  const catEvidence = promptContext.projectScriptEvidence.targets.find((target) => target.name === "Cat 2");
+  assert.equal(catEvidence.scripts[0].blocks[0].fields.BROADCAST_OPTION, "Level Up");
+  assert.equal(catEvidence.scripts[0].blocks[1].branches.SUBSTACK[0].inputs.TOWARDS.fields.TOWARDS, "Mouse1");
+  assert.equal(catEvidence.scripts[0].blocks[1].branches.SUBSTACK[1].inputs.STEPS.value, "3");
+  const cheeseEvidence = promptContext.projectScriptEvidence.targets.find((target) => target.name === "cheese");
+  assert.equal(cheeseEvidence.scripts[0].blocks[1].inputs.CONDITION.inputs.TOUCHINGOBJECTMENU.fields.TOUCHINGOBJECTMENU, "Mouse1");
+  assert.equal(cheeseEvidence.scripts[0].blocks[2].inputs.CONDITION.inputs.OPERAND1.kind, "variable");
+  assert.equal(cheeseEvidence.scripts[0].blocks[2].inputs.CONDITION.inputs.OPERAND1.name, "Score");
+  assert.equal(cheeseEvidence.scripts[0].blocks[2].branches.SUBSTACK[0].inputs.BROADCAST_INPUT.name, "Level Up");
   assert.equal(promptContext.sprites.length, 2);
   assert.equal(promptContext.sprites[1].scripts.length, 3);
   assert.deepEqual(promptContext.sprites[1].scripts[0], {

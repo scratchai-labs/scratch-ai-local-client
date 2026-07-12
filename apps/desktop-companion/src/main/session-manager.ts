@@ -533,6 +533,7 @@ export class SessionManager {
 
     const result = await this.coachService.generateHint({
       snapshot: activeSnapshot,
+      projectData: requestSnapshot?.projectData,
       currentTargetPrograms: currentState.currentTargetPrograms,
       programAreaModules: currentState.programAreaModules,
       usedExtensions: currentState.usedExtensions,

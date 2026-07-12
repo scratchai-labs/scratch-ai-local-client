@@ -1382,6 +1382,8 @@ test("SessionManager only sends the connected Scratch project when generating hi
 
   const lastOptions = capturedOptions.at(-1);
   assert.equal(lastOptions.snapshot.currentTarget, "角色1");
+  assert.equal(lastOptions.projectData.targets[1].name, "角色1");
+  assert.equal(lastOptions.projectData.targets[1].blocks.start.opcode, "event_whenflagclicked");
   assert.deepEqual(lastOptions.currentTargetPrograms, ["当绿旗被点击"]);
   assert.equal("referenceSnapshot" in lastOptions, false);
   assert.equal("referenceSourceLabel" in lastOptions, false);
