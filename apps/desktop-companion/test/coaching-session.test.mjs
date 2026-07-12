@@ -244,6 +244,86 @@ test("CoachingSession keeps recommendations stable while following and refreshes
   assert.equal(session.consumeDueRequest().reason, "recommendation-completed");
 });
 
+test("CoachingSession refreshes again after completion when project structure changes but visible script text stays the same", () => {
+  const { session } = createSession();
+  const baseline = createProjectData({});
+  const completedProject = createLinearProjectData(["event_whenflagclicked", "motion_movesteps"]);
+  const expandedProject = createLinearProjectData([
+    "event_whenflagclicked",
+    "motion_movesteps",
+    "looks_sayforsecs"
+  ]);
+
+  observe(session, baseline, {
+    currentTargetPrograms: [],
+    currentTargetScriptXmlList: []
+  });
+  session.markRequestStarted();
+  session.markRequestFinished({
+    response: {
+      recommendation: RECOMMEND_MOVE
+    },
+    baselineProjectData: baseline,
+    baselineTarget: TARGET
+  });
+
+  const completed = observe(session, completedProject, {
+    currentTargetPrograms: ["当绿旗被点击 -> 移动 10 步"],
+    currentTargetScriptXmlList: ["<xml>move</xml>"]
+  });
+  assert.equal(completed.action, "scheduled");
+  assert.equal(completed.reason, "recommendation-completed");
+
+  const changedAfterCompletion = observe(session, expandedProject, {
+    currentTargetPrograms: ["当绿旗被点击 -> 移动 10 步"],
+    currentTargetScriptXmlList: ["<xml>move</xml>"]
+  });
+  assert.equal(changedAfterCompletion.action, "scheduled");
+  assert.equal(changedAfterCompletion.reason, "recommendation-completed");
+});
+
+test("CoachingSession does not lose a completed refresh when Scratch emits a transient following snapshot", () => {
+  const { session, clock } = createSession();
+  const baseline = createProjectData({});
+  const followingProject = createLinearProjectData(["event_whenflagclicked"]);
+  const completedProject = createLinearProjectData(["event_whenflagclicked", "motion_movesteps"]);
+
+  observe(session, baseline, {
+    currentTargetPrograms: [],
+    currentTargetScriptXmlList: []
+  });
+  session.markRequestStarted();
+  session.markRequestFinished({
+    response: {
+      recommendation: RECOMMEND_MOVE
+    },
+    baselineProjectData: baseline,
+    baselineTarget: TARGET
+  });
+
+  const completed = observe(session, completedProject, {
+    currentTargetPrograms: ["当绿旗被点击 -> 移动 10 步"],
+    currentTargetScriptXmlList: ["<xml>move</xml>"]
+  });
+  assert.equal(completed.action, "scheduled");
+  assert.equal(completed.reason, "recommendation-completed");
+
+  const transientFollowing = observe(session, followingProject, {
+    currentTargetPrograms: ["当绿旗被点击"],
+    currentTargetScriptXmlList: ["<xml>flag</xml>"]
+  });
+  assert.equal(transientFollowing.action, "keep-current");
+
+  const completedAgain = observe(session, completedProject, {
+    currentTargetPrograms: ["当绿旗被点击 -> 移动 10 步"],
+    currentTargetScriptXmlList: ["<xml>move</xml>"]
+  });
+  assert.equal(completedAgain.action, "keep-current");
+
+  clock.advance(3000);
+  assert.equal(session.consumeDueRequest()?.reason, "recommendation-completed");
+});
+
 test("CoachingSession hides stale hints when the student diverges or switches target", () => {
   const { session } = createSession();
   const baseline = createProjectData({});

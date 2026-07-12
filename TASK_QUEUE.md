@@ -7,6 +7,7 @@
 
 ## 已完成
 
+- 2026-07-12：修复桌面伴随程序“第一条推荐后后续改积木不再刷新”的自动提示回归；`CoachingSession` 的完成态去重签名现在包含当前角色真实 block 结构，而不只依赖可见脚本文本/XML，避免真实 `projectData` 已变化却被误判为同一状态；同时保留已排队的 `recommendation-completed` 刷新，不再被 Scratch 编辑过程中的瞬时 `following` 快照错误取消。已补 2 组 `CoachingSession` 回归测试，并通过 `desktop-companion` 163 项全量测试。
 - 2026-07-12：修复桌面伴随程序 AI 提示可观测性与 fallback 推荐误导；主界面“下一步提示”区域新增当前提示来源文案，明确区分 `DeepSeek` 与 `本地基础提示`；同时收窄 fallback 的“已会运动但未用侦测”分支，不再把 `碰到边缘就反弹` 错包进 `如果...那么`，而是直接推荐单块 `碰到边缘就反弹`，并避免已存在该积木时重复推荐。已补 CoachService、SessionManager、renderer 回归测试，并通过 `desktop-companion` 161 项全量测试。
 - 2026-07-12：维护桌面伴随程序文档口径；同步 README、开发交接、架构说明与维护约定到“推荐积木双端结构净化 + 当前角色程序/推荐积木复杂结构稳定渲染 + desktop-companion 160 项全量测试通过”的最新状态，并纠正旧文档中“坏 opcode 自动映射”为当前真实行为“未支持 opcode 直接丢弃、非法结构关系渲染前净化”。
 - 2026-07-12：为桌面伴随程序补“推荐积木结构渲染前校验”；新增共享 `recommended-structure` 净化层，在主进程接收 AI 结构化推荐后先剔除非法 `root / next / condition / substack` 关系，renderer 在真正生成 Scratch XML 前再净化一次；同时把旧扁平 `recommendedBlocks` 线性链路改成只串联可渲染节点，跳过帽子块 / reporter 等非法 next，避免未来 AI/旧状态把复杂推荐再次打回文字版。已补 3 组回归测试，并通过 `desktop-companion` 构建、定向回归和 160 项全量测试。

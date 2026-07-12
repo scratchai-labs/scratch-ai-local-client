@@ -1,4 +1,7 @@
-import { analyzeRecommendationProgress } from "../common/recommendation-matcher";
+import {
+  analyzeRecommendationProgress,
+  buildProjectStructureSignature
+} from "../common/recommendation-matcher";
 import type {
   AiHintTriggerMode,
   CoachResponse,
@@ -85,11 +88,17 @@ function buildIdentity(observation: Pick<ProjectObservation, "projectId" | "targ
   });
 }
 
-function buildSignature(observation: Pick<ProjectObservation, "projectId" | "target" | "currentTargetPrograms" | "currentTargetScriptXmlList">) {
+function buildSignature(
+  observation: Pick<
+    ProjectObservation,
+    "projectId" | "target" | "projectData" | "currentTargetPrograms" | "currentTargetScriptXmlList"
+  >
+) {
   return JSON.stringify({
     projectId: normalizeString(observation.projectId),
     targetId: normalizeString(observation.target?.id),
     targetName: normalizeString(observation.target?.name),
+    projectStructureSignature: buildProjectStructureSignature(observation.projectData, observation.target),
     currentTargetPrograms: observation.currentTargetPrograms,
     currentTargetScriptXmlList: observation.currentTargetScriptXmlList
   });
@@ -163,7 +172,9 @@ export class CoachingSession {
       });
 
       if (progress.status === "following") {
-        this.pendingRequest = undefined;
+        if (this.pendingRequest?.reason !== "recommendation-completed") {
+          this.pendingRequest = undefined;
+        }
         return { action: "keep-current" };
       }
 

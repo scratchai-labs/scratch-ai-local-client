@@ -222,7 +222,7 @@ function buildBlockStructureSignature(
   return [block.opcode, condition, substack, substack2, next].filter(Boolean).join("|");
 }
 
-function buildStructureSignature(projectData: unknown, currentTarget?: CurrentTargetMeta) {
+export function buildProjectStructureSignature(projectData: unknown, currentTarget?: CurrentTargetMeta) {
   const blocks = getBlockMap(projectData, currentTarget);
   return Object.entries(blocks)
     .filter(([, block]) => isRealBlock(block) && typeof block.opcode === "string")
@@ -270,8 +270,11 @@ export function analyzeRecommendationProgress(options: RecommendationProgressOpt
     options.currentTarget,
     options.recommendation
   );
-  const baselineStructureSignature = buildStructureSignature(options.baselineProjectData, options.currentTarget);
-  const currentStructureSignature = buildStructureSignature(options.currentProjectData, options.currentTarget);
+  const currentStructureSignature = buildProjectStructureSignature(options.currentProjectData, options.currentTarget);
+  const baselineStructureSignature = buildProjectStructureSignature(
+    options.baselineProjectData,
+    options.currentTarget
+  );
   const structureChanged = baselineStructureSignature !== currentStructureSignature;
 
   let status: MatchStatus = "unchanged";
