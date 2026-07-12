@@ -257,11 +257,21 @@ test("CoachService sends DeepSeek V4 chat completions requests in JSON non-think
   assert.equal(capturedRequest.body.messages[1].content.includes("按顺序连接的具体积木"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("舞台和全部角色"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("可以不返回 recommendation"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("只能依据本次最新项目快照"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("不得根据角色名称、造型主题或常见游戏玩法推测"), true);
   assert.equal(capturedRequest.body.messages[1].content.includes("完整阅读舞台和全部角色"), true);
+  assert.equal(capturedRequest.body.messages[1].content.includes("逐个核对"), true);
+  assert.equal(capturedRequest.body.messages[1].content.includes("不要沿用之前的完整性结论"), true);
 
   const promptContext = JSON.parse(capturedRequest.body.messages[1].content.split("\n\n").at(-1));
+  assert.equal(promptContext.snapshotRule.includes("最新项目快照"), true);
   assert.equal(promptContext.sprites.length, 2);
   assert.equal(promptContext.sprites[1].scripts.length, 3);
+  assert.deepEqual(promptContext.sprites[1].scripts[0], {
+    event: "script 1",
+    blocks: ["当绿旗被点击", "移动 10 步"],
+    opcodes: ["event_whenflagclicked", "motion_movesteps"]
+  });
 });
 
 test("CoachService accepts a complete-project usage summary without recommended blocks", async () => {
