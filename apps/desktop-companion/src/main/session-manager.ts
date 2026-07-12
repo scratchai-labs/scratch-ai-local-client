@@ -122,6 +122,14 @@ function normalizeWorkspaceXmlList(value: unknown) {
     .filter(Boolean);
 }
 
+function containsRenderableScratchBlock(xml: string) {
+  return /<block\b/i.test(xml);
+}
+
+function pickRenderableWorkspaceXmlList(value: unknown) {
+  return normalizeWorkspaceXmlList(value).filter(containsRenderableScratchBlock);
+}
+
 export class SessionManager {
   private readonly log: typeof writeRuntimeLog;
 
@@ -541,7 +549,9 @@ export class SessionManager {
       snapshot
         ? deriveCurrentTargetScriptBlocks(snapshot, payload.currentTargetName)
         : this.stateStore.getState().currentTargetScriptBlocks;
-    const currentTargetWorkspaceXmlList = normalizeWorkspaceXmlList(payload.currentTargetWorkspaceXmlList);
+    const currentTargetWorkspaceXmlList = pickRenderableWorkspaceXmlList(
+      payload.currentTargetWorkspaceXmlList
+    );
     const currentTargetScriptXmlList =
       currentTargetWorkspaceXmlList.length > 0
         ? currentTargetWorkspaceXmlList

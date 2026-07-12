@@ -909,6 +909,206 @@ test("CoachService fallback gives a local basic hint without forcing three block
   );
 });
 
+test("CoachService fallback builds a renderable loop structure instead of chaining incompatible control blocks", async () => {
+  const service = new CoachService();
+
+  const result = await service.generateHint({
+    snapshot: createSnapshot(),
+    currentTargetPrograms: ["当绿旗被点击 -> 移动 10 步"],
+    programAreaModules: [
+      {
+        id: "motion",
+        label: "运动",
+        blockCount: 1
+      }
+    ],
+    usedExtensions: [],
+    loadedExtensions: [],
+    aiConfig: createAiConfig({
+      configured: false,
+      apiKey: ""
+    })
+  });
+
+  assert.equal(result.source, "fallback");
+  assert.equal(result.coachResponse.recommendation?.root.opcode, "control_repeat");
+  assert.equal(result.coachResponse.recommendation?.root.next, undefined);
+  assert.equal(result.coachResponse.recommendation?.root.substack?.opcode, "motion_turnright");
+  assert.equal(
+    result.coachResponse.recommendation?.root.substack?.next?.opcode,
+    "motion_movesteps"
+  );
+  assert.deepEqual(
+    result.coachResponse.recommendedBlocks.map((block) => block.opcode),
+    ["control_repeat", "motion_turnright", "motion_movesteps"]
+  );
+});
+
+test("CoachService fallback builds a renderable sensing condition structure", async () => {
+  const service = new CoachService();
+  const snapshot = createSnapshot();
+  snapshot.toolboxCategories = ["事件", "运动", "控制", "侦测"];
+  snapshot.programAreaModules = [
+    {
+      id: "event",
+      label: "事件",
+      blockCount: 1
+    },
+    {
+      id: "motion",
+      label: "运动",
+      blockCount: 2
+    },
+    {
+      id: "control",
+      label: "控制",
+      blockCount: 1
+    }
+  ];
+  snapshot.sprites[0].blockCount = 4;
+  snapshot.sprites[0].scripts = [
+    {
+      spriteName: "Cat",
+      event: "when green flag clicked",
+      blockSequence: ["当绿旗被点击", "重复执行", "移动 10 步", "右转 15 度"],
+      blockOpcodes: [
+        "event_whenflagclicked",
+        "control_repeat",
+        "motion_movesteps",
+        "motion_turnright"
+      ]
+    }
+  ];
+  snapshot.blocks = [
+    {
+      id: "block-1",
+      opcode: "event_whenflagclicked",
+      category: "事件",
+      label: "当绿旗被点击",
+      spriteName: "Cat",
+      topLevel: true
+    },
+    {
+      id: "block-2",
+      opcode: "control_repeat",
+      category: "控制",
+      label: "重复执行",
+      spriteName: "Cat",
+      topLevel: false
+    },
+    {
+      id: "block-3",
+      opcode: "motion_movesteps",
+      category: "运动",
+      label: "移动 10 步",
+      spriteName: "Cat",
+      topLevel: false
+    },
+    {
+      id: "block-4",
+      opcode: "motion_turnright",
+      category: "运动",
+      label: "右转 15 度",
+      spriteName: "Cat",
+      topLevel: false
+    }
+  ];
+  snapshot.detectedConcepts = ["event", "motion", "control"];
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["当绿旗被点击 -> 重复执行 -> 移动 10 步 -> 右转 15 度"],
+    programAreaModules: [
+      {
+        id: "event",
+        label: "事件",
+        blockCount: 1
+      },
+      {
+        id: "motion",
+        label: "运动",
+        blockCount: 2
+      },
+      {
+        id: "control",
+        label: "控制",
+        blockCount: 1
+      }
+    ],
+    usedExtensions: [],
+    loadedExtensions: [],
+    aiConfig: createAiConfig({
+      configured: false,
+      apiKey: ""
+    })
+  });
+
+  assert.equal(result.source, "fallback");
+  assert.equal(result.coachResponse.recommendation?.root.opcode, "control_if");
+  assert.equal(
+    result.coachResponse.recommendation?.root.condition?.opcode,
+    "sensing_touchingobject"
+  );
+  assert.equal(
+    result.coachResponse.recommendation?.root.substack?.opcode,
+    "motion_ifonedgebounce"
+  );
+  assert.equal(
+    result.coachResponse.recommendation?.root.substack?.next?.opcode,
+    "looks_sayforsecs"
+  );
+});
+
+test("CoachService fallback does not chain multiple hat blocks in the event suggestion", async () => {
+  const service = new CoachService();
+  const snapshot = createSnapshot();
+  snapshot.sprites[0].scripts = [
+    {
+      spriteName: "Cat",
+      event: "",
+      blockSequence: ["移动 10 步"],
+      blockOpcodes: ["motion_movesteps"]
+    }
+  ];
+  snapshot.blocks = [
+    {
+      id: "block-2",
+      opcode: "motion_movesteps",
+      category: "运动",
+      label: "移动 10 步",
+      spriteName: "Cat",
+      topLevel: true
+    }
+  ];
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["移动 10 步"],
+    programAreaModules: [
+      {
+        id: "motion",
+        label: "运动",
+        blockCount: 1
+      }
+    ],
+    usedExtensions: [],
+    loadedExtensions: [],
+    aiConfig: createAiConfig({
+      configured: false,
+      apiKey: ""
+    })
+  });
+
+  assert.equal(result.source, "fallback");
+  assert.equal(result.coachResponse.recommendation?.root.opcode, "event_whenflagclicked");
+  assert.equal(result.coachResponse.recommendation?.root.next?.opcode, "motion_movesteps");
+  assert.equal(
+    result.coachResponse.recommendation?.root.next?.next?.opcode,
+    "looks_sayforsecs"
+  );
+  assert.equal(result.coachResponse.recommendation?.root.next?.next?.next, undefined);
+});
+
 test("CoachService redacts API keys from DeepSeek failure warnings", async () => {
   const secretKey = "sk-secret-from-error-body";
   const service = new CoachService(async () =>

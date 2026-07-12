@@ -182,6 +182,7 @@ function buildGenericFallbackCoachResponse(options: GenerateCoachHintOptions): C
   const opcodes = getCurrentTargetOpcodes(snapshot);
   const recommendedBlocks: RecommendedBlock[] = [];
   const detectedIssues: CoachResponse["detectedIssues"] = [];
+  let recommendation: RecommendedBlockStructure | undefined;
 
   let nextStep = `先围绕 ${currentTarget} 补一个更清晰的小目标。`;
   let answerText = `我看到 ${currentTarget} 现在主要用了 ${describeModules(programAreaModules)}。下一步先收紧范围，只补一个你自己也能完成的小功能。`;
@@ -210,10 +211,30 @@ function buildGenericFallbackCoachResponse(options: GenerateCoachHintOptions): C
     answerText = `现在 ${currentTarget} 已经有动作思路了，但还缺少清楚的“什么时候开始执行”。先补事件，你会更容易理解流程。`;
     recommendedBlocks.push(
       createRecommendedBlock("event_whenflagclicked", "事件", "当绿旗被点击", "适合先做统一启动。"),
-      createRecommendedBlock("event_whenkeypressed", "事件", "当按下某个键", "适合做角色控制或交互触发。"),
+      createRecommendedBlock("motion_movesteps", "运动", "移动 10 步", "把事件后面的第一个动作补简单一点，你会更容易马上看到结果。"),
       createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "触发后给一个可见反馈，方便调试。"),
-      createRecommendedBlock("motion_movesteps", "运动", "移动 10 步", "把事件后面的第一个动作补简单一点，你会更容易马上看到结果。")
+      createRecommendedBlock("event_whenkeypressed", "事件", "当按下某个键", "适合做角色控制或交互触发。")
     );
+    recommendation = {
+      root: {
+        opcode: "event_whenflagclicked",
+        category: "事件",
+        label: "当绿旗被点击",
+        reason: "适合先做统一启动。",
+        next: {
+          opcode: "motion_movesteps",
+          category: "运动",
+          label: "移动 10 步",
+          reason: "把事件后面的第一个动作补简单一点，你会更容易马上看到结果。",
+          next: {
+            opcode: "looks_sayforsecs",
+            category: "外观",
+            label: "说 2 秒",
+            reason: "触发后给一个可见反馈，方便调试。"
+          }
+        }
+      }
+    };
     detectedIssues.push({
       severity: "warning",
       title: "脚本触发条件不够清楚",
@@ -226,20 +247,66 @@ function buildGenericFallbackCoachResponse(options: GenerateCoachHintOptions): C
     answerText = "当前脚本已经能跑起来了，下一步最值得补的是循环。这样角色不只做一次动作，作品会更像一个完整的小动画或小游戏。";
     recommendedBlocks.push(
       createRecommendedBlock("control_repeat", "控制", "重复执行", "先做固定次数的循环测试。"),
-      createRecommendedBlock("control_forever", "控制", "一直重复", "适合持续移动、持续检测或持续绘制。"),
       createRecommendedBlock("motion_turnright", "运动", "右转 15 度", "放进循环里更容易看出连续效果。"),
-      createRecommendedBlock("motion_movesteps", "运动", "移动 10 步", "和循环搭配后，角色会更明显地持续移动。")
+      createRecommendedBlock("motion_movesteps", "运动", "移动 10 步", "和循环搭配后，角色会更明显地持续移动。"),
+      createRecommendedBlock("control_forever", "控制", "一直重复", "适合持续移动、持续检测或持续绘制。")
     );
+    recommendation = {
+      root: {
+        opcode: "control_repeat",
+        category: "控制",
+        label: "重复执行",
+        reason: "先做固定次数的循环测试。",
+        substack: {
+          opcode: "motion_turnright",
+          category: "运动",
+          label: "右转 15 度",
+          reason: "放进循环里更容易看出连续效果。",
+          next: {
+            opcode: "motion_movesteps",
+            category: "运动",
+            label: "移动 10 步",
+            reason: "和循环搭配后，角色会更明显地持续移动。"
+          }
+        }
+      }
+    };
     followUpQuestion = "你希望它一直循环，还是只循环几次？";
   } else if (hasModule(programAreaModules, "motion") && !hasModule(programAreaModules, "sensing")) {
     nextStep = "在现有动作外面加一个侦测条件，让角色开始根据环境变化行为。";
     answerText = `现在 ${currentTarget} 已经会动了，下一步很适合补“侦测”。这样你就能从“会动”进阶到“会判断、会互动”。`;
     recommendedBlocks.push(
-      createRecommendedBlock("sensing_touchingobject", "侦测", "碰到...？", "让角色开始根据环境做判断。"),
       createRecommendedBlock("control_if", "控制", "如果...那么", "把侦测结果变成真正的行为变化。"),
+      createRecommendedBlock("sensing_touchingobject", "侦测", "碰到...？", "让角色开始根据环境做判断。"),
       createRecommendedBlock("motion_ifonedgebounce", "运动", "碰到边缘就反弹", "适合快速做出可见的互动结果。"),
       createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "判断成立时给一个提示，你更容易确认侦测逻辑是否生效。")
     );
+    recommendation = {
+      root: {
+        opcode: "control_if",
+        category: "控制",
+        label: "如果...那么",
+        reason: "把侦测结果变成真正的行为变化。",
+        condition: {
+          opcode: "sensing_touchingobject",
+          category: "侦测",
+          label: "碰到...？",
+          reason: "让角色开始根据环境做判断。"
+        },
+        substack: {
+          opcode: "motion_ifonedgebounce",
+          category: "运动",
+          label: "碰到边缘就反弹",
+          reason: "适合快速做出可见的互动结果。",
+          next: {
+            opcode: "looks_sayforsecs",
+            category: "外观",
+            label: "说 2 秒",
+            reason: "判断成立时给一个提示，你更容易确认侦测逻辑是否生效。"
+          }
+        }
+      }
+    };
     followUpQuestion = "你希望角色碰到边缘、鼠标，还是另一个角色时发生变化？";
   } else if (!hasModule(programAreaModules, "data")) {
     nextStep = "加一个变量，例如“分数”或“时间”，把作品从演示推进到有规则。";
@@ -260,10 +327,36 @@ function buildGenericFallbackCoachResponse(options: GenerateCoachHintOptions): C
       createRecommendedBlock("looks_switchcostumeto", "外观", "切换造型", "判断成立时给一个明显反馈。"),
       createRecommendedBlock("data_changevariableby", "变量", "将变量增加", "如果这一步和得分或次数有关，可以顺手把结果记下来。")
     );
+    recommendation = {
+      root: {
+        opcode: "control_if",
+        category: "控制",
+        label: "如果...那么",
+        reason: "让角色开始区分不同情况。",
+        condition: {
+          opcode: "operator_equals",
+          category: "运算",
+          label: "= ",
+          reason: "适合配合变量或侦测结果做判断。"
+        },
+        substack: {
+          opcode: "looks_switchcostumeto",
+          category: "外观",
+          label: "切换造型",
+          reason: "判断成立时给一个明显反馈。",
+          next: {
+            opcode: "data_changevariableby",
+            category: "变量",
+            label: "将变量增加",
+            reason: "如果这一步和得分或次数有关，可以顺手把结果记下来。"
+          }
+        }
+      }
+    };
   }
 
   const visibleRecommendedBlocks = recommendedBlocks.slice(0, MAX_RECOMMENDED_BLOCKS);
-  const recommendation = buildLinearRecommendation(visibleRecommendedBlocks);
+  recommendation ??= buildLinearRecommendation(visibleRecommendedBlocks);
 
   return {
     answerText,

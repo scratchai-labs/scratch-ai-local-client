@@ -7,6 +7,7 @@
 
 ## 已完成
 
+- 2026-07-12：继续修复桌面伴随程序“推荐积木”在复杂提示下退回文字版的问题；确认根因是 fallback 推荐结构不合法，导致 `scratch-blocks` 在复杂提示分支下无法渲染。现已把相关 fallback 分支收口为可渲染的合法结构，并补齐 `CoachService` / `SessionManager` 回归测试，验证“已有循环后推荐侦测”等复杂提示会继续输出结构化积木而不是退回文字。已通过 `desktop-companion` 构建、2 组定向测试和 157 项全量测试。
 - 2026-07-12：修复人工测试反馈：主界面“当前角色程序”只显示文字、没有实时渲染 Scratch 积木，且“推荐积木”上方灰色文字被固定高度容器裁剪。现已将只读 workspace 渲染成功判定延后到积木搬入视野并完成尺寸计算之后，避免过早误判失败回退文字；同时让渲染失败兜底文字自动展开，不再被 inline workspace 高度裁剪。已补回归测试，并通过 desktop-companion 构建、20 项定向渲染回归和 153 项 desktop-companion 全量测试。
 - 2026-07-12：继续修复人工测试反馈：Scratch 里已有积木且 bridge payload 已包含脚本/XML，但桌面端“当前角色程序”和推荐积木仍没有显示彩色积木。根因收敛到只读 `scratch-blocks` 渲染层对官方 `workspaceUpdate` XML 兼容不足；现已在渲染前把官方 XHTML namespace 规范化为 Blockly XML namespace，并在加载后检测空 workspace / 缺少 `.blocklyBlock` 时转入明确失败兜底，避免静默空白。已通过 27 项定向回归、desktop-companion 构建和桌面 UI 真渲染验证，验证结果显示当前脚本与推荐区均渲染出可见 Scratch blocks。
 - 2026-07-12：排查人工测试反馈：Scratch 中已有三个积木，但桌面端“当前角色程序”仍为空，且“推荐积木”停留在“Scratch 积木正在刷新，请稍等一下”。已通过 CDP 证明 Scratch VM 当前角色有 3 个真实积木、官方 workspace XML 长度 1379，且桥接脚本实际 POST 的 payload 包含 3 个模块和 1 条 workspace XML；本轮补充桥接 payload 数量日志，并将只读积木渲染失败兜底从误导性的“正在刷新”改为可读文字版，便于区分“没拿到数据”和“拿到但渲染失败”。已通过桌面端定向构建和 22 项回归，并重启到最新源码版供复测。

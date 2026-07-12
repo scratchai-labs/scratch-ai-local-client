@@ -197,6 +197,65 @@ function createLinearProjectData(opcodes) {
   };
 }
 
+function createRepeatSubstackProjectData(substackOpcodes) {
+  const blocks = {
+    hat: {
+      opcode: "event_whenflagclicked",
+      next: "move",
+      parent: null,
+      inputs: {},
+      fields: {},
+      shadow: false,
+      topLevel: true
+    },
+    move: {
+      opcode: "motion_movesteps",
+      next: "repeat",
+      parent: "hat",
+      inputs: {},
+      fields: {},
+      shadow: false,
+      topLevel: false
+    },
+    repeat: {
+      opcode: "control_repeat",
+      next: null,
+      parent: "move",
+      inputs: {
+        SUBSTACK: [2, "sub-0"]
+      },
+      fields: {},
+      shadow: false,
+      topLevel: false
+    }
+  };
+
+  for (const [index, opcode] of substackOpcodes.entries()) {
+    const id = `sub-${index}`;
+    const nextId = index < substackOpcodes.length - 1 ? `sub-${index + 1}` : null;
+    blocks[id] = {
+      opcode,
+      next: nextId,
+      parent: index === 0 ? "repeat" : `sub-${index - 1}`,
+      inputs: {},
+      fields: {},
+      shadow: false,
+      topLevel: false
+    };
+  }
+
+  return {
+    targets: [
+      {
+        id: "sprite-a",
+        name: "Cat",
+        isStage: false,
+        blocks
+      }
+    ]
+  };
+}
+
 test("SessionManager enters waiting state when Scratch path is not configured", async () => {
   const stateStore = new StateStore();
   const manager = new SessionManager(stateStore, {
@@ -508,6 +567,70 @@ test("SessionManager prefers official Scratch workspace XML from bridge payload"
 
   const nextState = stateStore.getState();
   assert.deepEqual(nextState.currentTargetScriptXmlList, [officialXml]);
+});
+
+test("SessionManager falls back to generated script XML when official workspace XML has no blocks", async () => {
+  const stateStore = new StateStore();
+  const manager = new SessionManager(stateStore, {
+    bridgeServer: createBridgeServerMock(),
+    platform: "win32",
+    log: () => {},
+    configStore: createConfigStoreMock("C:\\Scratch 3.exe"),
+    loadAiConfig: createAiConfigMock(),
+    scratchLauncher: {},
+    scratchRemoteDebugger: {}
+  });
+
+  await manager.start();
+
+  manager.handlePayload({
+    source: "workspace-update",
+    currentTargetId: "sprite-a",
+    currentTargetName: "Cat",
+    toolboxCategories: ["event", "motion"],
+    currentTargetWorkspaceXmlList: [
+      '<xml xmlns="http://www.w3.org/1999/xhtml"><variables><variable type="" id="v">score</variable></variables></xml>'
+    ],
+    projectData: {
+      targets: [
+        {
+          id: "sprite-a",
+          name: "Cat",
+          isStage: false,
+          blocks: {
+            a: {
+              opcode: "event_whenflagclicked",
+              next: "b",
+              parent: null,
+              inputs: {},
+              fields: {},
+              shadow: false,
+              topLevel: true,
+              x: 10,
+              y: 12
+            },
+            b: {
+              opcode: "motion_movesteps",
+              next: null,
+              parent: "a",
+              inputs: {
+                STEPS: [1, [4, "10"]]
+              },
+              fields: {},
+              shadow: false,
+              topLevel: false
+            }
+          }
+        }
+      ]
+    }
+  });
+
+  const nextState = stateStore.getState();
+  assert.equal(nextState.currentTargetScriptXmlList.length, 1);
+  assert.match(nextState.currentTargetScriptXmlList[0], /type="event_whenflagclicked"/);
+  assert.match(nextState.currentTargetScriptXmlList[0], /type="motion_movesteps"/);
+  assert.doesNotMatch(nextState.currentTargetScriptXmlList[0], /<variables>/);
 });
 
 test("SessionManager returns fallback AI hints when DeepSeek key is not configured", async () => {
@@ -861,12 +984,9 @@ test("SessionManager refreshes fallback recommendation after the student complet
     currentTargetId: "sprite-a",
     currentTargetName: "Cat",
     toolboxCategories: ["event", "motion", "control", "sensing"],
-    projectData: createLinearProjectData([
-      "event_whenflagclicked",
-      "motion_movesteps",
-      "control_repeat",
-      "control_forever",
-      "motion_turnright"
+    projectData: createRepeatSubstackProjectData([
+      "motion_turnright",
+      "motion_movesteps"
     ])
   });
 
@@ -874,7 +994,8 @@ test("SessionManager refreshes fallback recommendation after the student complet
   await flushAsyncWork();
 
   const nextHint = stateStore.getState().aiCoachResponse;
-  assert.equal(nextHint?.recommendation?.root.opcode, "sensing_touchingobject");
+  assert.equal(nextHint?.recommendation?.root.opcode, "control_if");
+  assert.equal(nextHint?.recommendation?.root.condition?.opcode, "sensing_touchingobject");
 });
 
 test("SessionManager returns an error when requesting a hint before Scratch connects", async () => {
