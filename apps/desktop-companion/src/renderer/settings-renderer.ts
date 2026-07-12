@@ -119,7 +119,7 @@ saveCustomAiApiKeyButton?.addEventListener("click", () => {
         customAiApiKeyInput.value = "";
       }
 
-      showMessage("已保存本机 DeepSeek API Key。", "success");
+      showMessage("已保存本机 DeepSeek API Key，并切换为手动点击提示。", "success");
     })
     .catch((error) => {
       showMessage(error instanceof Error ? error.message : "保存自定义 DeepSeek API Key 失败，请查看日志。", "error");
@@ -146,7 +146,7 @@ clearCustomAiApiKeyButton?.addEventListener("click", () => {
         customAiApiKeyInput.value = "";
       }
 
-      showMessage("已清除本机 DeepSeek API Key，后续会自动使用基础提示。", "success");
+      showMessage("已清除本机 DeepSeek API Key。当前只会临时给一次基础提示，之后会提醒你先补 Key。", "success");
     })
     .catch((error) => {
       showMessage(error instanceof Error ? error.message : "清除自定义 DeepSeek API Key 失败，请查看日志。", "error");

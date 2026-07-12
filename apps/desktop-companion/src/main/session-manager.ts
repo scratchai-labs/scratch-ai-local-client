@@ -25,6 +25,7 @@ import type { ScratchPlatformAdapter } from "./platform-adapter";
 import type { RequestSnapshot, SessionDecision } from "./coaching-session";
 import type {
   AiHintTriggerMode,
+  CoachResponse,
   CurrentTargetScriptDescriptor,
   DesktopCompanionState,
   ProgramAreaModule,
@@ -35,6 +36,7 @@ import type {
 const CDP_INJECTION_TIMEOUT_MS = 15_000;
 const BRIDGE_CONNECTION_SETTLE_MS = 6_000;
 const MAX_CDP_INJECTION_ATTEMPTS = 5;
+const LOCAL_REMINDER_MODEL = "local-reminder";
 
 interface SessionManagerDependencies {
   log?: typeof writeRuntimeLog;
@@ -112,6 +114,23 @@ function trimText(value?: string) {
   return candidate || undefined;
 }
 
+function buildMissingDeepSeekKeyReminder(targetName?: string): CoachResponse {
+  const target = trimText(targetName) ?? "当前角色";
+  return {
+    answerText: `我已经先给过你一次本地基础提示了。想继续拿到更贴合 ${target} 当前积木的建议，请先点右上角“DeepSeek 设置”保存 DeepSeek Key。`,
+    recommendedBlocks: [],
+    nextStep: "先去“DeepSeek 设置”保存 Key，然后再点一次“生成下一步提示”。",
+    detectedIssues: [
+      {
+        severity: "warning",
+        title: "还没有可用的 DeepSeek Key",
+        description: "当前只保留一次本地基础提示；继续生成前请先在设置里保存 DeepSeek Key。",
+        spriteName: target
+      }
+    ]
+  };
+}
+
 function normalizeWorkspaceXmlList(value: unknown) {
   if (!Array.isArray(value)) {
     return [];
@@ -183,6 +202,8 @@ export class SessionManager {
   private pendingHintTimer?: unknown;
 
   private pendingRequestBaseline?: RequestSnapshot;
+
+  private localFallbackUsedWithoutKey = false;
 
   constructor(
     private readonly stateStore: StateStore,
@@ -292,7 +313,18 @@ export class SessionManager {
   }
 
   async saveCustomAiApiKey(apiKey: string) {
-    this.config = await this.configStore.saveCustomAiApiKey(apiKey);
+    this.config = {
+      ...this.config,
+      ...(await this.configStore.saveCustomAiApiKey(apiKey))
+    };
+    if (normalizeAiHintTriggerMode(this.config.aiHintTriggerMode) !== "manual") {
+      this.config.aiHintTriggerMode = "manual";
+      this.config = {
+        ...this.config,
+        ...(await this.configStore.saveAiHintTriggerMode("manual"))
+      };
+    }
+    this.localFallbackUsedWithoutKey = false;
     await this.refreshAiConfig();
     this.stateStore.update({
       ...this.getAiStatePatch(),
@@ -301,8 +333,22 @@ export class SessionManager {
   }
 
   async clearCustomAiApiKey() {
-    this.config = await this.configStore.clearCustomAiApiKey();
+    this.config = {
+      ...this.config,
+      ...(await this.configStore.clearCustomAiApiKey())
+    };
+    delete this.config.customAiApiKey;
+    this.localFallbackUsedWithoutKey = false;
     await this.refreshAiConfig();
+    if (!trimText(this.config.customAiApiKey) && this.aiConfig) {
+      this.aiConfig = {
+        ...this.aiConfig,
+        configured: false,
+        source: undefined,
+        customKeyConfigured: false
+      };
+      delete this.aiConfig.apiKey;
+    }
     this.stateStore.update({
       ...this.getAiStatePatch(),
       aiError: undefined
@@ -360,6 +406,16 @@ export class SessionManager {
 
   async requestAiHint(goal?: string) {
     if (!goal) {
+      await this.refreshAiConfig();
+      if (
+        (!this.aiConfig?.configured || !this.aiConfig?.apiKey) &&
+        (this.localFallbackUsedWithoutKey ||
+          (this.stateStore.getState().aiProvider === "fallback" &&
+            this.stateStore.getState().aiModel === "local-heuristic"))
+      ) {
+        await this.runAiHintRequest(this.coachingSession.getLatestSnapshot(), goal);
+        return;
+      }
       const decision = this.coachingSession.requestManualHint();
       this.log(`Manual AI hint requested action=${decision.action}`);
       if (decision.action === "idle") {
@@ -416,6 +472,29 @@ export class SessionManager {
       return;
     }
 
+    if ((!aiConfig.configured || !aiConfig.apiKey) && this.localFallbackUsedWithoutKey) {
+      const reminderResponse = buildMissingDeepSeekKeyReminder(currentState.currentTargetName);
+      this.log("AI hint request skipped because DeepSeek key is still missing after one local fallback");
+      this.stateStore.update({
+        ...this.getAiStatePatch(),
+        aiStatus: "ready",
+        aiProvider: "fallback",
+        aiModel: LOCAL_REMINDER_MODEL,
+        aiCoachResponse: reminderResponse,
+        aiLastUpdatedAt: new Date().toISOString(),
+        aiError: "当前还没有保存 DeepSeek Key，请先去设置里添加。"
+      });
+      this.applySessionDecision(
+        this.coachingSession.markRequestFinished({
+          response: reminderResponse,
+          baselineProjectData: this.pendingRequestBaseline?.projectData,
+          baselineTarget: this.pendingRequestBaseline?.target
+        })
+      );
+      this.pendingRequestBaseline = undefined;
+      return;
+    }
+
     const result = await this.coachService.generateHint({
       snapshot: activeSnapshot,
       currentTargetPrograms: currentState.currentTargetPrograms,
@@ -429,6 +508,9 @@ export class SessionManager {
 
     if (result.warning) {
       this.log("DeepSeek live hint fell back to local heuristics", result.warning);
+    }
+    if ((!aiConfig.configured || !aiConfig.apiKey) && result.source === "fallback") {
+      this.localFallbackUsedWithoutKey = true;
     }
     this.log(`AI hint request finished source=${result.source} model=${JSON.stringify(result.model)}`);
 
@@ -867,6 +949,7 @@ export class SessionManager {
       this.pendingHintTimer = undefined;
     }
     this.pendingRequestBaseline = undefined;
+    this.localFallbackUsedWithoutKey = false;
     this.coachingSession.reset();
   }
 

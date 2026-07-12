@@ -243,7 +243,7 @@
 
       <section class="panel">
         <h2>DeepSeek API Key</h2>
-        <p class="note">Key 会明文保存在当前电脑，并限制为当前系统用户可读写。保存后直接用于在线提示；清除后不再请求 DeepSeek，而是自动使用基础提示。</p>
+        <p class="note">Key 会明文保存在当前电脑，并限制为当前系统用户可读写。保存后会直接用于在线提示，并默认切到手动点击；清除后不再请求 DeepSeek，只会临时给一次基础提示，随后提醒你先补 Key。</p>
         <input
           id="settings-custom-ai-api-key"
           type="password"
@@ -271,7 +271,7 @@
 
       <section class="panel">
         <h2>下一步提示触发方式</h2>
-        <p class="note">默认自动刷新。若希望课堂上由老师或学生手动控制，也可以切回按钮触发。</p>
+        <p class="note">建议优先用手动点击，避免提示在你改积木时频繁跳动；如果确实需要连续跟随，再切回自动刷新。</p>
         <select id="settings-ai-hint-trigger-mode">
           <option value="auto" selected>自动刷新</option>
           <option value="manual">手动点击</option>

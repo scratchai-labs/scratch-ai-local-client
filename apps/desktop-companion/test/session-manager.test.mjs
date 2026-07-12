@@ -35,6 +35,7 @@ function createConfigStoreMock(initialPath = undefined) {
   let customAiModel;
   let customAiPrompt;
   let lastScratchLocale;
+  let aiHintTriggerMode = "auto";
 
   return {
     load: async () => ({
@@ -42,7 +43,8 @@ function createConfigStoreMock(initialPath = undefined) {
       ...(customAiApiKey ? { customAiApiKey } : {}),
       ...(customAiModel ? { customAiModel } : {}),
       ...(customAiPrompt ? { customAiPrompt } : {}),
-      ...(lastScratchLocale ? { lastScratchLocale } : {})
+      ...(lastScratchLocale ? { lastScratchLocale } : {}),
+      aiHintTriggerMode
     }),
     saveScratchExecutablePath: async (value) => {
       scratchExecutablePath = value;
@@ -51,7 +53,8 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(customAiApiKey ? { customAiApiKey } : {}),
         ...(customAiModel ? { customAiModel } : {}),
         ...(customAiPrompt ? { customAiPrompt } : {}),
-        ...(lastScratchLocale ? { lastScratchLocale } : {})
+        ...(lastScratchLocale ? { lastScratchLocale } : {}),
+        aiHintTriggerMode
       };
     },
     saveCustomAiApiKey: async (value) => {
@@ -61,7 +64,8 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(customAiApiKey ? { customAiApiKey } : {}),
         ...(customAiModel ? { customAiModel } : {}),
         ...(customAiPrompt ? { customAiPrompt } : {}),
-        ...(lastScratchLocale ? { lastScratchLocale } : {})
+        ...(lastScratchLocale ? { lastScratchLocale } : {}),
+        aiHintTriggerMode
       };
     },
     clearCustomAiApiKey: async () => {
@@ -70,7 +74,8 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(scratchExecutablePath ? { scratchExecutablePath } : {}),
         ...(customAiModel ? { customAiModel } : {}),
         ...(customAiPrompt ? { customAiPrompt } : {}),
-        ...(lastScratchLocale ? { lastScratchLocale } : {})
+        ...(lastScratchLocale ? { lastScratchLocale } : {}),
+        aiHintTriggerMode
       };
     },
     saveCustomAiModel: async (value) => {
@@ -80,7 +85,8 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(customAiApiKey ? { customAiApiKey } : {}),
         ...(customAiModel ? { customAiModel } : {}),
         ...(customAiPrompt ? { customAiPrompt } : {}),
-        ...(lastScratchLocale ? { lastScratchLocale } : {})
+        ...(lastScratchLocale ? { lastScratchLocale } : {}),
+        aiHintTriggerMode
       };
     },
     clearCustomAiModel: async () => {
@@ -89,7 +95,8 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(scratchExecutablePath ? { scratchExecutablePath } : {}),
         ...(customAiApiKey ? { customAiApiKey } : {}),
         ...(customAiPrompt ? { customAiPrompt } : {}),
-        ...(lastScratchLocale ? { lastScratchLocale } : {})
+        ...(lastScratchLocale ? { lastScratchLocale } : {}),
+        aiHintTriggerMode
       };
     },
     saveCustomAiPrompt: async (value) => {
@@ -98,7 +105,8 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(scratchExecutablePath ? { scratchExecutablePath } : {}),
         ...(customAiApiKey ? { customAiApiKey } : {}),
         ...(customAiModel ? { customAiModel } : {}),
-        ...(customAiPrompt ? { customAiPrompt } : {})
+        ...(customAiPrompt ? { customAiPrompt } : {}),
+        aiHintTriggerMode
       };
     },
     clearCustomAiPrompt: async () => {
@@ -107,7 +115,19 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(scratchExecutablePath ? { scratchExecutablePath } : {}),
         ...(customAiApiKey ? { customAiApiKey } : {}),
         ...(customAiModel ? { customAiModel } : {}),
-        ...(lastScratchLocale ? { lastScratchLocale } : {})
+        ...(lastScratchLocale ? { lastScratchLocale } : {}),
+        aiHintTriggerMode
+      };
+    },
+    saveAiHintTriggerMode: async (value) => {
+      aiHintTriggerMode = value;
+      return {
+        ...(scratchExecutablePath ? { scratchExecutablePath } : {}),
+        ...(customAiApiKey ? { customAiApiKey } : {}),
+        ...(customAiModel ? { customAiModel } : {}),
+        ...(customAiPrompt ? { customAiPrompt } : {}),
+        ...(lastScratchLocale ? { lastScratchLocale } : {}),
+        aiHintTriggerMode
       };
     },
     saveLastScratchLocale: async (value) => {
@@ -117,7 +137,8 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(customAiApiKey ? { customAiApiKey } : {}),
         ...(customAiModel ? { customAiModel } : {}),
         ...(customAiPrompt ? { customAiPrompt } : {}),
-        ...(lastScratchLocale ? { lastScratchLocale } : {})
+        ...(lastScratchLocale ? { lastScratchLocale } : {}),
+        aiHintTriggerMode
       };
     }
   };
@@ -693,6 +714,66 @@ test("SessionManager returns fallback AI hints when DeepSeek key is not configur
   assert.equal(nextState.aiCoachResponse?.recommendedBlocks.length > 0, true);
 });
 
+test("SessionManager reminds the user to add a DeepSeek key after one local fallback", async () => {
+  const stateStore = new StateStore();
+  let hintCallCount = 0;
+  const manager = new SessionManager(stateStore, {
+    bridgeServer: createBridgeServerMock(),
+    platform: "win32",
+    log: () => {},
+    configStore: createConfigStoreMock("C:\\Scratch 3.exe"),
+    loadAiConfig: createAiConfigMock(),
+    coachService: {
+      generateHint: async () => {
+        hintCallCount += 1;
+        return {
+          source: "fallback",
+          model: "local-heuristic",
+          coachResponse: {
+            answerText: "先给一次基础提示。",
+            recommendedBlocks: [
+              {
+                opcode: "motion_movesteps",
+                category: "运动",
+                label: "移动 10 步",
+                reason: "先让角色动起来。"
+              }
+            ],
+            nextStep: "先让角色动起来。",
+            detectedIssues: []
+          }
+        };
+      }
+    },
+    scratchLauncher: {},
+    scratchRemoteDebugger: {}
+  });
+
+  await manager.start();
+
+  manager.handlePayload({
+    source: "test",
+    currentTargetId: "sprite-a",
+    currentTargetName: "Cat",
+    toolboxCategories: ["motion"],
+    projectData: createLinearProjectData(["event_whenflagclicked", "motion_movesteps"])
+  });
+
+  await manager.requestAiHint();
+  assert.equal(hintCallCount, 1);
+  assert.equal(stateStore.getState().aiProvider, "fallback");
+  assert.equal(stateStore.getState().aiModel, "local-heuristic");
+
+  await manager.requestAiHint();
+  const remindedState = stateStore.getState();
+  assert.equal(hintCallCount, 1);
+  assert.equal(remindedState.aiProvider, "fallback");
+  assert.equal(remindedState.aiModel, "local-reminder");
+  assert.match(remindedState.aiCoachResponse?.answerText ?? "", /DeepSeek Key/);
+  assert.equal(remindedState.aiCoachResponse?.recommendedBlocks.length, 0);
+  assert.match(remindedState.aiError ?? "", /DeepSeek Key/);
+});
+
 test("SessionManager does not auto refresh hints when hint trigger mode is manual", async () => {
   const stateStore = new StateStore();
   const capturedOptions = [];
@@ -946,7 +1027,7 @@ test("SessionManager auto refreshes changed Scratch blocks after three quiet sec
   ]);
 });
 
-test("SessionManager refreshes fallback recommendation after the student completes it", async () => {
+test("SessionManager reminds for a DeepSeek key instead of generating endless fallback recommendations", async () => {
   const stateStore = new StateStore();
   const fakeTimer = createFakeTimer();
 
@@ -994,8 +1075,10 @@ test("SessionManager refreshes fallback recommendation after the student complet
   await flushAsyncWork();
 
   const nextHint = stateStore.getState().aiCoachResponse;
-  assert.equal(nextHint?.recommendation?.root.opcode, "motion_ifonedgebounce");
-  assert.equal(nextHint?.recommendation?.root.condition, undefined);
+  assert.equal(nextHint?.recommendation, undefined);
+  assert.equal(nextHint?.recommendedBlocks.length, 0);
+  assert.match(nextHint?.answerText ?? "", /DeepSeek Key/);
+  assert.equal(stateStore.getState().aiModel, "local-reminder");
 });
 
 test("SessionManager returns an error when requesting a hint before Scratch connects", async () => {
@@ -1176,32 +1259,51 @@ test("SessionManager clears hints and skips AI requests for blank Scratch projec
 test("SessionManager can switch to a saved custom AI key", async () => {
   const stateStore = new StateStore();
   let savedCustomKey = "";
+  let savedMode = "auto";
   const manager = new SessionManager(stateStore, {
     bridgeServer: createBridgeServerMock(),
     platform: "win32",
     log: () => {},
     configStore: {
-      load: async () => ({ scratchExecutablePath: "C:\\Scratch 3.exe" }),
-      saveScratchExecutablePath: async (value) => ({ scratchExecutablePath: value, customAiApiKey: savedCustomKey || undefined }),
+      load: async () => ({ scratchExecutablePath: "C:\\Scratch 3.exe", aiHintTriggerMode: savedMode }),
+      saveScratchExecutablePath: async (value) => ({
+        scratchExecutablePath: value,
+        customAiApiKey: savedCustomKey || undefined,
+        aiHintTriggerMode: savedMode
+      }),
       saveCustomAiApiKey: async (value) => {
         savedCustomKey = value;
-        return { scratchExecutablePath: "C:\\Scratch 3.exe", customAiApiKey: value };
+        return { scratchExecutablePath: "C:\\Scratch 3.exe", customAiApiKey: value, aiHintTriggerMode: savedMode };
       },
       clearCustomAiApiKey: async () => {
         savedCustomKey = "";
-        return { scratchExecutablePath: "C:\\Scratch 3.exe" };
+        return { scratchExecutablePath: "C:\\Scratch 3.exe", aiHintTriggerMode: savedMode };
       },
       saveCustomAiModel: async (value) => ({
         scratchExecutablePath: "C:\\Scratch 3.exe",
         customAiApiKey: savedCustomKey || undefined,
-        customAiModel: value
+        customAiModel: value,
+        aiHintTriggerMode: savedMode
       }),
       clearCustomAiModel: async () => ({
         scratchExecutablePath: "C:\\Scratch 3.exe",
-        customAiApiKey: savedCustomKey || undefined
+        customAiApiKey: savedCustomKey || undefined,
+        aiHintTriggerMode: savedMode
       }),
-      saveCustomAiPrompt: async (value) => ({ scratchExecutablePath: "C:\\Scratch 3.exe", customAiPrompt: value }),
-      clearCustomAiPrompt: async () => ({ scratchExecutablePath: "C:\\Scratch 3.exe" })
+      saveCustomAiPrompt: async (value) => ({
+        scratchExecutablePath: "C:\\Scratch 3.exe",
+        customAiPrompt: value,
+        aiHintTriggerMode: savedMode
+      }),
+      clearCustomAiPrompt: async () => ({ scratchExecutablePath: "C:\\Scratch 3.exe", aiHintTriggerMode: savedMode }),
+      saveAiHintTriggerMode: async (value) => {
+        savedMode = value;
+        return {
+          scratchExecutablePath: "C:\\Scratch 3.exe",
+          customAiApiKey: savedCustomKey || undefined,
+          aiHintTriggerMode: savedMode
+        };
+      }
     },
     loadAiConfig: async (_configPath, options) => ({
       configured: Boolean(options?.customApiKey),
@@ -1224,6 +1326,7 @@ test("SessionManager can switch to a saved custom AI key", async () => {
   assert.equal(nextState.aiConfigured, true);
   assert.equal(nextState.aiCustomKeyConfigured, true);
   assert.equal(nextState.aiConfigSource, "custom");
+  assert.equal(nextState.aiHintTriggerMode, "manual");
 
   await manager.clearCustomAiApiKey();
   const clearedState = stateStore.getState();
