@@ -57,6 +57,7 @@ export function buildDesktopInjectionScript(apiBaseUrl: string, token: string) {
 
   let vmCandidate = null;
   let listenersAttached = false;
+  let localeObserverAttached = false;
   let scheduledTimer = 0;
   const REACT_NODE_PREFIXES = ["__reactFiber$", "__reactContainer$", "__reactInternalInstance$"];
 
@@ -301,15 +302,40 @@ export function buildDesktopInjectionScript(apiBaseUrl: string, token: string) {
     return null;
   }
 
-  function getScratchLocale() {
+  function normalizeScratchLocaleCandidate(locale) {
+    return typeof locale === "string" && locale.trim() ? locale.trim() : undefined;
+  }
+
+  function getReduxScratchLocale() {
     try {
       const store = findReduxStoreFromReactTree();
       const state = store && store.getState ? store.getState() : null;
       const locale = state && state.locales && state.locales.locale;
-      return typeof locale === "string" && locale.trim() ? locale.trim() : undefined;
+      return normalizeScratchLocaleCandidate(locale);
     } catch {
       return undefined;
     }
+  }
+
+  function getDocumentScratchLocale() {
+    try {
+      return normalizeScratchLocaleCandidate(document.documentElement.lang);
+    } catch {
+      return undefined;
+    }
+  }
+
+  function getVmScratchLocale(vm) {
+    try {
+      const locale = vm && typeof vm.getLocale === "function" ? vm.getLocale() : undefined;
+      return normalizeScratchLocaleCandidate(locale);
+    } catch {
+      return undefined;
+    }
+  }
+
+  function getScratchLocale(vm) {
+    return getReduxScratchLocale() || getDocumentScratchLocale() || getVmScratchLocale(vm);
   }
 
   function findToolboxXmlInFiberNode(node) {
@@ -510,7 +536,7 @@ export function buildDesktopInjectionScript(apiBaseUrl: string, token: string) {
         source,
         capturedAt: new Date().toISOString(),
         scratchPid: getScratchPid(),
-        scratchLocale: getScratchLocale(),
+        scratchLocale: getScratchLocale(vm),
         currentTargetId: currentTargetMeta.id,
         currentTargetName: currentTargetMeta.name,
         currentTargetIsStage: currentTargetMeta.isStage,
@@ -539,10 +565,26 @@ export function buildDesktopInjectionScript(apiBaseUrl: string, token: string) {
     vm.on("EXTENSION_ADDED", () => scheduleSnapshot("extension-added"));
   }
 
+  function installLocaleObserver() {
+    if (localeObserverAttached || typeof MutationObserver !== "function") {
+      return;
+    }
+    localeObserverAttached = true;
+    new MutationObserver((mutations) => {
+      if (mutations.some((mutation) => mutation.type === "attributes" && mutation.attributeName === "lang")) {
+        scheduleSnapshot("language-changed");
+      }
+    }).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["lang"]
+    });
+  }
+
   window.__scratchDesktopCompanionCaptureNow = postSnapshot;
 
   window.addEventListener("keyup", () => scheduleSnapshot("keyup"), true);
   window.addEventListener("pointerup", () => scheduleSnapshot("pointerup"), true);
+  installLocaleObserver();
   window.setInterval(() => postSnapshot("heartbeat"), 4000);
   postSnapshot("bootstrap");
 

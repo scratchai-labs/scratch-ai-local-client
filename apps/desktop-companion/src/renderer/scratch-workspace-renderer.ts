@@ -85,6 +85,7 @@ const scratchReadonlyTheme = ScratchBlocks.Theme.defineTheme("scratch-readonly",
 });
 
 let scratchBlocksInitialized = false;
+let activeScratchBlocksLocale = "";
 
 function registerReadonlyDynamicMenuBlock(
   blockType: string,
@@ -173,12 +174,27 @@ function registerReadonlyFieldValueStatementBlock(
   };
 }
 
-function ensureScratchBlocksInitialized() {
+function getReadonlyScratchLocale(documentRef: Document = document) {
+  const locale = documentRef.documentElement.lang.trim();
+  return locale || "en";
+}
+
+function setReadonlyScratchLocale(documentRef: Document = document) {
+  const locale = getReadonlyScratchLocale(documentRef);
+  if (locale === activeScratchBlocksLocale) {
+    return;
+  }
+  ScratchBlocks.ScratchMsgs.setLocale(locale);
+  activeScratchBlocksLocale = locale;
+}
+
+function ensureScratchBlocksInitialized(documentRef: Document = document) {
   if (scratchBlocksInitialized) {
+    setReadonlyScratchLocale(documentRef);
     return;
   }
 
-  ScratchBlocks.ScratchMsgs.setLocale("zh-cn");
+  setReadonlyScratchLocale(documentRef);
 
   registerReadonlyDynamicMenuBlock("motion_pointtowards_menu", "TOWARDS", [
     "colours_motion",
@@ -231,8 +247,7 @@ function ensureScratchBlocksInitialized() {
       this.jsonInit({
         message0: ScratchBlocks.ScratchMsgs.translate(
           "EVENT_WHENBACKDROPSWITCHESTO",
-          "when backdrop switches to %1",
-          "zh-cn"
+          "when backdrop switches to %1"
         ),
         args0: [
           {
@@ -309,7 +324,7 @@ function renderScratchWorkspace(host: HTMLElement) {
 }
 
 export function renderScratchWorkspaces(documentRef: Document = document) {
-  ensureScratchBlocksInitialized();
+  ensureScratchBlocksInitialized(documentRef);
   disposeScratchWorkspaces();
 
   const hosts = Array.from(documentRef.querySelectorAll<HTMLElement>(".scratch-workspace-host"));
