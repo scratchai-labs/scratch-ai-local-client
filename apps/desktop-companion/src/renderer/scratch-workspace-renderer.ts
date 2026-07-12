@@ -6,6 +6,8 @@ import {
 } from "../common/scratch-workspace-config";
 
 const activeWorkspaces = new Map<HTMLElement, ScratchBlocks.WorkspaceSvg>();
+const OFFICIAL_SCRATCH_WORKSPACE_XML_NAMESPACE = "http://www.w3.org/1999/xhtml";
+const BLOCKLY_WORKSPACE_XML_NAMESPACE = "https://developers.google.com/blockly/xml";
 const scratchReadonlyTheme = ScratchBlocks.Theme.defineTheme("scratch-readonly", {
   blockStyles: {
     motion: {
@@ -329,6 +331,19 @@ function moveTopLevelBlocksIntoView(workspace: ScratchBlocks.WorkspaceSvg) {
   }
 }
 
+function normalizeScratchWorkspaceXml(xmlText: string) {
+  return xmlText.replaceAll(
+    OFFICIAL_SCRATCH_WORKSPACE_XML_NAMESPACE,
+    BLOCKLY_WORKSPACE_XML_NAMESPACE
+  );
+}
+
+function assertWorkspaceRendered(host: HTMLElement, workspace: ScratchBlocks.WorkspaceSvg) {
+  if (workspace.getTopBlocks(false).length === 0 || !host.querySelector(".blocklyBlock")) {
+    throw new Error("scratch workspace XML did not create visible blocks");
+  }
+}
+
 function renderScratchWorkspace(host: HTMLElement) {
   const xmlText = host.dataset.xml?.trim();
   if (!xmlText) {
@@ -343,8 +358,12 @@ function renderScratchWorkspace(host: HTMLElement) {
     theme: scratchReadonlyTheme
   }));
 
-  const parsedXml = new DOMParser().parseFromString(xmlText, "text/xml").documentElement;
+  const parsedXml = new DOMParser().parseFromString(
+    normalizeScratchWorkspaceXml(xmlText),
+    "text/xml"
+  ).documentElement;
   ScratchBlocks.clearWorkspaceAndLoadFromXml(parsedXml, workspace);
+  assertWorkspaceRendered(host, workspace);
   moveTopLevelBlocksIntoView(workspace);
   resizeWorkspaceHost(host, workspace);
   activeWorkspaces.set(host, workspace);

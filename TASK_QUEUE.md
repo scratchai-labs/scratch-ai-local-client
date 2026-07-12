@@ -7,6 +7,7 @@
 
 ## 已完成
 
+- 2026-07-12：继续修复人工测试反馈：Scratch 里已有积木且 bridge payload 已包含脚本/XML，但桌面端“当前角色程序”和推荐积木仍没有显示彩色积木。根因收敛到只读 `scratch-blocks` 渲染层对官方 `workspaceUpdate` XML 兼容不足；现已在渲染前把官方 XHTML namespace 规范化为 Blockly XML namespace，并在加载后检测空 workspace / 缺少 `.blocklyBlock` 时转入明确失败兜底，避免静默空白。已通过 27 项定向回归、desktop-companion 构建和桌面 UI 真渲染验证，验证结果显示当前脚本与推荐区均渲染出可见 Scratch blocks。
 - 2026-07-12：排查人工测试反馈：Scratch 中已有三个积木，但桌面端“当前角色程序”仍为空，且“推荐积木”停留在“Scratch 积木正在刷新，请稍等一下”。已通过 CDP 证明 Scratch VM 当前角色有 3 个真实积木、官方 workspace XML 长度 1379，且桥接脚本实际 POST 的 payload 包含 3 个模块和 1 条 workspace XML；本轮补充桥接 payload 数量日志，并将只读积木渲染失败兜底从误导性的“正在刷新”改为可读文字版，便于区分“没拿到数据”和“拿到但渲染失败”。已通过桌面端定向构建和 22 项回归，并重启到最新源码版供复测。
 - 2026-07-12：修复当前角色程序与推荐积木只出现容器/刷新文案、未显示真实 Scratch 积木的问题；只读 ScratchBlocks 渲染现在会把官方 `workspaceUpdate` XML 中可能很大的顶层坐标平移回容器内，避免积木被渲染到可视区域外；UI 验证 fixture 补充真实 `currentTargetScriptXmlList` 与结构化推荐，并断言 SVG 中存在可见 `.blocklyBlock`，覆盖当前脚本和推荐积木都必须直接显示编程模块。已通过桌面端定向测试、桌面 UI 真渲染验证和根级全量测试。
 - 2026-07-12：修复语言读取改动后当前角色程序一直显示“积木正在刷新”的回归；对照官方 Scratch VM/GUI 确认角色程序应优先使用 `workspaceUpdate` 的官方 Blockly XML，桥接层现监听并上报 `currentTargetWorkspaceXmlList`，状态层优先使用官方 XML、再回退本地 `projectData -> XML` 生成；同时把只读 `scratch-blocks` 语言从 `zh-CN` 归一化为语言包支持的 `zh-cn`，避免渲染器因未识别 locale 保持旧状态。DeepSeek 仍按结构化 `summary + recommendation.root` JSON 协议返回，客户端自行生成可渲染积木 XML。已通过定向 36 项和根级全量测试（shared 11 项、verification 34 项、desktop-companion 148 项）。

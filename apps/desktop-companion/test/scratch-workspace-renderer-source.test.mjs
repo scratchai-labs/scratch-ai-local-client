@@ -23,3 +23,21 @@ test("readonly Scratch workspace renderer moves official XML coordinates into vi
   assert.match(source, /block\.moveBy\(dx, dy\)/);
   assert.match(source, /moveTopLevelBlocksIntoView\(workspace\)/);
 });
+
+test("readonly Scratch workspace renderer normalizes official workspace XML namespace", async () => {
+  const source = await readFile(new URL("../src/renderer/scratch-workspace-renderer.ts", import.meta.url), "utf8");
+
+  assert.match(source, /OFFICIAL_SCRATCH_WORKSPACE_XML_NAMESPACE/);
+  assert.match(source, /BLOCKLY_WORKSPACE_XML_NAMESPACE/);
+  assert.match(source, /normalizeScratchWorkspaceXml/);
+  assert.match(source, /replaceAll\(\s*OFFICIAL_SCRATCH_WORKSPACE_XML_NAMESPACE,\s*BLOCKLY_WORKSPACE_XML_NAMESPACE\s*\)/);
+});
+
+test("readonly Scratch workspace renderer treats empty deserialization as a failure", async () => {
+  const source = await readFile(new URL("../src/renderer/scratch-workspace-renderer.ts", import.meta.url), "utf8");
+
+  assert.match(source, /assertWorkspaceRendered/);
+  assert.match(source, /workspace\.getTopBlocks\(false\)\.length/);
+  assert.match(source, /scratch workspace XML did not create visible blocks/);
+  assert.match(source, /assertWorkspaceRendered\(host, workspace\)/);
+});
