@@ -708,6 +708,52 @@ test("CoachService omits an already-used green-flag hat and keeps the new contin
   );
 });
 
+test("CoachService salvages a renderable continuation after omitting an already-used hat", async () => {
+  const service = new CoachService(async () =>
+    createDeepSeekResponse(
+      JSON.stringify({
+        summary: "让角色碰到边缘后继续移动。",
+        recommendation: {
+          root: {
+            opcode: "event_whenflagclicked",
+            category: "事件",
+            label: "当绿旗被点击",
+            reason: "从绿旗开始。",
+            next: {
+              opcode: "sensing_touchingobject",
+              category: "侦测",
+              label: "碰到边缘？",
+              reason: "检查角色是否碰到边缘。",
+              next: {
+                opcode: "motion_ifonedgebounce",
+                category: "运动",
+                label: "碰到边缘就反弹",
+                reason: "让角色留在舞台里。"
+              }
+            }
+          }
+        }
+      })
+    )
+  );
+
+  const result = await service.generateHint({
+    snapshot: createSnapshot(),
+    currentTargetPrograms: ["当绿旗被点击 -> 移动 10 步"],
+    programAreaModules: createSnapshot().programAreaModules,
+    usedExtensions: [],
+    loadedExtensions: [],
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.equal(result.coachResponse.recommendation?.root.opcode, "motion_ifonedgebounce");
+  assert.deepEqual(
+    result.coachResponse.recommendedBlocks.map((block) => block.opcode),
+    ["motion_ifonedgebounce"]
+  );
+});
+
 test("CoachService keeps at most three recommended blocks from DeepSeek", async () => {
   const service = new CoachService(async () =>
     createDeepSeekResponse(

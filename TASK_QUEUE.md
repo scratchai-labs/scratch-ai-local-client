@@ -89,3 +89,5 @@
 - 2026-05-06：同步文档到本地基础版口径：移除教师 sb3 / 参考作品 / 课堂流描述，统一为本机 Scratch + 当前作品 + DeepSeek API Key。
 - 2026-05-06：完成本地基础版收敛：保留 Windows/macOS 本机 Scratch + 本地 AI 提示链路，移除教师 sb3/课堂参考流，首页改为桌面工具型布局，设置页收敛为本地 DeepSeek API Key 配置。
 - 2026-05-05：完成 workspace 收口与目录重构；移出 `apps/server` 主线，将 `Windows-Test` 迁移为 `tools/verification`，统一根锁文件、忽略规则、清理脚本与 CI，保证项目在新电脑上 clone 后可继续做 Windows / macOS 开发、测试与出包。
+
+- 2026-07-12：修复过滤已有事件帽子后偶发回退本地基础提示；根因是帽子后的首个节点可能是不能独立显示的侦测/运算值积木，而后续仍有可渲染积木。现会沿 next 链继续寻找首个可渲染的新积木结构，避免丢弃整次 DeepSeek 返回；已补回归测试并通过 desktop-companion 176 项测试。

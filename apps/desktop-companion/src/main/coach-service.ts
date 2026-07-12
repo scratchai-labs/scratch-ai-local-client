@@ -687,9 +687,14 @@ function normalizeCoachResponse(rawPayload: unknown, options: GenerateCoachHintO
       throw new Error("DeepSeek 没有返回可用的官方推荐积木。");
     }
 
-    const recommendation = sanitizeRecommendedStructure({
-      root: filteredRoot
-    });
+    let renderableRoot: RecommendedBlockNode | undefined = filteredRoot;
+    let recommendation: RecommendedBlockStructure | undefined;
+    while (renderableRoot && !recommendation) {
+      recommendation = sanitizeRecommendedStructure({
+        root: renderableRoot
+      });
+      renderableRoot = renderableRoot.next;
+    }
     if (!recommendation) {
       throw new Error("DeepSeek 没有返回可渲染的推荐积木结构。");
     }
