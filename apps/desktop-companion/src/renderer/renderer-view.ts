@@ -4,10 +4,11 @@ import type {
   RecommendedBlockNode,
   RecommendedBlockStructure
 } from "../common/types";
+import { buildRecommendedStructureXml } from "../common/scratch-block-xml";
 import {
-  buildRecommendedBlockXml,
-  buildRecommendedStructureXml
-} from "../common/scratch-block-xml";
+  canRenderRecommendedNodeAtPosition,
+  sanitizeRecommendedStructure
+} from "../common/recommended-structure";
 import { MAX_RECOMMENDED_BLOCKS } from "../common/recommended-blocks";
 
 interface MinimalElement {
@@ -209,7 +210,9 @@ export function formatDefaultNextStep(state: DesktopCompanionState) {
 }
 
 export function formatRecommendedBlocks(state: DesktopCompanionState) {
-  const recommendationReasons = collectRecommendedStructureReasons(state.aiCoachResponse?.recommendation);
+  const recommendationReasons = collectRecommendedStructureReasons(
+    sanitizeRecommendedStructure(state.aiCoachResponse?.recommendation)
+  );
   if (recommendationReasons.length > 0) {
     return recommendationReasons;
   }
@@ -326,9 +329,21 @@ function collectRecommendedStructureReasons(structure: RecommendedBlockStructure
 }
 
 function getRecommendedReasonItems(response: DesktopCompanionState["aiCoachResponse"]) {
-  const structureReasons = collectRecommendedStructureReasons(response?.recommendation);
+  const structureReasons = collectRecommendedStructureReasons(
+    sanitizeRecommendedStructure(response?.recommendation)
+  );
   if (structureReasons.length > 0) {
     return structureReasons;
+  }
+
+  const blockStructureReasons = collectRecommendedStructureReasons(
+    sanitizeRecommendedStructure(
+      buildRecommendedStructureFromBlocks((response?.recommendedBlocks ?? []).slice(0, MAX_RECOMMENDED_BLOCKS)) ??
+        undefined
+    )
+  );
+  if (blockStructureReasons.length > 0) {
+    return blockStructureReasons;
   }
 
   return (response?.recommendedBlocks ?? [])
@@ -364,12 +379,23 @@ function buildRecommendedStructureFromBlocks(blocks: RecommendedBlock[]): Recomm
     return null;
   }
 
-  for (let index = 0; index < nodes.length - 1; index += 1) {
-    nodes[index].next = nodes[index + 1];
+  const root = nodes.find((node) => canRenderRecommendedNodeAtPosition(node.opcode, "root"));
+  if (!root) {
+    return null;
+  }
+
+  const nextNodes = nodes.filter(
+    (node) => node !== root && canRenderRecommendedNodeAtPosition(node.opcode, "next")
+  );
+
+  let currentNode = root;
+  for (const nextNode of nextNodes) {
+    currentNode.next = nextNode;
+    currentNode = nextNode;
   }
 
   return {
-    root: nodes[0]
+    root
   };
 }
 
@@ -412,8 +438,9 @@ function renderRecommendedBlockCards(
     return;
   }
 
-  const structure = response?.recommendation;
-  const blocks = response?.recommendedBlocks ?? [];
+  const structure = sanitizeRecommendedStructure(response?.recommendation);
+  const blocks = (response?.recommendedBlocks ?? []).slice(0, MAX_RECOMMENDED_BLOCKS);
+  const blockStructure = sanitizeRecommendedStructure(buildRecommendedStructureFromBlocks(blocks) ?? undefined);
 
   container.replaceChildren();
   if (blocks.length === 0) {
@@ -455,13 +482,19 @@ function renderRecommendedBlockCards(
     return;
   }
 
-  const blockStructure = buildRecommendedStructureFromBlocks(blocks);
-  const firstBlock = blocks[0];
+  if (!blockStructure) {
+    const empty = documentRef.createElement("li");
+    empty.className = "empty";
+    empty.textContent = response?.answerText ?? emptyText;
+    container.append(empty);
+    return;
+  }
+
   item.append(
     createScratchWorkspaceInline(
       documentRef,
-      blockStructure ? buildRecommendedStructureXml(blockStructure) : buildRecommendedBlockXml(firstBlock),
-      response?.answerText ?? firstBlock.label
+      buildRecommendedStructureXml(blockStructure),
+      response?.answerText ?? blockStructure.root.label
     )
   );
   item.append(createRecommendedReasonList(documentRef, getRecommendedReasonItems(response)));

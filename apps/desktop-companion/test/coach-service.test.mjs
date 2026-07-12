@@ -449,10 +449,16 @@ test("CoachService does not expose student-facing diagnostic fields for structur
         summary: "把碰撞判断放进循环里。",
         recommendation: {
           root: {
-            opcode: "sensing_touchingobject",
-            category: "侦测",
-            label: "碰到...？",
-            reason: "先检测猫是否碰到奶酪。"
+            opcode: "control_if",
+            category: "控制",
+            label: "如果...那么",
+            reason: "先把判断写成真正会执行的脚本。",
+            condition: {
+              opcode: "sensing_touchingobject",
+              category: "侦测",
+              label: "碰到...？",
+              reason: "先检测猫是否碰到奶酪。"
+            }
           }
         }
       })

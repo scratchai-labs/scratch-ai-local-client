@@ -10,6 +10,7 @@ import {
   SUPPORTED_RECOMMENDED_BLOCK_OPCODES,
   isSupportedRecommendedBlockOpcode
 } from "../common/scratch-block-xml";
+import { sanitizeRecommendedStructure } from "../common/recommended-structure";
 import { MAX_RECOMMENDED_BLOCKS } from "../common/recommended-blocks";
 
 import type { LoadedDeepSeekConfig } from "./deepseek-config";
@@ -690,9 +691,12 @@ function normalizeCoachResponse(rawPayload: unknown, options: GenerateCoachHintO
       throw new Error("DeepSeek 没有返回可用的官方推荐积木。");
     }
 
-    const recommendation = {
+    const recommendation = sanitizeRecommendedStructure({
       root: filteredRoot
-    };
+    });
+    if (!recommendation) {
+      throw new Error("DeepSeek 没有返回可渲染的推荐积木结构。");
+    }
 
     return {
       answerText: parsed.summary,

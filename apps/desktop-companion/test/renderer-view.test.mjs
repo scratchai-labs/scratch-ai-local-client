@@ -473,6 +473,91 @@ test("renderState renders one connected structured recommendation and hides exam
   assert.equal(aiStatusElement.textContent.includes("生成时间"), false);
 });
 
+test("renderState sanitizes invalid structured recommendations before building scratch XML", () => {
+  const documentRef = createFakeDocument();
+  const aiRecommendedBlocksElement = createFakeListElement("ul");
+  const aiStatusElement = createFakeListElement("p");
+
+  renderState(
+    {
+      status: "connected",
+      statusText: "已连接到 Scratch Desktop",
+      toolboxCategories: [],
+      usedExtensions: [],
+      loadedExtensions: [],
+      programAreaModules: [],
+      aiCoachResponse: {
+        answerText: "先把能渲染的部分保住。",
+        nextStep: "不需要额外显示。",
+        detectedIssues: [],
+        recommendedBlocks: [
+          {
+            opcode: "control_if",
+            category: "控制",
+            label: "如果...那么",
+            reason: "保留根节点。"
+          },
+          {
+            opcode: "looks_show",
+            category: "外观",
+            label: "显示",
+            reason: "这个条件不合法。"
+          },
+          {
+            opcode: "motion_ifonedgebounce",
+            category: "运动",
+            label: "碰到边缘就反弹",
+            reason: "这个分支可以保留。"
+          }
+        ],
+        recommendation: {
+          root: {
+            opcode: "control_if",
+            category: "控制",
+            label: "如果...那么",
+            reason: "保留根节点。",
+            condition: {
+              opcode: "looks_show",
+              category: "外观",
+              label: "显示",
+              reason: "这个条件不合法。"
+            },
+            substack: {
+              opcode: "motion_ifonedgebounce",
+              category: "运动",
+              label: "碰到边缘就反弹",
+              reason: "这个分支可以保留。"
+            },
+            next: {
+              opcode: "event_whenkeypressed",
+              category: "事件",
+              label: "当按下空格键",
+              reason: "帽子积木不能接在 next 后面。"
+            }
+          }
+        }
+      }
+    },
+    {
+      documentRef,
+      aiStatusElement,
+      aiRecommendedBlocksElement
+    }
+  );
+
+  assert.equal(aiStatusElement.textContent, "看这 2 个积木，按顺序试一试。");
+  assert.equal(aiRecommendedBlocksElement.children.length, 1);
+  const xml = aiRecommendedBlocksElement.children[0].children[0].children[0].dataset.xml;
+  assert.match(xml, /type="control_if"/);
+  assert.match(xml, /type="motion_ifonedgebounce"/);
+  assert.doesNotMatch(xml, /name="CONDITION"/);
+  assert.doesNotMatch(xml, /type="event_whenkeypressed"/);
+  assert.deepEqual(
+    aiRecommendedBlocksElement.children[0].children[1].children.map((child) => child.textContent),
+    ["保留根节点。", "这个分支可以保留。"]
+  );
+});
+
 test("renderer stylesheet lets Scratch workspace fallback text expand", async () => {
   const { readFile } = await import("node:fs/promises");
   const html = await readFile(new URL("../src/renderer/index.html", import.meta.url), "utf8");
