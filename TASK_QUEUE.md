@@ -7,6 +7,7 @@
 
 ## 已完成
 
+- 2026-07-12：完成手动提示重复旧积木文案排查；运行日志确认请求真实走 DeepSeek（非 fallback），三段文案不在本地固定文案中，分别来自 DeepSeek 的 summary 与 recommendation 节点 reason。客户端目前只校验 opcode 白名单和结构可渲染性，没有过滤“当前角色已经存在的积木”，因此模型把已用的事件积木作为推荐上下文返回后仍会展示。
 - 2026-07-12：修复自动推荐在拖动/拼接积木时立即消失及静止后重复请求；编辑过程继续保留当前推荐，最终积木状态静默约 2 秒后只请求 1 次新推荐，并忽略相同快照的 heartbeat。已补 CoachingSession / SessionManager 回归测试，并通过 desktop-companion 174 项全量测试。
 - 2026-07-12：修复桌面伴随程序 DeepSeek 可用但偶发仍显示“本地基础提示”、且重复点击“生成下一步提示”无反应；对照运行日志确认一部分请求已成功走 `deepseek-v4-flash`，另一部分则因模型返回结构里显式 `next: null` 被严格 schema 误判并降级到 fallback。现已放宽结构化推荐 schema，允许关系尾节点显式为 `null`；同时取消手动请求对相同快照的去重，保证点击“生成下一步提示”会再次真实发起请求。已补 CoachService / CoachingSession 回归测试，并通过 `desktop-companion` 171 项全量测试。
 - 2026-07-12：为桌面伴随程序 DeepSeek 设置页增加“测试 Key 可用性”；已按官方文档接入 `GET /user/balance` 校验接口，并保留 `GET /models` 可作为后续补充校验参考；设置页现在支持直接测试临时输入或已保存的 Key，可区分“Key 无效 / 余额不足或账号暂不可用 / 可正常调用”，同时补充主进程校验器、IPC、设置页按钮与回归测试，并通过 `desktop-companion` 170 项全量测试。
