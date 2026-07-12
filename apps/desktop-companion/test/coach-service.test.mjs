@@ -343,13 +343,13 @@ test("CoachService ignores legacy teaching reference context and only sends the 
 
     return createDeepSeekResponse(
       JSON.stringify({
-        summary: "先补起步脚本。",
+        summary: "先补一个新的按键入口。",
         recommendation: {
           root: {
-            opcode: "event_whenflagclicked",
+            opcode: "event_whenkeypressed",
             category: "事件",
-            label: "当绿旗被点击",
-            reason: "先给脚本一个开始入口。"
+            label: "当按下空格键",
+            reason: "给脚本增加一个新的触发入口。"
           }
         }
       })
@@ -534,9 +534,9 @@ test("CoachService keeps valid structured recommendations after dropping invalid
         summary: "先保留能用的动作，再继续尝试。",
         recommendation: {
           root: {
-            opcode: "event_whenflagclicked",
+            opcode: "event_whenkeypressed",
             category: "事件",
-            label: "当绿旗被点击",
+            label: "当按下空格键",
             reason: "给脚本一个开始入口。",
             next: {
               opcode: "looks_magicflash",
@@ -572,7 +572,7 @@ test("CoachService keeps valid structured recommendations after dropping invalid
   assert.equal(result.source, "deepseek");
   assert.deepEqual(
     result.coachResponse.recommendedBlocks.map((block) => block.opcode),
-    ["event_whenflagclicked"]
+    ["event_whenkeypressed"]
   );
   assert.equal(result.coachResponse.recommendation.root.next, undefined);
   assert.equal(result.coachResponse.recommendation.root.substack, undefined);
@@ -657,6 +657,57 @@ test("CoachService drops extension opcodes that are not available in the current
   assert.equal(result.coachResponse.recommendedBlocks.some((block) => block.opcode === "pen_clear"), false);
 });
 
+test("CoachService omits an already-used green-flag hat and keeps the new continuation", async () => {
+  const service = new CoachService(async () =>
+    createDeepSeekResponse(
+      JSON.stringify({
+        summary: "让角色持续运动。",
+        recommendation: {
+          root: {
+            opcode: "event_whenflagclicked",
+            category: "事件",
+            label: "当绿旗被点击",
+            reason: "这是程序的开始，你已经用了这个积木。",
+            next: {
+              opcode: "control_forever",
+              category: "控制",
+              label: "重复执行",
+              reason: "让角色持续运动。",
+              substack: {
+                opcode: "motion_movesteps",
+                category: "运动",
+                label: "移动 10 步",
+                reason: "让角色向前移动。"
+              }
+            }
+          }
+        }
+      })
+    )
+  );
+
+  const result = await service.generateHint({
+    snapshot: createSnapshot(),
+    currentTargetPrograms: ["当绿旗被点击 -> 移动 10 步"],
+    programAreaModules: createSnapshot().programAreaModules,
+    usedExtensions: [],
+    loadedExtensions: [],
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.equal(result.coachResponse.recommendation?.root.opcode, "control_forever");
+  assert.equal(result.coachResponse.recommendation?.root.substack?.opcode, "motion_movesteps");
+  assert.deepEqual(
+    result.coachResponse.recommendedBlocks.map((block) => block.opcode),
+    ["control_forever", "motion_movesteps"]
+  );
+  assert.equal(
+    result.coachResponse.recommendedBlocks.some((block) => block.opcode === "event_whenflagclicked"),
+    false
+  );
+});
+
 test("CoachService keeps at most three recommended blocks from DeepSeek", async () => {
   const service = new CoachService(async () =>
     createDeepSeekResponse(
@@ -702,14 +753,10 @@ test("CoachService keeps at most three recommended blocks from DeepSeek", async 
     aiConfig: createAiConfig()
   });
 
-  assert.equal(result.coachResponse.recommendedBlocks.length, 3);
+  assert.equal(result.coachResponse.recommendedBlocks.length, 2);
   assert.deepEqual(
     result.coachResponse.recommendedBlocks.map((block) => block.opcode),
-    [
-      "event_whenflagclicked",
-      "motion_movesteps",
-      "control_repeat"
-    ]
+    ["motion_movesteps", "control_repeat"]
   );
 });
 
@@ -765,13 +812,9 @@ test("CoachService trims overlong DeepSeek structures instead of falling back", 
   assert.equal(result.source, "deepseek");
   assert.deepEqual(
     result.coachResponse.recommendedBlocks.map((block) => block.opcode),
-    [
-      "event_whenflagclicked",
-      "motion_gotoxy",
-      "control_forever"
-    ]
+    ["motion_gotoxy", "control_forever"]
   );
-  assert.equal(result.coachResponse.recommendation.root.next.next.substack, undefined);
+  assert.equal(result.coachResponse.recommendation.root.next?.substack, undefined);
 });
 
 test("CoachService strips Scratch node metadata from DeepSeek structures", async () => {
@@ -876,13 +919,10 @@ test("CoachService keeps fewer than three recommendations without padding", asyn
     aiConfig: createAiConfig()
   });
 
-  assert.equal(result.coachResponse.recommendedBlocks.length, 2);
+  assert.equal(result.coachResponse.recommendedBlocks.length, 1);
   assert.deepEqual(
     result.coachResponse.recommendedBlocks.map((block) => block.opcode),
-    [
-      "event_whenflagclicked",
-      "motion_movesteps"
-    ]
+    ["motion_movesteps"]
   );
 });
 
@@ -934,12 +974,9 @@ test("CoachService accepts explicit null tails from DeepSeek recommendation stru
   assert.equal(result.source, "deepseek");
   assert.deepEqual(
     result.coachResponse.recommendedBlocks.map((block) => block.opcode),
-    [
-      "event_whenflagclicked",
-      "motion_movesteps"
-    ]
+    ["motion_movesteps"]
   );
-  assert.equal(result.coachResponse.recommendation.root.next.next, undefined);
+  assert.equal(result.coachResponse.recommendation.root.next, undefined);
 });
 
 test("CoachService fallback gives a local basic hint without forcing three blocks", async () => {

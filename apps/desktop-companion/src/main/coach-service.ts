@@ -34,7 +34,14 @@ const HINT_ONLY_OUTPUT_REQUIREMENTS =
 const RECOMMENDED_OPCODE_WHITELIST_REQUIREMENTS =
   `recommendation 里的 opcode 只允许从以下 Scratch 官方 opcode 白名单中选择：${SUPPORTED_RECOMMENDED_BLOCK_OPCODES.join("、")}。如果不确定具体 opcode，就不要返回那一块，不要替换成其他积木。`;
 const HINT_ONLY_USER_PROMPT =
-  "请根据下面的 Scratch 项目上下文，给出“下一步做什么”的提示。只根据当前学生作品判断已经完成了什么，再直接给出按顺序连接的具体积木。优先基于学生已经使用过的模块继续推进，不要让学生一下子大改。";
+  "请根据下面的 Scratch 项目上下文，给出“下一步做什么”的提示。只根据当前学生作品判断已经完成了什么，再直接给出按顺序连接的具体积木。优先基于学生已经使用过的模块继续推进，不要让学生一下子大改。不要把当前角色已经存在的事件帽子积木再次作为下一步推荐；如果后续积木需要接到现有脚本中，只返回需要新增的部分。";
+
+const NON_REPEATABLE_HAT_OPCODE_SET = new Set([
+  "event_whenflagclicked",
+  "event_whenkeypressed",
+  "event_whenbroadcastreceived",
+  "event_whenbackdropswitchesto"
+]);
 
 interface GenerateCoachHintOptions {
   snapshot: ProjectSnapshot;
@@ -608,6 +615,17 @@ function canUseRecommendationRelation(opcode: string, relation: "condition" | "s
   return opcode === "control_if_else";
 }
 
+
+function shouldOmitAlreadyUsedRootHat(
+  node: RecommendedBlockNode,
+  options: GenerateCoachHintOptions
+) {
+  return (
+    NON_REPEATABLE_HAT_OPCODE_SET.has(node.opcode) &&
+    getCurrentTargetOpcodes(options.snapshot).includes(node.opcode)
+  );
+}
+
 function filterRecommendedNode(
   node: RecommendedBlockNode,
   options: GenerateCoachHintOptions
@@ -661,7 +679,10 @@ function normalizeCoachResponse(rawPayload: unknown, options: GenerateCoachHintO
   const candidate = rawPayload as Record<string, unknown>;
   if (candidate.recommendation && typeof candidate.recommendation === "object") {
     const parsed = parseRecommendationCandidate(candidate);
-    const filteredRoot = filterRecommendedNode(parsed.recommendation.root, options);
+    const rootCandidate = shouldOmitAlreadyUsedRootHat(parsed.recommendation.root, options)
+      ? parsed.recommendation.root.next
+      : parsed.recommendation.root;
+    const filteredRoot = rootCandidate ? filterRecommendedNode(rootCandidate, options) : null;
     if (!filteredRoot) {
       throw new Error("DeepSeek 没有返回可用的官方推荐积木。");
     }
