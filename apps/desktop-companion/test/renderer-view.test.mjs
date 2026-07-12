@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   formatAiStatus,
+  formatAiSourceSummary,
   formatCompactStatus,
   formatDefaultDetail,
   formatCurrentTarget,
@@ -167,6 +168,22 @@ test("formats manual hint mode guidance for connected Scratch", () => {
       aiHintTriggerMode: "manual"
     }),
     "先自己搭一会儿；需要提示时点一下按钮。"
+  );
+});
+
+test("formats AI source summary for deepseek and fallback", () => {
+  assert.equal(
+    formatAiSourceSummary({
+      aiProvider: "deepseek",
+      aiModel: "deepseek-v4-flash"
+    }),
+    "当前提示来源：DeepSeek（deepseek-v4-flash）"
+  );
+  assert.equal(
+    formatAiSourceSummary({
+      aiProvider: "fallback"
+    }),
+    "当前提示来源：本地基础提示"
   );
 });
 
@@ -391,6 +408,7 @@ test("renderState renders one connected structured recommendation and hides exam
   const documentRef = createFakeDocument();
   const aiRecommendedBlocksElement = createFakeListElement("ul");
   const aiStatusElement = createFakeListElement("p");
+  const aiSourceElement = createFakeListElement("p");
   const aiAnswerElement = createFakeListElement("p");
   const aiNextStepElement = createFakeListElement("span");
 
@@ -449,6 +467,7 @@ test("renderState renders one connected structured recommendation and hides exam
     {
       documentRef,
       aiStatusElement,
+      aiSourceElement,
       aiAnswerElement,
       aiNextStepElement,
       aiRecommendedBlocksElement
@@ -456,6 +475,7 @@ test("renderState renders one connected structured recommendation and hides exam
   );
 
   assert.equal(aiStatusElement.textContent, "看这 2 个积木，按顺序试一试。");
+  assert.equal(aiSourceElement.textContent, "当前提示来源：DeepSeek（deepseek-v4-flash）");
   assert.equal(aiAnswerElement.textContent, "让小猫先开始动起来。");
   assert.equal(aiNextStepElement.textContent, "");
   assert.equal(aiRecommendedBlocksElement.children.length, 1);

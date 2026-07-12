@@ -950,7 +950,7 @@ test("CoachService fallback builds a renderable loop structure instead of chaini
   );
 });
 
-test("CoachService fallback builds a renderable sensing condition structure", async () => {
+test("CoachService fallback recommends direct edge bounce instead of wrapping it in an if block", async () => {
   const service = new CoachService();
   const snapshot = createSnapshot();
   snapshot.toolboxCategories = ["事件", "运动", "控制", "侦测"];
@@ -1050,18 +1050,22 @@ test("CoachService fallback builds a renderable sensing condition structure", as
   });
 
   assert.equal(result.source, "fallback");
-  assert.equal(result.coachResponse.recommendation?.root.opcode, "control_if");
+  assert.equal(result.coachResponse.recommendation?.root.opcode, "motion_ifonedgebounce");
   assert.equal(
-    result.coachResponse.recommendation?.root.condition?.opcode,
-    "sensing_touchingobject"
+    result.coachResponse.recommendation?.root.condition,
+    undefined
   );
   assert.equal(
-    result.coachResponse.recommendation?.root.substack?.opcode,
-    "motion_ifonedgebounce"
+    result.coachResponse.recommendation?.root.substack,
+    undefined
   );
   assert.equal(
-    result.coachResponse.recommendation?.root.substack?.next?.opcode,
-    "looks_sayforsecs"
+    result.coachResponse.recommendation?.root.next?.opcode,
+    undefined
+  );
+  assert.deepEqual(
+    result.coachResponse.recommendedBlocks.map((block) => block.opcode),
+    ["motion_ifonedgebounce"]
   );
 });
 

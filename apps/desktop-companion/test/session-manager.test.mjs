@@ -994,8 +994,8 @@ test("SessionManager refreshes fallback recommendation after the student complet
   await flushAsyncWork();
 
   const nextHint = stateStore.getState().aiCoachResponse;
-  assert.equal(nextHint?.recommendation?.root.opcode, "control_if");
-  assert.equal(nextHint?.recommendation?.root.condition?.opcode, "sensing_touchingobject");
+  assert.equal(nextHint?.recommendation?.root.opcode, "motion_ifonedgebounce");
+  assert.equal(nextHint?.recommendation?.root.condition, undefined);
 });
 
 test("SessionManager returns an error when requesting a hint before Scratch connects", async () => {

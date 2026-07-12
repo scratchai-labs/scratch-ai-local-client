@@ -273,42 +273,17 @@ function buildGenericFallbackCoachResponse(options: GenerateCoachHintOptions): C
       }
     };
     followUpQuestion = "你希望它一直循环，还是只循环几次？";
-  } else if (hasModule(programAreaModules, "motion") && !hasModule(programAreaModules, "sensing")) {
-    nextStep = "在现有动作外面加一个侦测条件，让角色开始根据环境变化行为。";
-    answerText = `现在 ${currentTarget} 已经会动了，下一步很适合补“侦测”。这样你就能从“会动”进阶到“会判断、会互动”。`;
+  } else if (
+    hasModule(programAreaModules, "motion") &&
+    !hasModule(programAreaModules, "sensing") &&
+    !opcodes.includes("motion_ifonedgebounce")
+  ) {
+    nextStep = "把“碰到边缘就反弹”接进现有循环，让角色不要跑出舞台。";
+    answerText = `现在 ${currentTarget} 已经会动了，下一步先补“碰到边缘就反弹”。这样角色会留在舞台里，你也更容易继续观察后面的动作效果。`;
     recommendedBlocks.push(
-      createRecommendedBlock("control_if", "控制", "如果...那么", "把侦测结果变成真正的行为变化。"),
-      createRecommendedBlock("sensing_touchingobject", "侦测", "碰到...？", "让角色开始根据环境做判断。"),
-      createRecommendedBlock("motion_ifonedgebounce", "运动", "碰到边缘就反弹", "适合快速做出可见的互动结果。"),
-      createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "判断成立时给一个提示，你更容易确认侦测逻辑是否生效。")
+      createRecommendedBlock("motion_ifonedgebounce", "运动", "碰到边缘就反弹", "先让角色留在舞台里，动作会更稳定。")
     );
-    recommendation = {
-      root: {
-        opcode: "control_if",
-        category: "控制",
-        label: "如果...那么",
-        reason: "把侦测结果变成真正的行为变化。",
-        condition: {
-          opcode: "sensing_touchingobject",
-          category: "侦测",
-          label: "碰到...？",
-          reason: "让角色开始根据环境做判断。"
-        },
-        substack: {
-          opcode: "motion_ifonedgebounce",
-          category: "运动",
-          label: "碰到边缘就反弹",
-          reason: "适合快速做出可见的互动结果。",
-          next: {
-            opcode: "looks_sayforsecs",
-            category: "外观",
-            label: "说 2 秒",
-            reason: "判断成立时给一个提示，你更容易确认侦测逻辑是否生效。"
-          }
-        }
-      }
-    };
-    followUpQuestion = "你希望角色碰到边缘、鼠标，还是另一个角色时发生变化？";
+    followUpQuestion = "等它不会跑出舞台后，你想再加碰到谁或什么东西时发生变化？";
   } else if (!hasModule(programAreaModules, "data")) {
     nextStep = "加一个变量，例如“分数”或“时间”，把作品从演示推进到有规则。";
     answerText = "当前脚本已经不只是单纯动作了。下一步可以加变量，帮你理解“状态”会随着事件变化。";

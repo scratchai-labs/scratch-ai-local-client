@@ -34,6 +34,7 @@ export interface RendererElements {
   programAreaModulesElement?: MinimalElement | null;
   currentTargetProgramsElement?: MinimalElement | null;
   aiStatusElement?: MinimalElement | null;
+  aiSourceElement?: MinimalElement | null;
   aiAnswerElement?: MinimalElement | null;
   aiNextStepElement?: MinimalElement | null;
   aiRecommendedBlocksElement?: MinimalElement | null;
@@ -131,6 +132,28 @@ export function formatAiStatus(state: DesktopCompanionState) {
   }
 
   return "准备好了：先选择 Scratch 软件，打开已选 Scratch，再读取当前作品。";
+}
+
+export function formatAiSourceSummary(state: DesktopCompanionState) {
+  if (state.aiProvider === "deepseek") {
+    return state.aiModel
+      ? `当前提示来源：DeepSeek（${state.aiModel}）`
+      : "当前提示来源：DeepSeek";
+  }
+
+  if (state.aiProvider === "fallback") {
+    return "当前提示来源：本地基础提示";
+  }
+
+  if (state.aiStatus === "loading" && state.aiConfigured) {
+    return "当前提示来源：正在请求 DeepSeek…";
+  }
+
+  if (!state.aiConfigured) {
+    return "当前提示来源：本地基础提示（未保存 Key）";
+  }
+
+  return "当前提示来源：等待生成";
 }
 
 export function formatCompactStatus(state: DesktopCompanionState) {
@@ -570,6 +593,10 @@ export function renderState(state: DesktopCompanionState, elements: RendererElem
 
   if (elements.aiStatusElement) {
     elements.aiStatusElement.textContent = formatAiStatus(state);
+  }
+
+  if (elements.aiSourceElement) {
+    elements.aiSourceElement.textContent = formatAiSourceSummary(state);
   }
 
   if (elements.aiConfigSummaryElement) {

@@ -19,6 +19,7 @@ const statusSummaryElement = document.getElementById("status-summary");
 const programAreaModulesElement = document.getElementById("program-area-modules");
 const currentTargetProgramsElement = document.getElementById("current-target-programs");
 const aiStatusElement = document.getElementById("ai-status");
+const aiSourceElement = document.getElementById("ai-source");
 const aiAnswerElement = document.getElementById("ai-answer");
 const aiNextStepElement = document.getElementById("ai-next-step");
 const aiRecommendedBlocksElement = document.getElementById("ai-recommended-blocks");
@@ -62,6 +63,7 @@ function renderNormalizedState(rawState: unknown) {
     programAreaModulesElement,
     currentTargetProgramsElement,
     aiStatusElement,
+    aiSourceElement,
     aiAnswerElement,
     aiNextStepElement,
     aiRecommendedBlocksElement,
