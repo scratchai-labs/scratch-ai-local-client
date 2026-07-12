@@ -209,6 +209,7 @@ const scratchStatePayloadSchema = z.object({
   loadedExtensions: z.array(z.string()).default([]),
   usedExtensions: z.array(z.string()).default([]),
   programAreaModules: z.array(programAreaModuleSchema).default([]),
+  currentTargetWorkspaceXmlList: z.array(z.string()).default([]),
   projectData: z.unknown().nullable().optional()
 });
 

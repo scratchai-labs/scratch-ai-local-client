@@ -460,6 +460,56 @@ test("SessionManager derives nested stack blocks from projectData", async () => 
   assert.match(nextState.currentTargetScriptXmlList[0], /type="motion_movesteps"/);
 });
 
+test("SessionManager prefers official Scratch workspace XML from bridge payload", async () => {
+  const stateStore = new StateStore();
+  const bridgeServer = createBridgeServerMock();
+  const manager = new SessionManager(stateStore, {
+    bridgeServer,
+    platform: "win32",
+    log: () => {},
+    configStore: createConfigStoreMock("C:\\Scratch 3.exe"),
+    loadAiConfig: createAiConfigMock(),
+    scratchLauncher: {},
+    scratchRemoteDebugger: {}
+  });
+
+  await manager.start();
+
+  const officialXml =
+    '<xml xmlns="http://www.w3.org/1999/xhtml"><block type="event_whenflagclicked"></block></xml>';
+
+  manager.handlePayload({
+    source: "workspace-update",
+    currentTargetId: "sprite-a",
+    currentTargetName: "Cat",
+    toolboxCategories: ["event"],
+    currentTargetWorkspaceXmlList: [officialXml],
+    projectData: {
+      targets: [
+        {
+          id: "sprite-a",
+          name: "Cat",
+          isStage: false,
+          blocks: {
+            generated: {
+              opcode: "looks_sayforsecs",
+              next: null,
+              parent: null,
+              inputs: {},
+              fields: {},
+              shadow: false,
+              topLevel: true
+            }
+          }
+        }
+      ]
+    }
+  });
+
+  const nextState = stateStore.getState();
+  assert.deepEqual(nextState.currentTargetScriptXmlList, [officialXml]);
+});
+
 test("SessionManager returns fallback AI hints when DeepSeek key is not configured", async () => {
   const stateStore = new StateStore();
   const manager = new SessionManager(stateStore, {

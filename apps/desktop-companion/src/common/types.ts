@@ -138,6 +138,7 @@ export interface ScratchStatePayload {
   loadedExtensions?: string[];
   usedExtensions?: string[];
   programAreaModules?: ProgramAreaModule[];
+  currentTargetWorkspaceXmlList?: string[];
   projectData?: unknown;
 }
 

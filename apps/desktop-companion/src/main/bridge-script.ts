@@ -59,6 +59,7 @@ export function buildDesktopInjectionScript(apiBaseUrl: string, token: string) {
   let listenersAttached = false;
   let localeObserverAttached = false;
   let scheduledTimer = 0;
+  let latestWorkspaceXml = "";
   const REACT_NODE_PREFIXES = ["__reactFiber$", "__reactContainer$", "__reactInternalInstance$"];
 
   function uniqueStrings(values) {
@@ -504,6 +505,33 @@ export function buildDesktopInjectionScript(apiBaseUrl: string, token: string) {
       });
   }
 
+  function normalizeWorkspaceXml(xml) {
+    return typeof xml === "string" && xml.trim() ? xml.trim() : "";
+  }
+
+  function getCurrentTargetWorkspaceXml(vm) {
+    if (latestWorkspaceXml) {
+      return [latestWorkspaceXml];
+    }
+
+    try {
+      if (!vm || typeof vm.emitWorkspaceUpdate !== "function" || typeof vm.once !== "function") {
+        return [];
+      }
+
+      let emittedXml = "";
+      const onWorkspaceUpdate = (event) => {
+        emittedXml = normalizeWorkspaceXml(event && event.xml);
+      };
+      vm.once("workspaceUpdate", onWorkspaceUpdate);
+      vm.emitWorkspaceUpdate();
+      latestWorkspaceXml = emittedXml;
+      return emittedXml ? [emittedXml] : [];
+    } catch {
+      return [];
+    }
+  }
+
   function postSnapshot(source) {
     const toolboxCategories = getToolboxCategories();
     const vm = ensureVm();
@@ -544,6 +572,7 @@ export function buildDesktopInjectionScript(apiBaseUrl: string, token: string) {
         loadedExtensions: vm ? getLoadedExtensions(vm) : [],
         usedExtensions: projectData ? getUsedExtensions(projectData) : [],
         programAreaModules,
+        currentTargetWorkspaceXmlList: vm ? getCurrentTargetWorkspaceXml(vm) : [],
         projectData
       })
     }).catch(() => {});
@@ -563,6 +592,10 @@ export function buildDesktopInjectionScript(apiBaseUrl: string, token: string) {
     listenersAttached = true;
     vm.on("PROJECT_CHANGED", () => scheduleSnapshot("project-changed"));
     vm.on("EXTENSION_ADDED", () => scheduleSnapshot("extension-added"));
+    vm.on("workspaceUpdate", (event) => {
+      latestWorkspaceXml = normalizeWorkspaceXml(event && event.xml);
+      scheduleSnapshot("workspace-update");
+    });
   }
 
   function installLocaleObserver() {

@@ -175,7 +175,7 @@ function registerReadonlyFieldValueStatementBlock(
 }
 
 function getReadonlyScratchLocale(documentRef: Document = document) {
-  const locale = documentRef.documentElement.lang.trim();
+  const locale = documentRef.documentElement.lang.trim().toLowerCase();
   return locale || "en";
 }
 

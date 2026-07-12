@@ -112,6 +112,16 @@ function trimText(value?: string) {
   return candidate || undefined;
 }
 
+function normalizeWorkspaceXmlList(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean);
+}
+
 export class SessionManager {
   private readonly log: typeof writeRuntimeLog;
 
@@ -531,13 +541,16 @@ export class SessionManager {
       snapshot
         ? deriveCurrentTargetScriptBlocks(snapshot, payload.currentTargetName)
         : this.stateStore.getState().currentTargetScriptBlocks;
+    const currentTargetWorkspaceXmlList = normalizeWorkspaceXmlList(payload.currentTargetWorkspaceXmlList);
     const currentTargetScriptXmlList =
-      payload.projectData && typeof payload.projectData === "object"
-        ? buildCurrentTargetScriptXmlList(payload.projectData as Record<string, unknown>, {
-            id: payload.currentTargetId,
-            name: payload.currentTargetName
-          })
-        : this.stateStore.getState().currentTargetScriptXmlList;
+      currentTargetWorkspaceXmlList.length > 0
+        ? currentTargetWorkspaceXmlList
+        : payload.projectData && typeof payload.projectData === "object"
+          ? buildCurrentTargetScriptXmlList(payload.projectData as Record<string, unknown>, {
+              id: payload.currentTargetId,
+              name: payload.currentTargetName
+            })
+          : this.stateStore.getState().currentTargetScriptXmlList;
 
     if (
       !payload.projectData &&

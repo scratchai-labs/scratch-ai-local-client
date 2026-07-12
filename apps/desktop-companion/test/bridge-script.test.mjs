@@ -21,3 +21,17 @@ test("desktop bridge observes Scratch language changes and posts a locale snapsh
   assert.match(script, /MutationObserver/);
   assert.match(script, /language-changed/);
 });
+
+test("desktop bridge keeps Scratch reader helpers free of duplicate declarations", async () => {
+  const script = await readBridgeSource();
+
+  assert.doesNotMatch(script, /const queue = \[node\];\s*const queue = \[node\];/);
+});
+
+test("desktop bridge listens to official Scratch workspaceUpdate XML", async () => {
+  const script = await readBridgeSource();
+
+  assert.match(script, /workspaceUpdate/);
+  assert.match(script, /currentTargetWorkspaceXmlList/);
+  assert.match(script, /emitWorkspaceUpdate/);
+});
