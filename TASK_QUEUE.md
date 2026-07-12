@@ -2,11 +2,13 @@
 
 ## 待确认
 
+- 2026-07-12：排查语言读取改动后当前角色程序一直显示“积木正在刷新”的回归；对照 Scratch 源码确认角色脚本读取方式，修复桥接读取与 AI 推荐积木结构化返回/渲染链路，确保 DeepSeek 可返回准确可渲染积木而非文字。
 - 2026-07-12：打开桌面伴随程序供真实人工测试；按正常联调启动，不带 mock 环境变量，确认应用可用后由用户执行真实测试。
 - 2026-05-07：为桌面伴随程序整理 GitHub CI 与跨平台出包链路；目标是让 Windows / macOS runner 能稳定构建、测试、打包并上传产物；本轮先在独立 worktree 里核实现状、补测试与 workflow。
 
 ## 已完成
 
+- 2026-07-12：拉取官方 Scratch 源码到上级目录 `/Users/tesths/Desktop/scratch-ai-split/official-scratch` 用于对照排查；已覆盖 `scratch-desktop`、`scratch-gui`、`scratch-vm`、`scratch-blocks`、`scratch-l10n`、`scratch-render`、`scratch-storage`，确认可读取 `scratch-vm/src/virtual-machine.js`、`scratch-gui/src/containers/blocks.jsx`、`scratch-blocks/src/xml.ts`、`scratch-blocks/msg/scratch_msgs.js`、`scratch-desktop/src/main/index.js`、`scratch-render/src/RenderWebGL.js`、`scratch-storage/src/ScratchStorage.ts` 等关键源码。
 - 2026-07-12：维护 Scratch 语言恢复与推荐积木渲染相关文档；同步 README、开发状态、架构与维护说明，补充受控启动沿用 Scratch 上次语言、桥接层语言来源、只读 ScratchBlocks 语言初始化和排障日志口径。本轮为文档收尾，不引入代码行为变更。
 - 2026-07-12：按官方 Scratch 源码修复语言持久化与只读积木语言初始化；Scratch GUI 语言切换会更新 Redux locale 与 `document.documentElement.lang`，桥接脚本现同时读取 Redux、DOM lang 和 VM locale，并监听 `lang` 变化立即上报；推荐积木只读 workspace 不再硬编码简体，而是按当前文档语言初始化 `ScratchMsgs`。已通过 desktop-companion 144 项全量测试，并完成真实验证：切到繁体后配置写入 `lastScratchLocale: zh-tw`，关闭 Scratch 后再次启动日志包含 `--lang=zh-TW`。
 - 2026-07-11：修正 Scratch 语言启动语义；目标不是完全移除 `--lang`，而是读取 Scratch 界面中上次实际选择的语言并沿用，避免系统语言、固定中文或固定英文覆盖用户偏好。桥接脚本会记录 Scratch Redux 当前 locale，本地配置持久化后，下次受控启动仅用该 locale 生成 `--lang`。
