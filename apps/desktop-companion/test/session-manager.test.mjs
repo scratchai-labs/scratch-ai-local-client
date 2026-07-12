@@ -467,6 +467,69 @@ test("SessionManager derives current target programs from projectData", async ()
   assert.match(nextState.currentTargetScriptXmlList[0], /type="pen_clear"/);
 });
 
+test("SessionManager clears cached scripts after the current target programs are deleted", async () => {
+  const stateStore = new StateStore();
+  const manager = new SessionManager(stateStore, {
+    bridgeServer: createBridgeServerMock(),
+    platform: "win32",
+    log: () => {},
+    configStore: createConfigStoreMock("C:\\Scratch 3.exe"),
+    loadAiConfig: createAiConfigMock(),
+    scratchLauncher: {},
+    scratchRemoteDebugger: {}
+  });
+
+  await manager.start();
+
+  manager.handlePayload({
+    source: "workspace-update",
+    currentTargetId: "sprite-a",
+    currentTargetName: "Cat 2",
+    toolboxCategories: ["event"],
+    projectData: {
+      targets: [{
+        id: "sprite-a",
+        name: "Cat 2",
+        isStage: false,
+        blocks: {
+          flag: {
+            opcode: "event_whenflagclicked",
+            next: null,
+            parent: null,
+            inputs: {},
+            fields: {},
+            shadow: false,
+            topLevel: true
+          }
+        }
+      }]
+    }
+  });
+  assert.equal(stateStore.getState().currentTargetScriptXmlList.length, 1);
+
+  manager.handlePayload({
+    source: "workspace-update",
+    currentTargetId: "sprite-a",
+    currentTargetName: "Cat 2",
+    toolboxCategories: ["event"],
+    currentTargetWorkspaceXmlList: [
+      '<xml xmlns="http://www.w3.org/1999/xhtml"><block type="event_whenflagclicked"></block></xml>'
+    ],
+    projectData: {
+      targets: [{
+        id: "sprite-a",
+        name: "Cat 2",
+        isStage: false,
+        blocks: {}
+      }]
+    }
+  });
+
+  assert.deepEqual(stateStore.getState().currentTargetPrograms, []);
+  assert.deepEqual(stateStore.getState().currentTargetScriptBlocks, []);
+  assert.deepEqual(stateStore.getState().currentTargetScriptXmlList, []);
+});
+
 test("SessionManager derives nested stack blocks from projectData", async () => {
   const stateStore = new StateStore();
   const bridgeServer = createBridgeServerMock();

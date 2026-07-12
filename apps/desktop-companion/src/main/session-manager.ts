@@ -680,7 +680,7 @@ export class SessionManager {
           })
         : [];
     const currentTargetScriptXmlList =
-      generatedCurrentTargetScriptXmlList.length > 0
+      payload.projectData && typeof payload.projectData === "object"
         ? generatedCurrentTargetScriptXmlList
         : currentTargetWorkspaceXmlList.length > 0
           ? currentTargetWorkspaceXmlList
