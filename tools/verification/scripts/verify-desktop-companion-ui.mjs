@@ -43,8 +43,7 @@ const timeoutMs = Number(argv.get('--timeout-ms') ?? '15000');
 const screenshotPath = argv.get('--screenshot') ?? screenshotPathDefault;
 const automationScratchPath = argv.get('--automation-scratch-path') ?? getDefaultAutomationScratchPath();
 const userDataDir = path.join(verificationRoot, 'tmp-desktop-companion-ui-userdata');
-const expectedProgram =
-    '脚本 1: event_whenflagclicked -> control_forever -> motion_movesteps -> pen_clear';
+const expectedProgramLabel = '脚本 1';
 
 async function ensureReadable(filePath) {
     await access(filePath);
@@ -259,7 +258,25 @@ function buildUiSnapshotExpression() {
   projectUrlInputPresent: document.querySelector("#project-url-input") instanceof HTMLInputElement,
   currentTargetPrograms: Array.from(document.querySelectorAll("#current-target-programs li"))
     .map(element => (element.textContent || "").trim())
-    .filter(Boolean)
+    .filter(Boolean),
+  scratchWorkspaceHosts: Array.from(document.querySelectorAll(".scratch-workspace-host"))
+    .map(host => {
+      const blockGroups = Array.from(host.querySelectorAll(".blocklyBlockCanvas .blocklyBlock"));
+      const rect = host.getBoundingClientRect();
+      return {
+        className: host.className,
+        text: (host.textContent || "").trim(),
+        hasFallback: host.classList.contains("scratch-workspace-host-fallback"),
+        svgCount: host.querySelectorAll("svg.blocklySvg").length,
+        blockCount: blockGroups.length,
+        visibleBlockCount: blockGroups.filter(block => {
+          const blockRect = block.getBoundingClientRect();
+          return blockRect.width > 0 && blockRect.height > 0;
+        }).length,
+        width: rect.width,
+        height: rect.height
+      };
+    })
 }))()
     `.trim();
 }
@@ -421,10 +438,10 @@ async function main() {
             targetResult.preferredTarget,
             timeoutMs,
             candidate =>
-                candidate.status === '已连接到 Scratch Desktop' &&
-                candidate.currentTarget === 'Cat' &&
-                Array.isArray(candidate.currentTargetPrograms) &&
-                candidate.currentTargetPrograms.includes(expectedProgram)
+            candidate.status === '已连接到 Scratch Desktop' &&
+            candidate.currentTarget === 'Cat' &&
+            Array.isArray(candidate.currentTargetPrograms) &&
+            candidate.currentTargetPrograms.some(program => program.startsWith(expectedProgramLabel))
         );
         assert(
             value.status === '已连接到 Scratch Desktop',
@@ -436,8 +453,17 @@ async function main() {
         );
         assert(Array.isArray(value.currentTargetPrograms), 'Desktop companion did not render the current program list.');
         assert(
-            value.currentTargetPrograms.includes(expectedProgram),
+            value.currentTargetPrograms.some(program => program.startsWith(expectedProgramLabel)),
             `Desktop companion did not render the current target program. Actual: ${JSON.stringify(value)}`
+        );
+        assert(
+            Array.isArray(value.scratchWorkspaceHosts) &&
+                value.scratchWorkspaceHosts.length >= 1 &&
+                value.scratchWorkspaceHosts[0].hasFallback === false &&
+                value.scratchWorkspaceHosts[0].svgCount >= 1 &&
+                value.scratchWorkspaceHosts[0].blockCount >= 1 &&
+                value.scratchWorkspaceHosts[0].visibleBlockCount >= 1,
+            `Desktop companion did not render visible Scratch blocks for current target. Actual: ${JSON.stringify(value)}`
         );
         assert(value.buttons?.choose === false, `Choose button should be enabled. Actual: ${JSON.stringify(value)}`);
         assert(value.buttons?.launch === false, `Launch button should be enabled. Actual: ${JSON.stringify(value)}`);

@@ -7,6 +7,7 @@
 
 ## 已完成
 
+- 2026-07-12：修复当前角色程序与推荐积木只出现容器/刷新文案、未显示真实 Scratch 积木的问题；只读 ScratchBlocks 渲染现在会把官方 `workspaceUpdate` XML 中可能很大的顶层坐标平移回容器内，避免积木被渲染到可视区域外；UI 验证 fixture 补充真实 `currentTargetScriptXmlList` 与结构化推荐，并断言 SVG 中存在可见 `.blocklyBlock`，覆盖当前脚本和推荐积木都必须直接显示编程模块。已通过桌面端定向测试、桌面 UI 真渲染验证和根级全量测试。
 - 2026-07-12：修复语言读取改动后当前角色程序一直显示“积木正在刷新”的回归；对照官方 Scratch VM/GUI 确认角色程序应优先使用 `workspaceUpdate` 的官方 Blockly XML，桥接层现监听并上报 `currentTargetWorkspaceXmlList`，状态层优先使用官方 XML、再回退本地 `projectData -> XML` 生成；同时把只读 `scratch-blocks` 语言从 `zh-CN` 归一化为语言包支持的 `zh-cn`，避免渲染器因未识别 locale 保持旧状态。DeepSeek 仍按结构化 `summary + recommendation.root` JSON 协议返回，客户端自行生成可渲染积木 XML。已通过定向 36 项和根级全量测试（shared 11 项、verification 34 项、desktop-companion 148 项）。
 - 2026-07-12：拉取官方 Scratch 源码到上级目录 `/Users/tesths/Desktop/scratch-ai-split/official-scratch` 用于对照排查；已覆盖 `scratch-desktop`、`scratch-gui`、`scratch-vm`、`scratch-blocks`、`scratch-l10n`、`scratch-render`、`scratch-storage`，确认可读取 `scratch-vm/src/virtual-machine.js`、`scratch-gui/src/containers/blocks.jsx`、`scratch-blocks/src/xml.ts`、`scratch-blocks/msg/scratch_msgs.js`、`scratch-desktop/src/main/index.js`、`scratch-render/src/RenderWebGL.js`、`scratch-storage/src/ScratchStorage.ts` 等关键源码。
 - 2026-07-12：维护 Scratch 语言恢复与推荐积木渲染相关文档；同步 README、开发状态、架构与维护说明，补充受控启动沿用 Scratch 上次语言、桥接层语言来源、只读 ScratchBlocks 语言初始化和排障日志口径。本轮为文档收尾，不引入代码行为变更。

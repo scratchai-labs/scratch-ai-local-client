@@ -20,5 +20,43 @@
   "currentTargetPrograms": [
     "event_whenflagclicked -> control_forever -> motion_movesteps -> pen_clear"
   ],
+  "currentTargetScriptXmlList": [
+    "<xml xmlns=\"https://developers.google.com/blockly/xml\"><block type=\"event_whenflagclicked\"><next><block type=\"control_forever\"><statement name=\"SUBSTACK\"><block type=\"motion_movesteps\"><value name=\"STEPS\"><shadow type=\"math_number\"><field name=\"NUM\">10</field></shadow></value><next><block type=\"pen_clear\" /></next></block></statement></block></next></block></xml>"
+  ],
+  "aiCoachResponse": {
+    "answerText": "先做固定次数的循环测试。",
+    "nextStep": "先做固定次数的循环测试。",
+    "detectedIssues": [],
+    "recommendedBlocks": [
+      {
+        "opcode": "control_repeat",
+        "category": "控制",
+        "label": "重复执行 10 次",
+        "reason": "放进循环里更容易看出连续效果。",
+        "example": "重复移动几次"
+      },
+      {
+        "opcode": "motion_movesteps",
+        "category": "运动",
+        "label": "移动 10 步",
+        "reason": "让角色每次循环都移动。",
+        "example": "移动 10 步"
+      }
+    ],
+    "recommendation": {
+      "root": {
+        "opcode": "control_repeat",
+        "category": "控制",
+        "label": "重复执行 10 次",
+        "reason": "放进循环里更容易看出连续效果。",
+        "substack": {
+          "opcode": "motion_movesteps",
+          "category": "运动",
+          "label": "移动 10 步",
+          "reason": "让角色每次循环都移动。"
+        }
+      }
+    }
+  },
   "lastUpdatedAt": "2026-04-28T12:00:00.000Z"
 }

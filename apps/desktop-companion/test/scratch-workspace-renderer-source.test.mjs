@@ -14,3 +14,12 @@ test("readonly Scratch workspace renderer normalizes document locale for scratch
 
   assert.match(source, /documentElement\.lang\.trim\(\)\.toLowerCase\(\)/);
 });
+
+test("readonly Scratch workspace renderer moves official XML coordinates into view", async () => {
+  const source = await readFile(new URL("../src/renderer/scratch-workspace-renderer.ts", import.meta.url), "utf8");
+
+  assert.match(source, /function moveTopLevelBlocksIntoView/);
+  assert.match(source, /workspace\.getTopBlocks\(false\)/);
+  assert.match(source, /block\.moveBy\(dx, dy\)/);
+  assert.match(source, /moveTopLevelBlocksIntoView\(workspace\)/);
+});

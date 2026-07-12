@@ -296,6 +296,39 @@ function resizeWorkspaceHost(host: HTMLElement, workspace: ScratchBlocks.Workspa
   ScratchBlocks.svgResize(workspace);
 }
 
+function moveTopLevelBlocksIntoView(workspace: ScratchBlocks.WorkspaceSvg) {
+  const topBlocks = workspace.getTopBlocks(false);
+  if (topBlocks.length === 0) {
+    return;
+  }
+
+  const topLeft = topBlocks.reduce(
+    (acc, block) => {
+      const position = block.getRelativeToSurfaceXY();
+      return {
+        x: Math.min(acc.x, position.x),
+        y: Math.min(acc.y, position.y)
+      };
+    },
+    { x: Number.POSITIVE_INFINITY, y: Number.POSITIVE_INFINITY }
+  );
+
+  if (!Number.isFinite(topLeft.x) || !Number.isFinite(topLeft.y)) {
+    return;
+  }
+
+  const padding = 10;
+  const dx = padding - topLeft.x;
+  const dy = padding - topLeft.y;
+  if (dx === 0 && dy === 0) {
+    return;
+  }
+
+  for (const block of topBlocks) {
+    block.moveBy(dx, dy);
+  }
+}
+
 function renderScratchWorkspace(host: HTMLElement) {
   const xmlText = host.dataset.xml?.trim();
   if (!xmlText) {
@@ -312,6 +345,7 @@ function renderScratchWorkspace(host: HTMLElement) {
 
   const parsedXml = new DOMParser().parseFromString(xmlText, "text/xml").documentElement;
   ScratchBlocks.clearWorkspaceAndLoadFromXml(parsedXml, workspace);
+  moveTopLevelBlocksIntoView(workspace);
   resizeWorkspaceHost(host, workspace);
   activeWorkspaces.set(host, workspace);
 
