@@ -41,3 +41,12 @@ test("readonly Scratch workspace renderer treats empty deserialization as a fail
   assert.match(source, /scratch workspace XML did not create visible blocks/);
   assert.match(source, /assertWorkspaceRendered\(host, workspace\)/);
 });
+
+test("readonly Scratch workspace renderer checks success after sizing blocks", async () => {
+  const source = await readFile(new URL("../src/renderer/scratch-workspace-renderer.ts", import.meta.url), "utf8");
+
+  assert.match(
+    source,
+    /ScratchBlocks\.clearWorkspaceAndLoadFromXml\(parsedXml, workspace\);[\s\S]*moveTopLevelBlocksIntoView\(workspace\);[\s\S]*resizeWorkspaceHost\(host, workspace\);[\s\S]*assertWorkspaceRendered\(host, workspace\);/
+  );
+});

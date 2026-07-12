@@ -472,3 +472,12 @@ test("renderState renders one connected structured recommendation and hides exam
   assert.equal(aiStatusElement.textContent.includes("DeepSeek"), false);
   assert.equal(aiStatusElement.textContent.includes("生成时间"), false);
 });
+
+test("renderer stylesheet lets Scratch workspace fallback text expand", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const html = await readFile(new URL("../src/renderer/index.html", import.meta.url), "utf8");
+
+  assert.match(html, /\.scratch-workspace-host-fallback\s*{[\s\S]*height:\s*auto !important;/);
+  assert.match(html, /\.scratch-workspace-host-fallback\s*{[\s\S]*overflow:\s*visible;/);
+  assert.match(html, /\.scratch-workspace-host-fallback\s*{[\s\S]*white-space:\s*normal;/);
+});

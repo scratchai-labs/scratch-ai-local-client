@@ -363,9 +363,9 @@ function renderScratchWorkspace(host: HTMLElement) {
     "text/xml"
   ).documentElement;
   ScratchBlocks.clearWorkspaceAndLoadFromXml(parsedXml, workspace);
-  assertWorkspaceRendered(host, workspace);
   moveTopLevelBlocksIntoView(workspace);
   resizeWorkspaceHost(host, workspace);
+  assertWorkspaceRendered(host, workspace);
   activeWorkspaces.set(host, workspace);
 
   window.requestAnimationFrame(() => {

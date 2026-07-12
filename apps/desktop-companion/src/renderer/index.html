@@ -404,10 +404,15 @@
       .scratch-workspace-host-fallback {
         display: flex;
         align-items: center;
+        min-height: 0 !important;
+        height: auto !important;
+        width: 100% !important;
         padding: 8px 10px;
         color: var(--muted);
         font-size: var(--text-note);
         line-height: 1.5;
+        white-space: normal;
+        overflow: visible;
       }
 
       .scratch-workspace-frame .scratch-workspace-host {
