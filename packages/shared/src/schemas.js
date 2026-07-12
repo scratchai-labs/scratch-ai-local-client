@@ -17,10 +17,10 @@ const recommendedBlockNodeSchema = z.lazy(() =>
       category: z.string(),
       label: z.string(),
       reason: z.string(),
-      next: recommendedBlockNodeSchema.optional(),
-      condition: recommendedBlockNodeSchema.optional(),
-      substack: recommendedBlockNodeSchema.optional(),
-      substack2: recommendedBlockNodeSchema.optional()
+      next: recommendedBlockNodeSchema.nullable().optional(),
+      condition: recommendedBlockNodeSchema.nullable().optional(),
+      substack: recommendedBlockNodeSchema.nullable().optional(),
+      substack2: recommendedBlockNodeSchema.nullable().optional()
     })
     .strict()
 );

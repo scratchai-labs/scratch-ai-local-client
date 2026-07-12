@@ -886,6 +886,62 @@ test("CoachService keeps fewer than three recommendations without padding", asyn
   );
 });
 
+test("CoachService accepts explicit null tails from DeepSeek recommendation structures", async () => {
+  const service = new CoachService(async () =>
+    createDeepSeekResponse(
+      JSON.stringify({
+        summary: "先让角色动一下。",
+        recommendation: {
+          root: {
+            opcode: "event_whenflagclicked",
+            category: "事件",
+            label: "当绿旗被点击",
+            reason: "先给脚本一个开始。",
+            next: {
+              opcode: "motion_movesteps",
+              category: "运动",
+              label: "移动 10 步",
+              reason: "让角色动起来。",
+              next: null
+            }
+          }
+        }
+      })
+    )
+  );
+
+  const result = await service.generateHint({
+    snapshot: createSnapshot(),
+    currentTargetPrograms: ["event_whenflagclicked -> motion_movesteps"],
+    programAreaModules: [
+      {
+        id: "event",
+        label: "事件",
+        blockCount: 1
+      },
+      {
+        id: "motion",
+        label: "运动",
+        blockCount: 1
+      }
+    ],
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "让角色先动起来",
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.deepEqual(
+    result.coachResponse.recommendedBlocks.map((block) => block.opcode),
+    [
+      "event_whenflagclicked",
+      "motion_movesteps"
+    ]
+  );
+  assert.equal(result.coachResponse.recommendation.root.next.next, undefined);
+});
+
 test("CoachService fallback gives a local basic hint without forcing three blocks", async () => {
   const service = new CoachService();
   const snapshot = createSnapshot();

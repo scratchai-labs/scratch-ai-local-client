@@ -129,8 +129,6 @@ export class CoachingSession {
 
   private lastCompletedSignature?: string;
 
-  private lastManualSignature?: string;
-
   private currentIdentity?: string;
 
   constructor(dependencies: CoachingSessionDependencies = {}) {
@@ -147,14 +145,12 @@ export class CoachingSession {
     if (!hasVisibleBlocks(observation)) {
       this.pendingRequest = undefined;
       this.activeRecommendation = undefined;
-      this.lastManualSignature = undefined;
       this.lastCompletedSignature = undefined;
       return { action: "clear-hint" };
     }
 
     if (identityChanged) {
       this.activeRecommendation = undefined;
-      this.lastManualSignature = undefined;
       this.lastCompletedSignature = undefined;
       if (observation.mode !== "auto") {
         this.pendingRequest = undefined;
@@ -225,19 +221,12 @@ export class CoachingSession {
 
     if (!hasVisibleBlocks(this.latestSnapshot)) {
       this.pendingRequest = undefined;
-      this.lastManualSignature = undefined;
       return { action: "clear-hint" };
     }
 
     if (this.requestRunning) {
       return this.scheduleOrQueue("manual", this.latestSnapshot, true);
     }
-
-    if (this.lastManualSignature === this.latestSnapshot.signature) {
-      return { action: "idle" };
-    }
-
-    this.lastManualSignature = this.latestSnapshot.signature;
     return {
       action: "request",
       reason: "manual",
@@ -277,7 +266,6 @@ export class CoachingSession {
     this.activeRecommendation = undefined;
     this.requestRunning = false;
     this.lastCompletedSignature = undefined;
-    this.lastManualSignature = undefined;
     this.currentIdentity = undefined;
   }
 

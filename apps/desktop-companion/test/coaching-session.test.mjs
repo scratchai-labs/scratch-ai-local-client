@@ -356,7 +356,7 @@ test("CoachingSession hides stale hints when the student diverges or switches ta
   assert.equal(switched.keepExistingHint, false);
 });
 
-test("CoachingSession lets manual requests bypass auto interval but skips duplicate manual signatures", () => {
+test("CoachingSession lets manual requests bypass auto interval and re-request the same snapshot", () => {
   const { session, clock } = createSession();
 
   observe(session, createLinearProjectData(["event_whenflagclicked"]));
@@ -373,7 +373,8 @@ test("CoachingSession lets manual requests bypass auto interval but skips duplic
   session.markRequestFinished({ response: {} });
 
   const duplicateManual = session.requestManualHint();
-  assert.equal(duplicateManual.action, "idle");
+  assert.equal(duplicateManual.action, "request");
+  assert.equal(duplicateManual.reason, "manual");
 });
 
 test("CoachingSession does not auto request when identity changes in manual mode", () => {
