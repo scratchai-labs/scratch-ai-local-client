@@ -17,6 +17,7 @@ const currentTargetElement = document.getElementById("current-target");
 const updatedAtElement = document.getElementById("updated-at");
 const statusSummaryElement = document.getElementById("status-summary");
 const programAreaModulesElement = document.getElementById("program-area-modules");
+const currentTargetProgramsTitleElement = document.getElementById("current-target-programs-title");
 const currentTargetProgramsElement = document.getElementById("current-target-programs");
 const aiStatusElement = document.getElementById("ai-status");
 const aiSourceElement = document.getElementById("ai-source");
@@ -61,6 +62,7 @@ function renderNormalizedState(rawState: unknown) {
     updatedAtElement,
     statusSummaryElement,
     programAreaModulesElement,
+    currentTargetProgramsTitleElement,
     currentTargetProgramsElement,
     aiStatusElement,
     aiSourceElement,

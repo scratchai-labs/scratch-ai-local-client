@@ -33,6 +33,16 @@ test("parses one connected recommendation structure with at most three blocks", 
   assert.equal(response.recommendation.root.substack.opcode, "looks_sayforsecs");
 });
 
+
+test("accepts a completed-project summary without forcing recommended blocks", () => {
+  const response = coachRecommendationResponseSchema.parse({
+    summary: "你的作品已经完整，可以点击绿旗后用方向键控制 Cat 2。"
+  });
+
+  assert.equal(response.summary, "你的作品已经完整，可以点击绿旗后用方向键控制 Cat 2。");
+  assert.equal(Object.hasOwn(response, "recommendation"), false);
+});
+
 test("rejects recommendation structures containing more than three blocks", () => {
   const result = coachRecommendationResponseSchema.safeParse({
     summary: "让角色先启动，再移动、判断并反馈。",

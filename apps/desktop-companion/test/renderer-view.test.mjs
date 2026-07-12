@@ -8,6 +8,7 @@ import {
   formatDefaultDetail,
   formatCurrentTarget,
   formatCurrentTargetPrograms,
+  formatCurrentTargetProgramsTitle,
   formatRecommendedBlocks,
   renderList,
   renderState
@@ -47,6 +48,15 @@ test("formats current target with stage label", () => {
     "Stage（舞台）"
   );
   assert.equal(formatCurrentTarget({}), "未识别");
+});
+
+test("formats current target program panel title with the live sprite name", () => {
+  assert.equal(formatCurrentTargetProgramsTitle({ currentTargetName: "Cat 2" }), "Cat 2 的程序");
+  assert.equal(
+    formatCurrentTargetProgramsTitle({ currentTargetName: "Stage", currentTargetIsStage: true }),
+    "Stage（舞台）的程序"
+  );
+  assert.equal(formatCurrentTargetProgramsTitle({}), "当前角色程序");
 });
 
 test("formats current target programs with script labels", () => {
@@ -151,6 +161,22 @@ test("formats local-only AI guidance without teacher sb3 wording", () => {
       status: "connected"
     }),
     "先自己搭一会儿；需要时看右边的积木提示。"
+  );
+});
+
+test("formats completed project guidance without implying more blocks are required", () => {
+  assert.equal(
+    formatAiStatus({
+      status: "connected",
+      aiStatus: "ready",
+      aiCoachResponse: {
+        answerText: "你的作品已经完整，点击绿旗后用方向键控制 Cat 2。",
+        nextStep: "你的作品已经完整，点击绿旗后用方向键控制 Cat 2。",
+        recommendedBlocks: [],
+        detectedIssues: []
+      }
+    }),
+    "作品已分析完成，请看下面的说明。"
   );
 });
 

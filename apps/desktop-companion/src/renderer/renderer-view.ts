@@ -32,6 +32,7 @@ export interface RendererElements {
   updatedAtElement?: MinimalElement | null;
   statusSummaryElement?: MinimalElement | null;
   programAreaModulesElement?: MinimalElement | null;
+  currentTargetProgramsTitleElement?: MinimalElement | null;
   currentTargetProgramsElement?: MinimalElement | null;
   aiStatusElement?: MinimalElement | null;
   aiSourceElement?: MinimalElement | null;
@@ -91,6 +92,16 @@ export function formatCurrentTarget(state: DesktopCompanionState) {
   return state.currentTargetIsStage ? `${state.currentTargetName}（舞台）` : state.currentTargetName;
 }
 
+export function formatCurrentTargetProgramsTitle(state: Pick<DesktopCompanionState, "currentTargetName" | "currentTargetIsStage">) {
+  if (!state.currentTargetName) {
+    return "当前角色程序";
+  }
+
+  return state.currentTargetIsStage
+    ? `${formatCurrentTarget(state)}的程序`
+    : `${state.currentTargetName} 的程序`;
+}
+
 export function formatCurrentTargetPrograms(programs: string[] = []) {
   return programs.map((program, index) => `脚本 ${index + 1}: ${program}`);
 }
@@ -117,6 +128,10 @@ export function formatAiStatus(state: DesktopCompanionState) {
   const recommendedCount = countRecommendedReasonItems(state.aiCoachResponse);
   if (state.aiCoachResponse && recommendedCount > 0) {
     return `看这 ${recommendedCount} 个积木，按顺序试一试。`;
+  }
+
+  if (state.aiCoachResponse && state.aiStatus === "ready") {
+    return "作品已分析完成，请看下面的说明。";
   }
 
   if (state.status === "connected") {
@@ -543,6 +558,10 @@ export function renderState(state: DesktopCompanionState, elements: RendererElem
 
   if (elements.currentTargetElement) {
     elements.currentTargetElement.textContent = formatCurrentTarget(state);
+  }
+
+  if (elements.currentTargetProgramsTitleElement) {
+    elements.currentTargetProgramsTitleElement.textContent = formatCurrentTargetProgramsTitle(state);
   }
 
   if (elements.updatedAtElement) {

@@ -263,7 +263,34 @@
 
       .status-copy {
         display: grid;
-        gap: 8px;
+        gap: 3px;
+      }
+
+      .hint-panel {
+        gap: 6px;
+        padding: 10px 14px;
+      }
+
+      .hint-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .hint-heading #ai-source {
+        font-size: var(--text-mini);
+        line-height: 1.3;
+        text-align: right;
+      }
+
+      .hint-panel #ai-status {
+        font-size: var(--text-note);
+        line-height: 1.35;
+      }
+
+      .hint-panel #ai-answer {
+        line-height: 1.45;
       }
 
       .status-line {
@@ -357,6 +384,17 @@
         gap: 10px;
       }
 
+      .program-list {
+        max-height: 430px;
+        overflow: auto;
+        padding-right: 4px;
+        overscroll-behavior: contain;
+      }
+
+      .program-panel {
+        min-width: 0;
+      }
+
       .scratch-script-item,
       .recommended-structure-item {
         background: #fff;
@@ -386,7 +424,8 @@
         border: 1px solid rgba(15, 23, 42, 0.06);
         background: var(--scratch-workspace-bg);
         padding: 10px 12px;
-        overflow: hidden;
+        overflow: auto;
+        overscroll-behavior: contain;
       }
 
       .scratch-workspace-inline {
@@ -550,18 +589,20 @@
             <p id="error" hidden></p>
           </section>
 
-          <section class="panel">
-            <h2>下一步提示</h2>
+          <section class="panel hint-panel">
+            <div class="hint-heading">
+              <h2>下一步提示</h2>
+              <p id="ai-source" class="status-line muted">当前提示来源：等待生成</p>
+            </div>
             <div class="status-copy">
               <p id="ai-status" class="status-line muted">正在整理当前状态…</p>
-              <p id="ai-source" class="status-line muted">当前提示来源：等待生成</p>
               <p id="ai-answer" class="status-line">先自己搭一会儿；需要时看右边的积木提示。</p>
             </div>
           </section>
 
           <div class="program-recommend-grid">
-            <section class="panel detail-panel">
-              <h2>当前角色程序</h2>
+            <section class="panel detail-panel program-panel">
+              <h2 id="current-target-programs-title">当前角色程序</h2>
               <p class="panel-note">这里会显示当前角色已经搭好的 Scratch 原版脚本。</p>
               <ul id="current-target-programs" class="list program-list"></ul>
             </section>

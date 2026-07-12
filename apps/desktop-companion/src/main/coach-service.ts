@@ -28,13 +28,13 @@ import type {
 const DEFAULT_FALLBACK_MODEL = "local-heuristic";
 const DEFAULT_DEEPSEEK_MAX_TOKENS = 2048;
 export const DEFAULT_HINT_ONLY_SYSTEM_PROMPT =
-  "你是 Scratch 小学编程助教。请只根据学生当前作品，给出具体、可执行、面向小学生的中文提示，但不要直接给完整答案，不要写完整脚本。所有展示给学生的自然语言都必须直接对学生说“你”，不要用“学生”“老师”“用户”等第三人称称呼。你必须先判断学生当前项目已经做到哪一步，再给出当前最适合尝试的 1 到 3 个按顺序连接的关键积木。所有自然语言必须使用中文，不要出现英文 opcode、英文积木名、英文字段解释，避免中英混杂。recommendation.root 里的 opcode 必须使用 Scratch 官方积木 opcode，不要编造不存在的 opcode。";
+  "你是 Scratch 小学编程助教。请完整阅读舞台和全部角色的全部脚本，从整个项目而不是只从当前角色判断作品是否完整。若作品仍需完善，给出具体、可执行、面向小学生的中文提示，但不要直接给完整答案，不要写完整脚本，并给出当前最适合尝试的 1 到 3 个按顺序连接的关键积木。若作品已经形成完整、可运行、目标清楚的程序，可以不返回 recommendation，只用 summary 简短告诉学生作品已完成以及如何启动、操作或体验。所有展示给学生的自然语言都必须直接对学生说“你”，不要用“学生”“老师”“用户”等第三人称称呼。所有自然语言必须使用中文，不要出现英文 opcode、英文积木名、英文字段解释，避免中英混杂。recommendation.root 里的 opcode 必须使用 Scratch 官方积木 opcode，不要编造不存在的 opcode。";
 const HINT_ONLY_OUTPUT_REQUIREMENTS =
-  "输出必须是一个 JSON 对象，字段只能包含 summary、recommendation。summary 是一句直接给学生看的简短中文提示，必须使用“你”来称呼学生。recommendation.root 是按顺序连接的具体积木结构，最多 3 个积木节点；每个节点必须包含 opcode、category、label、reason。使用 next 表示下一个顺序积木，使用 condition 表示条件输入，使用 substack 表示内部执行分支，使用 substack2 表示否则分支。不要输出 Markdown，不要输出额外解释，不要输出追问、诊断、示例或 XML。";
+  "输出必须是一个 JSON 对象，字段只能包含 summary、recommendation。summary 是一句直接给学生看的简短中文提示，必须使用“你”来称呼学生。作品仍需完善时，recommendation.root 是按顺序连接的具体积木结构，最多 3 个积木节点；每个节点必须包含 opcode、category、label、reason。使用 next 表示下一个顺序积木，使用 condition 表示条件输入，使用 substack 表示内部执行分支，使用 substack2 表示否则分支。作品已经完整时，可以不返回 recommendation，只返回 summary，说明如何启动、操作或体验。不要输出 Markdown，不要输出额外解释，不要输出追问、诊断、示例或 XML。";
 const RECOMMENDED_OPCODE_WHITELIST_REQUIREMENTS =
   `recommendation 里的 opcode 只允许从以下 Scratch 官方 opcode 白名单中选择：${SUPPORTED_RECOMMENDED_BLOCK_OPCODES.join("、")}。如果不确定具体 opcode，就不要返回那一块，不要替换成其他积木。`;
 const HINT_ONLY_USER_PROMPT =
-  "请根据下面的 Scratch 项目上下文，给出“下一步做什么”的提示。只根据当前学生作品判断已经完成了什么，再直接给出按顺序连接的具体积木。优先基于学生已经使用过的模块继续推进，不要让学生一下子大改。不要把当前角色已经存在的事件帽子积木再次作为下一步推荐；如果后续积木需要接到现有脚本中，只返回需要新增的部分。";
+  "请完整阅读舞台和全部角色的全部脚本，先从整个 Scratch 项目判断它是否已经形成完整、可运行、目标清楚的作品。若还没完成，再给出“下一步做什么”的提示和按顺序连接的具体积木；优先基于已经使用过的模块继续推进，不要让学生一下子大改。不要把当前角色已经存在的事件帽子积木再次作为下一步推荐；如果后续积木需要接到现有脚本中，只返回需要新增的部分。若项目已经完整，不要为了给建议而强行添加功能，可以不返回 recommendation，只在 summary 里简短告诉学生如何启动、操作或体验。";
 
 const NON_REPEATABLE_HAT_OPCODE_SET = new Set([
   "event_whenflagclicked",
@@ -114,16 +114,13 @@ function describeModules(programAreaModules: ProgramAreaModule[]) {
     .join("、");
 }
 
-function buildCompactSprites(snapshot: ProjectSnapshot, currentTargetName?: string) {
-  return snapshot.sprites.slice(0, 8).map((sprite: SpriteSnapshot) => ({
+function buildProjectSprites(snapshot: ProjectSnapshot) {
+  return snapshot.sprites.map((sprite: SpriteSnapshot) => ({
     name: sprite.name,
     isStage: sprite.isStage,
     blockCount: sprite.blockCount,
     variables: sprite.variables.map((variable) => variable.name),
-    scripts:
-      sprite.name === currentTargetName
-        ? sprite.scripts.map((script) => script.blockSequence)
-        : sprite.scripts.slice(0, 2).map((script) => script.blockSequence)
+    scripts: sprite.scripts.map((script) => script.blockSequence)
   }));
 }
 
@@ -362,18 +359,16 @@ function buildFallbackCoachResponse(options: GenerateCoachHintOptions): CoachRes
 
 function buildPromptContext(options: GenerateCoachHintOptions) {
   const { snapshot, currentTargetPrograms, programAreaModules, usedExtensions, loadedExtensions, goal } = options;
-  const currentTarget = getCurrentTargetSprite(snapshot);
-
   return {
     goal: goal?.trim() || snapshot.goal || "",
-    analysisPriority: "只根据当前学生作品，先判断已经完成了什么，再补下一小步。",
+    analysisPriority: "完整阅读舞台和全部角色的全部脚本，先判断整个项目是否已经完整；完整时说明用法，不强行推荐新积木。",
     currentTarget: snapshot.currentTarget || "",
     currentTargetPrograms: localizeProgramDescriptions(currentTargetPrograms),
     programAreaModules,
     usedExtensions,
     loadedExtensions,
     detectedConcepts: snapshot.detectedConcepts,
-    sprites: buildCompactSprites(snapshot, currentTarget?.name),
+    sprites: buildProjectSprites(snapshot),
     globalVariables: snapshot.globalVariables.map((variable) => ({
       name: variable.name,
       value: variable.value
@@ -555,6 +550,9 @@ function parseRecommendationCandidate(candidate: Record<string, unknown>) {
   }
 
   const rawRecommendation = candidate.recommendation;
+  if (rawRecommendation === undefined) {
+    return coachRecommendationResponseSchema.parse(candidate);
+  }
   if (!rawRecommendation || typeof rawRecommendation !== "object" || Array.isArray(rawRecommendation)) {
     return coachRecommendationResponseSchema.parse(candidate);
   }
@@ -677,6 +675,16 @@ function normalizeCoachResponse(rawPayload: unknown, options: GenerateCoachHintO
   }
 
   const candidate = rawPayload as Record<string, unknown>;
+  if (typeof candidate.summary === "string" && candidate.recommendation === undefined) {
+    const parsed = parseRecommendationCandidate(candidate);
+    return {
+      answerText: parsed.summary,
+      recommendedBlocks: [],
+      nextStep: parsed.summary,
+      detectedIssues: []
+    };
+  }
+
   if (candidate.recommendation && typeof candidate.recommendation === "object") {
     const parsed = parseRecommendationCandidate(candidate);
     const rootCandidate = shouldOmitAlreadyUsedRootHat(parsed.recommendation.root, options)

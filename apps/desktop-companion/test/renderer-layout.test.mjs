@@ -41,3 +41,23 @@ test("main window defines Scratch-style block colors for the program and recomme
   assert.match(html, /\.scratch-workspace-inline\s*\{/);
   assert.match(html, /\.scratch-workspace-host\s*\{/);
 });
+
+
+test("current target program panel shows the live sprite name and scrolls large script collections", async () => {
+  const html = await readFile(new URL("../src/renderer/index.html", import.meta.url), "utf8");
+
+  assert.match(html, /<h2 id="current-target-programs-title">当前角色程序<\/h2>/);
+  assert.match(html, /<section class="panel detail-panel program-panel">/);
+  assert.match(html, /\.program-list\s*\{[\s\S]*max-height:/);
+  assert.match(html, /\.program-list\s*\{[\s\S]*overflow:\s*auto;/);
+  assert.match(html, /\.scratch-workspace-frame\s*\{[\s\S]*overflow:\s*auto;/);
+});
+
+test("next-step hint panel uses compact spacing and a one-line heading row", async () => {
+  const html = await readFile(new URL("../src/renderer/index.html", import.meta.url), "utf8");
+
+  assert.match(html, /<section class="panel hint-panel">/);
+  assert.match(html, /<div class="hint-heading">/);
+  assert.match(html, /\.hint-panel\s*\{[\s\S]*padding:\s*10px 14px;/);
+  assert.match(html, /\.hint-heading\s*\{[\s\S]*display:\s*flex;/);
+});

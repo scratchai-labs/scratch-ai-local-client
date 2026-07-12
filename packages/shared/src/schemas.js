@@ -43,10 +43,11 @@ const coachRecommendationResponseSchema = z
         root: recommendedBlockNodeSchema
       })
       .strict()
+      .optional()
   })
   .strict()
   .superRefine((response, context) => {
-    if (countRecommendedBlockNodes(response.recommendation.root) > 3) {
+    if (response.recommendation && countRecommendedBlockNodes(response.recommendation.root) > 3) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["recommendation", "root"],

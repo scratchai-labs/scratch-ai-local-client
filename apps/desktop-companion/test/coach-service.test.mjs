@@ -44,6 +44,18 @@ function createSnapshot() {
             blockOpcodes: ["event_whenflagclicked", "motion_movesteps"]
           }
         ]
+      },
+      {
+        name: "Cat 2",
+        isStage: false,
+        blockCount: 6,
+        variables: [],
+        scripts: [1, 2, 3].map((index) => ({
+          spriteName: "Cat 2",
+          event: `script ${index}`,
+          blockSequence: ["当绿旗被点击", `移动 ${index}0 步`],
+          blockOpcodes: ["event_whenflagclicked", "motion_movesteps"]
+        }))
       }
     ],
     blocks: [
@@ -242,7 +254,45 @@ test("CoachService sends DeepSeek V4 chat completions requests in JSON non-think
   assert.equal(capturedRequest.body.messages[0].content.includes("按顺序"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("不要把积木顺序一次性全部告诉学生"), false);
   assert.equal(capturedRequest.body.messages[0].content.includes("最接近"), false);
-  assert.equal(capturedRequest.body.messages[1].content.includes("直接给出按顺序连接的具体积木"), true);
+  assert.equal(capturedRequest.body.messages[1].content.includes("按顺序连接的具体积木"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("舞台和全部角色"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("可以不返回 recommendation"), true);
+  assert.equal(capturedRequest.body.messages[1].content.includes("完整阅读舞台和全部角色"), true);
+
+  const promptContext = JSON.parse(capturedRequest.body.messages[1].content.split("\n\n").at(-1));
+  assert.equal(promptContext.sprites.length, 2);
+  assert.equal(promptContext.sprites[1].scripts.length, 3);
+});
+
+test("CoachService accepts a complete-project usage summary without recommended blocks", async () => {
+  const service = new CoachService(async () => ({
+    ok: true,
+    json: async () => ({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            summary: "你的作品已经完整。点击绿旗后，用方向键控制 Cat 2 躲避障碍即可。"
+          })
+        }
+      }]
+    })
+  }));
+  const snapshot = createSnapshot();
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["event_whenflagclicked -> motion_movesteps"],
+    programAreaModules: snapshot.programAreaModules,
+    usedExtensions: [],
+    loadedExtensions: [],
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.equal(result.coachResponse.answerText, "你的作品已经完整。点击绿旗后，用方向键控制 Cat 2 躲避障碍即可。");
+  assert.equal(result.coachResponse.nextStep, result.coachResponse.answerText);
+  assert.deepEqual(result.coachResponse.recommendedBlocks, []);
+  assert.equal(Object.hasOwn(result.coachResponse, "recommendation"), false);
 });
 
 test("CoachService fallback speaks directly to the student", async () => {
@@ -389,10 +439,10 @@ test("CoachService ignores legacy teaching reference context and only sends the 
   assert.equal(capturedRequest.messages[1].content.includes('"teachingReference"'), false);
   assert.equal(capturedRequest.messages[1].content.includes("https://example.com/reference.sb3"), false);
   assert.equal(capturedRequest.messages[0].content.includes("所有自然语言必须使用中文"), true);
-  assert.equal(capturedRequest.messages[0].content.includes("必须先判断学生当前项目已经做到哪一步"), true);
+  assert.equal(capturedRequest.messages[0].content.includes("从整个项目而不是只从当前角色判断作品是否完整"), true);
   assert.equal(capturedRequest.messages[1].content.includes("先看学生当前 Scratch 项目"), false);
   assert.equal(capturedRequest.messages[1].content.includes("对照教师参考作品补当前还缺的一小步"), false);
-  assert.equal(capturedRequest.messages[1].content.includes("只根据当前学生作品"), true);
+  assert.equal(capturedRequest.messages[1].content.includes("完整阅读舞台和全部角色"), true);
   assert.equal(capturedRequest.messages[1].content.includes("当绿旗被点击 -> 移动 10 步"), true);
   assert.equal(capturedRequest.messages[1].content.includes("event_whenflagclicked -> motion_movesteps"), false);
 });
