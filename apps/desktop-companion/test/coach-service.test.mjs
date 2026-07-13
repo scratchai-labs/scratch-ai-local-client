@@ -82,6 +82,95 @@ function createSnapshot() {
   };
 }
 
+function createCompleteSnapshot() {
+  return {
+    ...createSnapshot(),
+    toolboxCategories: ["事件", "运动", "控制", "侦测", "变量"],
+    programAreaModules: [
+      { id: "event", label: "事件", blockCount: 1 },
+      { id: "motion", label: "运动", blockCount: 1 },
+      { id: "control", label: "控制", blockCount: 2 },
+      { id: "sensing", label: "侦测", blockCount: 1 },
+      { id: "data", label: "变量", blockCount: 1 }
+    ],
+    sprites: [
+      {
+        name: "Cat",
+        isStage: false,
+        blockCount: 6,
+        variables: [{ id: "score", name: "分数", value: 0, isCloud: false }],
+        scripts: [
+          {
+            spriteName: "Cat",
+            event: "when green flag clicked",
+            blockSequence: ["当绿旗被点击", "一直重复", "移动 10 步", "如果碰到边缘那么", "将分数增加 1"],
+            blockOpcodes: [
+              "event_whenflagclicked",
+              "control_forever",
+              "motion_movesteps",
+              "control_if",
+              "sensing_touchingobject",
+              "data_changevariableby"
+            ]
+          }
+        ]
+      }
+    ],
+    blocks: [
+      {
+        id: "complete-block-1",
+        opcode: "event_whenflagclicked",
+        category: "事件",
+        label: "当绿旗被点击",
+        spriteName: "Cat",
+        topLevel: true
+      },
+      {
+        id: "complete-block-2",
+        opcode: "control_forever",
+        category: "控制",
+        label: "一直重复",
+        spriteName: "Cat",
+        topLevel: false
+      },
+      {
+        id: "complete-block-3",
+        opcode: "motion_movesteps",
+        category: "运动",
+        label: "移动 10 步",
+        spriteName: "Cat",
+        topLevel: false
+      },
+      {
+        id: "complete-block-4",
+        opcode: "control_if",
+        category: "控制",
+        label: "如果...那么",
+        spriteName: "Cat",
+        topLevel: false
+      },
+      {
+        id: "complete-block-5",
+        opcode: "sensing_touchingobject",
+        category: "侦测",
+        label: "碰到...？",
+        spriteName: "Cat",
+        topLevel: false
+      },
+      {
+        id: "complete-block-6",
+        opcode: "data_changevariableby",
+        category: "变量",
+        label: "将分数增加 1",
+        spriteName: "Cat",
+        topLevel: false
+      }
+    ],
+    globalVariables: [{ id: "score", name: "分数", value: 0, isCloud: false }],
+    detectedConcepts: ["event", "motion", "control", "sensing", "data"]
+  };
+}
+
 function createProjectDataWithBroadcastDependencies() {
   return {
     targets: [
@@ -435,7 +524,7 @@ test("CoachService accepts a complete-project usage summary without recommended 
       }]
     })
   }));
-  const snapshot = createSnapshot();
+  const snapshot = createCompleteSnapshot();
 
   const result = await service.generateHint({
     snapshot,
@@ -451,6 +540,36 @@ test("CoachService accepts a complete-project usage summary without recommended 
   assert.equal(result.coachResponse.nextStep, result.coachResponse.answerText);
   assert.deepEqual(result.coachResponse.recommendedBlocks, []);
   assert.equal(Object.hasOwn(result.coachResponse, "recommendation"), false);
+});
+
+test("CoachService falls back to structured local blocks when a simple project receives summary-only DeepSeek output", async () => {
+  const service = new CoachService(async () =>
+    createDeepSeekResponse(
+      JSON.stringify({
+        summary: "你的作品已经可以点击绿旗看到角色移动。"
+      })
+    )
+  );
+  const snapshot = createSnapshot();
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["event_whenflagclicked -> motion_movesteps"],
+    programAreaModules: snapshot.programAreaModules,
+    usedExtensions: [],
+    loadedExtensions: [],
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.equal(result.warning, undefined);
+  assert.match(result.coachResponse.answerText, /下一步|循环|补/);
+  assert.notEqual(result.coachResponse.nextStep, "你的作品已经可以点击绿旗看到角色移动。");
+  assert.equal(result.coachResponse.recommendation?.root.opcode, "control_repeat");
+  assert.deepEqual(
+    result.coachResponse.recommendedBlocks.map((block) => block.opcode),
+    ["control_repeat", "motion_turnright", "motion_movesteps"]
+  );
 });
 
 test("CoachService keeps DeepSeek hints when legacy nextStep is null", async () => {
@@ -498,9 +617,15 @@ test("CoachService keeps completed-project summaries when DeepSeek returns null 
   );
 
   const result = await service.generateHint({
-    snapshot: createSnapshot(),
-    currentTargetPrograms: ["event_whenflagclicked -> motion_movesteps"],
-    programAreaModules: [{ id: "motion", label: "运动", blockCount: 1 }],
+    snapshot: createCompleteSnapshot(),
+    currentTargetPrograms: ["event_whenflagclicked -> control_forever -> motion_movesteps -> control_if"],
+    programAreaModules: [
+      { id: "event", label: "事件", blockCount: 1 },
+      { id: "motion", label: "运动", blockCount: 1 },
+      { id: "control", label: "控制", blockCount: 2 },
+      { id: "sensing", label: "侦测", blockCount: 1 },
+      { id: "data", label: "变量", blockCount: 1 }
+    ],
     usedExtensions: [],
     loadedExtensions: [],
     aiConfig: createAiConfig()

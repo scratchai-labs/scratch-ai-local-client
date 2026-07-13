@@ -97,6 +97,10 @@ function getCurrentTargetOpcodes(snapshot: ProjectSnapshot) {
   return sprite.scripts.flatMap((script) => script.blockOpcodes);
 }
 
+function getProjectOpcodes(snapshot: ProjectSnapshot) {
+  return snapshot.sprites.flatMap((sprite) => sprite.scripts.flatMap((script) => script.blockOpcodes));
+}
+
 function hasOpcodePrefix(opcodes: string[], prefix: string) {
   return opcodes.some((opcode) => opcode.startsWith(prefix));
 }
@@ -678,6 +682,32 @@ function filterRecommendedNode(
   return filteredNode;
 }
 
+function hasCompletionEvidenceForSummaryOnlyResponse(snapshot: ProjectSnapshot) {
+  const opcodes = getProjectOpcodes(snapshot);
+  const blockCount = snapshot.sprites.reduce((total, sprite) => total + sprite.blockCount, 0);
+  const scriptCount = snapshot.sprites.reduce((total, sprite) => total + sprite.scripts.length, 0);
+  if (blockCount < 4 || scriptCount === 0) {
+    return false;
+  }
+
+  if (!hasOpcodePrefix(opcodes, "event_") || !hasOpcodePrefix(opcodes, "control_")) {
+    return false;
+  }
+
+  const hasRuleOrFeedback =
+    hasOpcodePrefix(opcodes, "sensing_") ||
+    hasOpcodePrefix(opcodes, "data_") ||
+    hasOpcodePrefix(opcodes, "looks_") ||
+    hasOpcodePrefix(opcodes, "sound_") ||
+    opcodes.includes("event_broadcast") ||
+    opcodes.includes("event_broadcastandwait") ||
+    opcodes.includes("event_whenbroadcastreceived");
+  const hasMultiActorFlow =
+    snapshot.sprites.filter((sprite) => !sprite.isStage && sprite.blockCount > 0).length > 1 && blockCount >= 8;
+
+  return hasRuleOrFeedback || hasMultiActorFlow;
+}
+
 function normalizeCoachResponse(rawPayload: unknown, options: GenerateCoachHintOptions) {
   if (!rawPayload || typeof rawPayload !== "object") {
     return rawPayload;
@@ -694,6 +724,10 @@ function normalizeCoachResponse(rawPayload: unknown, options: GenerateCoachHintO
 
     if (structuredCandidate.recommendation === undefined) {
       const parsed = parseRecommendationCandidate(structuredCandidate);
+      if (!hasCompletionEvidenceForSummaryOnlyResponse(options.snapshot)) {
+        return buildFallbackCoachResponse(options);
+      }
+
       return {
         answerText: parsed.summary,
         recommendedBlocks: [],
