@@ -144,6 +144,17 @@
 - 产物：`student-sim-multi-project-screenshots/`（37 张截图 + timeline/summary/REPORT）
 - 观察：四类项目 DeepSeek 均能返回可理解提示；运动提示最稳；鸡兔同笼能导向询问/变量/减法运算，但公式完整性不稳定；复杂游戏能识别“碰奶酪加分”，自动对着做侦测链仍易失败。
 
+## 2026-07-14 数学题辅导漂移修复（意图识别 + fallback）
+- 状态：已完成
+- 问题：联调显示鸡兔同笼易“任务反转”，1到n累加易“运动漂移”；本地 fallback 也会推循环+右转/条件判断。
+- 方案：
+  1. CoachService 增加任务意图识别（math-chicken-rabbit / math-sum / math-generic / game）。
+  2. DeepSeek system/user prompt 增加数学题硬约束：禁止反转、禁止无关运动。
+  3. 数学题专用 fallback：推公式/累加/说出口，而不是 motion。
+  4. 归一化过滤：数学题下剔除 motion/造型类推荐，并提升后续有效积木。
+- 测试：desktop-companion coach-service 30 项全绿（含 4 项新增）。
+- 修改：`apps/desktop-companion/src/main/coach-service.ts`、`apps/desktop-companion/test/coach-service.test.mjs`
+
 ## 2026-07-14 数学题 1到n累加路径加压
 - 状态：已完成
 - 需求：新开一轮数学题学生模拟，覆盖“循环+累加器”而非鸡兔公式；观察 DeepSeek 能否引导学生补全 1..n 求和。

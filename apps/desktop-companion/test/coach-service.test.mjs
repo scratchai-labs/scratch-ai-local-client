@@ -1675,3 +1675,267 @@ test("CoachService redacts API keys from DeepSeek failure warnings", async () =>
   assert.match(result.warning, /Authorization: Bearer \*\*\*/);
   assert.match(result.warning, /"apiKey":"\*\*\*"/);
 });
+
+
+test("CoachService math chicken-rabbit fallback recommends formula path instead of motion", async () => {
+  const service = new CoachService(async () => {
+    throw new Error("network should not be required for fallback");
+  });
+
+  const snapshot = createSnapshot();
+  snapshot.programAreaModules = [
+    { id: "event", label: "事件", blockCount: 1 },
+    { id: "data", label: "变量", blockCount: 2 }
+  ];
+  snapshot.globalVariables = [
+    { id: "heads", name: "heads", value: 35, isCloud: false },
+    { id: "feet", name: "feet", value: 94, isCloud: false }
+  ];
+  snapshot.sprites[0].variables = [
+    { id: "heads", name: "heads", value: 35, isCloud: false },
+    { id: "feet", name: "feet", value: 94, isCloud: false }
+  ];
+  snapshot.sprites[0].blockCount = 3;
+  snapshot.sprites[0].scripts = [
+    {
+      spriteName: "Cat",
+      event: "when green flag clicked",
+      blockSequence: ["当绿旗被点击", "将 heads 设为 35", "将 feet 设为 94"],
+      blockOpcodes: ["event_whenflagclicked", "data_setvariableto", "data_setvariableto"]
+    }
+  ];
+  snapshot.detectedConcepts = ["event", "data"];
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["当绿旗被点击 -> 将 heads 设为 35 -> 将 feet 设为 94"],
+    programAreaModules: snapshot.programAreaModules,
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "鸡兔同笼",
+    aiConfig: createAiConfig({
+      configured: false,
+      apiKey: ""
+    })
+  });
+
+  assert.equal(result.source, "fallback");
+  assert.match(result.coachResponse.answerText, /兔子|rabbits|公式|求/);
+  assert.equal(
+    result.coachResponse.recommendedBlocks.some((block) => block.opcode.startsWith("motion_")),
+    false
+  );
+  assert.equal(
+    result.coachResponse.recommendedBlocks.some((block) =>
+      ["operator_subtract", "operator_divide", "data_setvariableto"].includes(block.opcode)
+    ),
+    true
+  );
+});
+
+test("CoachService math sum fallback recommends accumulator instead of turn/bounce", async () => {
+  const service = new CoachService(async () => {
+    throw new Error("network should not be required for fallback");
+  });
+
+  const snapshot = createSnapshot();
+  snapshot.programAreaModules = [
+    { id: "event", label: "事件", blockCount: 1 },
+    { id: "data", label: "变量", blockCount: 3 },
+    { id: "control", label: "控制", blockCount: 1 }
+  ];
+  snapshot.globalVariables = [
+    { id: "n", name: "n", value: 10, isCloud: false },
+    { id: "sum", name: "sum", value: 0, isCloud: false },
+    { id: "i", name: "i", value: 1, isCloud: false }
+  ];
+  snapshot.sprites[0].variables = snapshot.globalVariables;
+  snapshot.sprites[0].blockCount = 5;
+  snapshot.sprites[0].scripts = [
+    {
+      spriteName: "Cat",
+      event: "when green flag clicked",
+      blockSequence: ["当绿旗被点击", "将 n 设为 10", "将 sum 设为 0", "将 i 设为 1", "重复执行"],
+      blockOpcodes: [
+        "event_whenflagclicked",
+        "data_setvariableto",
+        "data_setvariableto",
+        "data_setvariableto",
+        "control_repeat"
+      ]
+    }
+  ];
+  snapshot.detectedConcepts = ["event", "data", "control"];
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["当绿旗被点击 -> 将 n 设为 10 -> 将 sum 设为 0 -> 将 i 设为 1 -> 重复执行"],
+    programAreaModules: snapshot.programAreaModules,
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "1到n求和",
+    aiConfig: createAiConfig({
+      configured: false,
+      apiKey: ""
+    })
+  });
+
+  assert.equal(result.source, "fallback");
+  assert.match(result.coachResponse.answerText, /sum|累加|增加 i|i 增加/);
+  assert.equal(
+    result.coachResponse.recommendedBlocks.some((block) =>
+      ["motion_turnright", "motion_movesteps", "motion_ifonedgebounce"].includes(block.opcode)
+    ),
+    false
+  );
+  assert.equal(
+    result.coachResponse.recommendedBlocks.some((block) => block.opcode === "data_changevariableby"),
+    true
+  );
+});
+
+test("CoachService prompt context includes math task guidance for chicken-rabbit variables", async () => {
+  let capturedRequest = null;
+  const service = new CoachService(async (url, init) => {
+    capturedRequest = {
+      url,
+      init,
+      body: JSON.parse(init.body)
+    };
+    return {
+      ok: true,
+      async json() {
+        return {
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  summary: "先求兔子数量。",
+                  recommendation: {
+                    root: {
+                      opcode: "data_setvariableto",
+                      category: "变量",
+                      label: "将变量设为",
+                      reason: "保存兔子数量"
+                    }
+                  }
+                })
+              }
+            }
+          ]
+        };
+      }
+    };
+  });
+
+  const snapshot = createSnapshot();
+  snapshot.globalVariables = [
+    { id: "heads", name: "heads", value: 35, isCloud: false },
+    { id: "feet", name: "feet", value: 94, isCloud: false }
+  ];
+  snapshot.sprites[0].variables = snapshot.globalVariables;
+  snapshot.sprites[0].scripts[0] = {
+    spriteName: "Cat",
+    event: "when green flag clicked",
+    blockSequence: ["当绿旗被点击", "将 heads 设为 35", "将 feet 设为 94"],
+    blockOpcodes: ["event_whenflagclicked", "data_setvariableto", "data_setvariableto"]
+  };
+
+  await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["当绿旗被点击 -> 将 heads 设为 35 -> 将 feet 设为 94"],
+    programAreaModules: [
+      { id: "event", label: "事件", blockCount: 1 },
+      { id: "data", label: "变量", blockCount: 2 }
+    ],
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "鸡兔同笼",
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(capturedRequest.body.messages[0].content.includes("数学计算题"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("禁止把任务反转"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("motion_ifonedgebounce"), true);
+
+  const promptContext = JSON.parse(capturedRequest.body.messages[1].content.split("\n\n").at(-1));
+  assert.equal(promptContext.taskType, "math-chicken-rabbit");
+  assert.match(promptContext.taskGuidance, /鸡兔同笼|禁止反转/);
+  assert.equal(promptContext.analysisPriority.includes("数学题禁止任务反转"), true);
+});
+
+
+test("CoachService filters motion recommendations for math chicken-rabbit DeepSeek responses", async () => {
+  const service = new CoachService(async () => {
+    return {
+      ok: true,
+      async json() {
+        return {
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  summary: "让角色继续动起来并碰到边缘反弹。",
+                  recommendation: {
+                    root: {
+                      opcode: "motion_movesteps",
+                      category: "运动",
+                      label: "移动 10 步",
+                      reason: "先动起来",
+                      next: {
+                        opcode: "motion_ifonedgebounce",
+                        category: "运动",
+                        label: "碰到边缘就反弹",
+                        reason: "别跑出舞台",
+                        next: {
+                          opcode: "data_setvariableto",
+                          category: "变量",
+                          label: "将变量设为",
+                          reason: "保存兔子数量"
+                        }
+                      }
+                    }
+                  }
+                })
+              }
+            }
+          ]
+        };
+      }
+    };
+  });
+
+  const snapshot = createSnapshot();
+  snapshot.globalVariables = [
+    { id: "heads", name: "heads", value: 35, isCloud: false },
+    { id: "feet", name: "feet", value: 94, isCloud: false }
+  ];
+  snapshot.sprites[0].variables = snapshot.globalVariables;
+  snapshot.sprites[0].scripts[0] = {
+    spriteName: "Cat",
+    event: "when green flag clicked",
+    blockSequence: ["当绿旗被点击", "将 heads 设为 35", "将 feet 设为 94"],
+    blockOpcodes: ["event_whenflagclicked", "data_setvariableto", "data_setvariableto"]
+  };
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["当绿旗被点击 -> 将 heads 设为 35 -> 将 feet 设为 94"],
+    programAreaModules: [
+      { id: "event", label: "事件", blockCount: 1 },
+      { id: "data", label: "变量", blockCount: 2 }
+    ],
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "鸡兔同笼",
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.equal(
+    result.coachResponse.recommendedBlocks.some((block) => block.opcode.startsWith("motion_")),
+    false
+  );
+  assert.equal(result.coachResponse.recommendedBlocks[0]?.opcode, "data_setvariableto");
+});
+

@@ -37,6 +37,9 @@ const RECOMMENDED_OPCODE_WHITELIST_REQUIREMENTS =
 const HINT_ONLY_USER_PROMPT =
   "这是一次基于最新快照的全新复评。请完整阅读舞台和全部角色的全部脚本，尤其使用 projectScriptEvidence 核对每个积木的真实字段、输入、条件分支和广播名称；不要沿用之前的完整性结论，也不要根据角色名或游戏题材脑补快照中没有的功能。请从绿旗入口开始追踪实际执行路径，确认广播发送条件能够到达、接收脚本能够启动，并区分自动运行与按键/鼠标控制。先从整个 Scratch 项目判断它是否已经形成完整、可运行、目标清楚的作品；summary 中提到的每项玩法都必须有当前脚本证据且实际可达。若还没完成，再给出“下一步做什么”的提示和按顺序连接的具体积木；优先基于已经使用过的模块继续推进，不要让学生一下子大改。不要把当前角色已经存在的事件帽子积木再次作为下一步推荐；如果后续积木需要接到现有脚本中，只返回需要新增的部分。若项目已经完整，不要为了给建议而强行添加功能，可以不返回 recommendation，只在 summary 里简短告诉学生如何启动、操作或体验。";
 
+const TASK_TYPE_GUIDANCE =
+  "先判断作品任务类型，再给下一步提示：1) 数学计算题：变量名或脚本出现 heads/feet/chickens/rabbits/n/sum/i/total 等，或目标含鸡兔同笼/求和/累加/公式时，按计算题辅导。2) 游戏动画题：以移动、碰撞、得分、按键控制为主时，按游戏动画辅导。3) 混合题：有数学变量又有运动时，优先补全计算与结果输出，不要为了热闹再加无关动画。数学计算题硬性规则：- 已知量是 heads/feet 或 n 时，下一步必须朝求解目标量推进，禁止把任务反转成“用鸡兔再算总头脚”或“为了动画而移动/旋转/反弹”。- 鸡兔同笼优先：rabbits=(feet-2*heads)/2，chickens=heads-rabbits，最后用 looks_say 或显示变量说出结果。- 1到n求和优先：初始化 sum=0 与 i=1，重复 n 次，循环内 sum 增加 i、i 增加 1，最后说出 sum。- 缺计算时优先推荐 data_setvariableto / data_changevariableby / operator_add / operator_subtract / operator_multiply / operator_divide / control_repeat / sensing_askandwait / looks_sayforsecs。- 除非学生目标明确要求动画，不要推荐 motion_movesteps、motion_turnright、motion_ifonedgebounce、looks_switchcostumeto 作为数学题的下一步。";
+
 const NON_REPEATABLE_HAT_OPCODE_SET = new Set([
   "event_whenflagclicked",
   "event_whenkeypressed",
@@ -188,6 +191,313 @@ function buildBlockSuggestionFromOpcode(opcode: string) {
     default:
       return null;
   }
+}
+
+type CoachingTaskType = "math-chicken-rabbit" | "math-sum" | "math-generic" | "game-or-animation" | "unknown";
+
+interface CoachingTaskIntent {
+  taskType: CoachingTaskType;
+  confidence: "high" | "medium" | "low";
+  signals: string[];
+  variableNames: string[];
+  guidance: string;
+}
+
+function collectProjectVariableNames(snapshot: ProjectSnapshot) {
+  const names = new Set<string>();
+  for (const variable of snapshot.globalVariables ?? []) {
+    if (variable?.name) {
+      names.add(String(variable.name));
+    }
+  }
+  for (const sprite of snapshot.sprites ?? []) {
+    for (const variable of sprite.variables ?? []) {
+      if (variable?.name) {
+        names.add(String(variable.name));
+      }
+    }
+  }
+  return Array.from(names);
+}
+
+function normalizeIntentText(value: unknown) {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/\s+/g, "");
+}
+
+function detectCoachingTaskIntent(options: GenerateCoachHintOptions): CoachingTaskIntent {
+  const variableNames = collectProjectVariableNames(options.snapshot);
+  const goalText = normalizeIntentText(options.goal || options.snapshot.goal || "");
+  const programText = normalizeIntentText(
+    [
+      ...options.currentTargetPrograms,
+      ...options.snapshot.sprites.flatMap((sprite) =>
+        sprite.scripts.flatMap((script) => script.blockSequence)
+      )
+    ].join("|")
+  );
+  const variableText = normalizeIntentText(variableNames.join("|"));
+  const combined = `${goalText}|${variableText}|${programText}`;
+  const signals: string[] = [];
+
+  const hasHeads = variableNames.some((name) => /^(heads|头|总头数|头数)$/i.test(name)) || /heads|总头数|头数/.test(combined);
+  const hasFeet = variableNames.some((name) => /^(feet|脚|总脚数|脚数)$/i.test(name)) || /feet|总脚数|脚数/.test(combined);
+  const hasChickens = variableNames.some((name) => /^(chickens|鸡|鸡的数量|鸡数)$/i.test(name)) || /chickens|鸡的数量|鸡数/.test(combined);
+  const hasRabbits = variableNames.some((name) => /^(rabbits|兔|兔子|兔的数量|兔数)$/i.test(name)) || /rabbits|兔的数量|兔数|兔子/.test(combined);
+  const hasSum = variableNames.some((name) => /^(sum|总和|合计|结果)$/i.test(name)) || /sum|总和|合计/.test(combined);
+  const hasN = variableNames.some((name) => /^(n|上限|次数)$/i.test(name));
+  const hasI = variableNames.some((name) => /^(i|计数|计数器)$/i.test(name));
+  const mentionsChickenRabbit = /鸡兔|同笼|chicken|rabbit/.test(combined);
+  const mentionsSum = /1到n|1到n|累加|求和|sum=|求和|合计/.test(combined) || /1\+2|1到/.test(combined);
+  const motionHeavy =
+    hasModule(options.programAreaModules, "motion") &&
+    !hasModule(options.programAreaModules, "data") &&
+    !hasHeads &&
+    !hasFeet &&
+    !hasSum;
+
+  if (hasHeads) signals.push("var:heads");
+  if (hasFeet) signals.push("var:feet");
+  if (hasChickens) signals.push("var:chickens");
+  if (hasRabbits) signals.push("var:rabbits");
+  if (hasSum) signals.push("var:sum");
+  if (hasN) signals.push("var:n");
+  if (hasI) signals.push("var:i");
+  if (mentionsChickenRabbit) signals.push("text:chicken-rabbit");
+  if (mentionsSum) signals.push("text:sum");
+
+  if ((hasHeads && hasFeet) || mentionsChickenRabbit || ((hasChickens || hasRabbits) && (hasHeads || hasFeet))) {
+    return {
+      taskType: "math-chicken-rabbit",
+      confidence: hasHeads && hasFeet ? "high" : "medium",
+      signals,
+      variableNames,
+      guidance:
+        "当前更像鸡兔同笼数学题：已知 heads/feet 时，下一步应求 rabbits/chickens 并说出结果；禁止反转成用鸡兔再算总头脚，也不要为了热闹加移动/旋转。"
+    };
+  }
+
+  if ((hasSum && (hasN || hasI || mentionsSum)) || mentionsSum) {
+    return {
+      taskType: "math-sum",
+      confidence: hasSum && (hasN || hasI) ? "high" : "medium",
+      signals,
+      variableNames,
+      guidance:
+        "当前更像 1 到 n 累加数学题：优先补循环累加（sum 增加 i，i 增加 1）并说出 sum；不要把提示带偏成旋转、移动或边缘反弹动画。"
+    };
+  }
+
+  if (hasSum || hasN || hasI || hasModule(options.programAreaModules, "operator")) {
+    const mathSignals = hasSum || hasN || hasI || hasModule(options.programAreaModules, "data");
+    if (mathSignals && !motionHeavy) {
+      return {
+        taskType: "math-generic",
+        confidence: "medium",
+        signals,
+        variableNames,
+        guidance:
+          "当前更像数学计算题：优先围绕变量、运算、循环和结果输出推进；不要额外推荐无关的运动动画积木。"
+      };
+    }
+  }
+
+  if (motionHeavy) {
+    return {
+      taskType: "game-or-animation",
+      confidence: "medium",
+      signals: [...signals, "module:motion"],
+      variableNames,
+      guidance: "当前更像游戏或动画：可围绕事件、循环、移动、碰撞和反馈继续推进。"
+    };
+  }
+
+  return {
+    taskType: "unknown",
+    confidence: "low",
+    signals,
+    variableNames,
+    guidance: "任务类型尚不明确：先根据现有变量与脚本补一个最小可验证的下一步，不要假设学生在做动画。"
+  };
+}
+
+function isMathTaskType(taskType: CoachingTaskType) {
+  return taskType === "math-chicken-rabbit" || taskType === "math-sum" || taskType === "math-generic";
+}
+
+function buildMathFallbackCoachResponse(
+  options: GenerateCoachHintOptions,
+  intent: CoachingTaskIntent
+): CoachResponse {
+  const opcodes = getCurrentTargetOpcodes(options.snapshot);
+  const hasEvent = hasOpcodePrefix(opcodes, "event_");
+  const hasLoop = hasOpcodePrefix(opcodes, "control_repeat") || hasOpcodePrefix(opcodes, "control_forever");
+  const hasAsk = opcodes.includes("sensing_askandwait");
+  const hasSay = opcodes.includes("looks_say") || opcodes.includes("looks_sayforsecs");
+  const hasAdd = opcodes.includes("operator_add") || opcodes.includes("data_changevariableby");
+  const hasSubtract = opcodes.includes("operator_subtract");
+  const hasMultiply = opcodes.includes("operator_multiply");
+  const hasDivide = opcodes.includes("operator_divide");
+  const names = intent.variableNames.map((name) => name.toLowerCase());
+  const hasRabbitsVar = names.some((name) => /rabbit|兔/.test(name));
+  const hasChickensVar = names.some((name) => /chicken|鸡/.test(name));
+  const hasSumVar = names.some((name) => /sum|总和|合计/.test(name));
+
+  if (intent.taskType === "math-chicken-rabbit") {
+    if (!hasEvent) {
+      return {
+        answerText: "这是鸡兔同笼计算题。先点绿旗开始，再设置头数和脚数，不要先去做移动动画。",
+        recommendedBlocks: [
+          createRecommendedBlock("event_whenflagclicked", "事件", "当绿旗被点击", "给计算脚本一个明确开始时机。"),
+          createRecommendedBlock("data_setvariableto", "变量", "将变量设为", "先设置 heads 和 feet 这两个已知量。"),
+          createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "算出结果后告诉大家鸡和兔各有多少。")
+        ],
+        nextStep: "先用绿旗启动，再设置 heads 和 feet。",
+        detectedIssues: []
+      };
+    }
+
+    if (!hasAsk && !names.some((name) => /head|脚|feet/.test(name))) {
+      return {
+        answerText: "先确认已知条件：你可以询问头数和脚数，并保存到变量里。",
+        recommendedBlocks: [
+          createRecommendedBlock("sensing_askandwait", "侦测", "询问并等待", "先问头数或脚数。"),
+          createRecommendedBlock("data_setvariableto", "变量", "将变量设为", "把回答保存到 heads 或 feet。"),
+          createRecommendedBlock("operator_subtract", "运算", "减", "后面会用减法参与求兔/鸡。")
+        ],
+        nextStep: "先把 heads 和 feet 这两个已知量准备好。",
+        detectedIssues: []
+      };
+    }
+
+    if (!hasRabbitsVar || !hasSubtract || !hasMultiply || !hasDivide) {
+      return {
+        answerText: "已知头和脚时，下一步应求兔子数量：rabbits = (feet - 2 × heads) ÷ 2，不要反过来再算总头脚。",
+        recommendedBlocks: [
+          createRecommendedBlock("data_setvariableto", "变量", "将变量设为", "把计算结果存进 rabbits。"),
+          createRecommendedBlock("operator_subtract", "运算", "减", "先算 feet - 2×heads。"),
+          createRecommendedBlock("operator_divide", "运算", "除", "再把结果除以 2 得到兔子数。")
+        ],
+        nextStep: "先写出求兔子数量的公式，再求鸡的数量。",
+        detectedIssues: []
+      };
+    }
+
+    if (!hasChickensVar) {
+      return {
+        answerText: "你已经能求兔子了。下一步用 chickens = heads - rabbits 求出鸡的数量。",
+        recommendedBlocks: [
+          createRecommendedBlock("data_setvariableto", "变量", "将变量设为", "把鸡的数量存进 chickens。"),
+          createRecommendedBlock("operator_subtract", "运算", "减", "鸡数 = 头数 - 兔数。"),
+          createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "算完后把鸡和兔的数量说出来。")
+        ],
+        nextStep: "用 heads - rabbits 求出 chickens。",
+        detectedIssues: []
+      };
+    }
+
+    if (!hasSay) {
+      return {
+        answerText: "鸡和兔的数量已经有了。最后把结果说出来或显示变量，方便检查对不对。",
+        recommendedBlocks: [
+          createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "例如：鸡23只，兔12只。"),
+          createRecommendedBlock("data_showvariable", "变量", "显示变量", "把 chickens 和 rabbits 显示在舞台上。"),
+          createRecommendedBlock("operator_add", "运算", "加", "可选：用 2×鸡 + 4×兔 验算脚数。")
+        ],
+        nextStep: "把鸡和兔的数量说出来，完成这道计算题。",
+        detectedIssues: []
+      };
+    }
+
+    return {
+      answerText: "这道鸡兔同笼已经接近完成。检查公式是否为 rabbits=(feet-2×heads)/2，以及 chickens=heads-rabbits。",
+      recommendedBlocks: [
+        createRecommendedBlock("operator_multiply", "运算", "乘", "验算时可用 2×鸡 或 4×兔。"),
+        createRecommendedBlock("operator_add", "运算", "加", "把鸡脚和兔脚加起来对照 feet。"),
+        createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "把最终答案清楚说出来。")
+      ],
+      nextStep: "验算并清楚说出鸡兔数量。",
+      detectedIssues: []
+    };
+  }
+
+  // math-sum or math-generic accumulator style
+  if (!hasEvent) {
+    return {
+      answerText: "这是累加计算题。先点绿旗，再设置 n 和 sum，不要先做移动或旋转。",
+      recommendedBlocks: [
+        createRecommendedBlock("event_whenflagclicked", "事件", "当绿旗被点击", "给计算脚本一个明确开始时机。"),
+        createRecommendedBlock("data_setvariableto", "变量", "将变量设为", "先设置 n，并把 sum 设为 0。"),
+        createRecommendedBlock("control_repeat", "控制", "重复执行", "后面会重复 n 次做累加。")
+      ],
+      nextStep: "先启动脚本并准备 n 与 sum。",
+      detectedIssues: []
+    };
+  }
+
+  if (!hasSumVar) {
+    return {
+      answerText: "先准备累加结果变量 sum，并把它设为 0。",
+      recommendedBlocks: [
+        createRecommendedBlock("data_setvariableto", "变量", "将变量设为", "把 sum 设为 0。"),
+        createRecommendedBlock("data_setvariableto", "变量", "将变量设为", "把 i 设为 1，作为每次加上的数。"),
+        createRecommendedBlock("control_repeat", "控制", "重复执行", "准备重复 n 次。")
+      ],
+      nextStep: "先初始化 sum 和 i。",
+      detectedIssues: []
+    };
+  }
+
+  if (!hasLoop) {
+    return {
+      answerText: "变量已经有了。下一步用“重复执行 n 次”开始累加，不要改成一直旋转或移动。",
+      recommendedBlocks: [
+        createRecommendedBlock("control_repeat", "控制", "重复执行", "重复 n 次，把 1 到 n 依次加起来。"),
+        createRecommendedBlock("data_changevariableby", "变量", "将变量增加", "每次让 sum 增加 i。"),
+        createRecommendedBlock("data_changevariableby", "变量", "将变量增加", "每次让 i 增加 1。")
+      ],
+      nextStep: "先加上重复执行，再在循环里累加。",
+      detectedIssues: []
+    };
+  }
+
+  if (!hasAdd) {
+    return {
+      answerText: "循环已经有了。下一步在循环里让 sum 增加 i，再让 i 增加 1。",
+      recommendedBlocks: [
+        createRecommendedBlock("data_changevariableby", "变量", "将变量增加", "sum 增加 i。"),
+        createRecommendedBlock("data_changevariableby", "变量", "将变量增加", "i 增加 1。"),
+        createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "算完后把 sum 说出来。")
+      ],
+      nextStep: "在循环里完成 sum+=i 和 i+=1。",
+      detectedIssues: []
+    };
+  }
+
+  if (!hasSay) {
+    return {
+      answerText: "累加逻辑接近完成。最后把 sum 说出来或显示出来，确认 1 到 n 的和是否正确。",
+      recommendedBlocks: [
+        createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "例如：总和是 55。"),
+        createRecommendedBlock("data_showvariable", "变量", "显示变量", "把 sum 显示在舞台上。"),
+        createRecommendedBlock("operator_add", "运算", "加", "如果需要，可用运算积木核对结果。")
+      ],
+      nextStep: "把 sum 的结果说出来。",
+      detectedIssues: []
+    };
+  }
+
+  return {
+    answerText: "这道累加题已经接近完成。检查是否重复 n 次，并且每次都执行了 sum 增加 i、i 增加 1。",
+    recommendedBlocks: [
+      createRecommendedBlock("control_repeat", "控制", "重复执行", "确认次数对应 n。"),
+      createRecommendedBlock("data_changevariableby", "变量", "将变量增加", "确认 sum 与 i 的更新顺序。"),
+      createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "清楚说出最终总和。")
+    ],
+    nextStep: "核对累加过程并说出结果。",
+    detectedIssues: []
+  };
 }
 
 function buildGenericFallbackCoachResponse(options: GenerateCoachHintOptions): CoachResponse {
@@ -360,20 +670,34 @@ function buildGenericFallbackCoachResponse(options: GenerateCoachHintOptions): C
 
 function buildSystemPrompt(customSystemPrompt?: string) {
   const basePrompt = customSystemPrompt?.trim() || DEFAULT_HINT_ONLY_SYSTEM_PROMPT;
-  return `${basePrompt}\n\n${HINT_ONLY_OUTPUT_REQUIREMENTS}\n${RECOMMENDED_OPCODE_WHITELIST_REQUIREMENTS}`;
+  return `${basePrompt}\n\n${TASK_TYPE_GUIDANCE}\n\n${HINT_ONLY_OUTPUT_REQUIREMENTS}\n${RECOMMENDED_OPCODE_WHITELIST_REQUIREMENTS}`;
 }
 
 function buildFallbackCoachResponse(options: GenerateCoachHintOptions): CoachResponse {
+  const intent = detectCoachingTaskIntent(options);
+  if (isMathTaskType(intent.taskType)) {
+    const mathResponse = buildMathFallbackCoachResponse(options, intent);
+    return {
+      ...mathResponse,
+      recommendedBlocks: mathResponse.recommendedBlocks.slice(0, MAX_RECOMMENDED_BLOCKS),
+      recommendation: buildLinearRecommendation(mathResponse.recommendedBlocks.slice(0, MAX_RECOMMENDED_BLOCKS))
+    };
+  }
   return buildGenericFallbackCoachResponse(options);
 }
 
 function buildPromptContext(options: GenerateCoachHintOptions) {
   const { snapshot, projectData, currentTargetPrograms, programAreaModules, usedExtensions, loadedExtensions, goal } = options;
   const projectScriptEvidence = buildProjectScriptEvidence(projectData);
+  const taskIntent = detectCoachingTaskIntent(options);
   return {
     goal: goal?.trim() || snapshot.goal || "",
+    taskType: taskIntent.taskType,
+    taskConfidence: taskIntent.confidence,
+    taskSignals: taskIntent.signals,
+    taskGuidance: taskIntent.guidance,
     snapshotRule: "这是本次请求的最新项目快照；只根据这里实际存在的脚本判断，不沿用旧结论，不根据角色名或题材补全不存在的功能。",
-    analysisPriority: "完整阅读舞台和全部角色的全部脚本，逐个核对实际积木后判断整个项目是否完整；完整时说明有脚本证据的用法，不强行推荐新积木。",
+    analysisPriority: "完整阅读舞台和全部角色的全部脚本，逐个核对实际积木后判断整个项目是否完整；完整时说明有脚本证据的用法，不强行推荐新积木。先识别任务类型（数学计算 / 游戏动画），数学题禁止任务反转与无关运动漂移。",
     currentTarget: snapshot.currentTarget || "",
     currentTargetPrograms: localizeProgramDescriptions(currentTargetPrograms),
     programAreaModules,
@@ -590,8 +914,32 @@ function parseRecommendationCandidate(candidate: Record<string, unknown>) {
   });
 }
 
+const MATH_TASK_DISALLOWED_OPCODES = new Set([
+  "motion_movesteps",
+  "motion_turnright",
+  "motion_turnleft",
+  "motion_gotoxy",
+  "motion_goto",
+  "motion_glidesecstoxy",
+  "motion_glideto",
+  "motion_pointindirection",
+  "motion_pointtowards",
+  "motion_changexby",
+  "motion_setx",
+  "motion_changeyby",
+  "motion_sety",
+  "motion_ifonedgebounce",
+  "looks_switchcostumeto",
+  "looks_nextcostume"
+]);
+
 function isAvailableRecommendedOpcode(opcode: string, options: GenerateCoachHintOptions) {
   if (!isSupportedRecommendedBlockOpcode(opcode)) {
+    return false;
+  }
+
+  const intent = detectCoachingTaskIntent(options);
+  if (isMathTaskType(intent.taskType) && MATH_TASK_DISALLOWED_OPCODES.has(opcode)) {
     return false;
   }
 
@@ -641,7 +989,19 @@ function filterRecommendedNode(
   node: RecommendedBlockNode,
   options: GenerateCoachHintOptions
 ): RecommendedBlockNode | null {
+  // Skip disallowed nodes (e.g. motion drift on math tasks) and promote the remaining chain.
   if (!isAvailableRecommendedOpcode(node.opcode, options)) {
+    const promotedNext = node.next ? filterRecommendedNode(node.next, options) : null;
+    if (promotedNext) {
+      return promotedNext;
+    }
+    const promotedSubstack =
+      node.substack && canUseRecommendationRelation(node.opcode, "substack")
+        ? filterRecommendedNode(node.substack, options)
+        : null;
+    if (promotedSubstack) {
+      return promotedSubstack;
+    }
     return null;
   }
 
@@ -786,6 +1146,9 @@ function normalizeCoachResponse(rawPayload: unknown, options: GenerateCoachHintO
           const category = normalizeTextValue(item.category) ?? "其他";
           const opcode = normalizeTextValue(item.opcode) ?? "";
           if (!isSupportedRecommendedBlockOpcode(opcode)) {
+            return [];
+          }
+          if (isMathTaskType(detectCoachingTaskIntent(options).taskType) && MATH_TASK_DISALLOWED_OPCODES.has(opcode)) {
             return [];
           }
           const rawLabel =
