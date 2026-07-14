@@ -258,7 +258,7 @@
         white-space: nowrap;
       }
 
-      .lesson-goal-row select {
+      .lesson-goal-row input {
         width: 100%;
         min-height: 30px;
         border-radius: 8px;
@@ -267,6 +267,10 @@
         color: inherit;
         padding: 4px 8px;
         font: inherit;
+      }
+
+      .lesson-goal-row input::placeholder {
+        color: rgba(91, 100, 114, 0.9);
       }
 
       .action-row .button {
@@ -604,13 +608,15 @@
                 <button id="generate-ai-button" class="button primary" type="button">生成下一步提示</button>
               </div>
               <div class="lesson-goal-row">
-                <label for="lesson-goal-select">本课目标</label>
-                <select id="lesson-goal-select" aria-label="本课目标">
-                  <option value="">自动识别（按当前作品）</option>
-                  <option value="鸡兔同笼">鸡兔同笼（已知头脚求鸡兔）</option>
-                  <option value="1到n求和">1到n求和（循环累加）</option>
-                  <option value="自由创作动画游戏">自由创作动画/游戏</option>
-                </select>
+                <label for="lesson-goal-input">本课目标</label>
+                <input
+                  id="lesson-goal-input"
+                  type="text"
+                  maxlength="200"
+                  placeholder="可选填写，例如：鸡兔同笼 / 1到n求和；不填则自动识别"
+                  aria-label="本课目标"
+                  autocomplete="off"
+                />
               </div>
             </div>
             <div class="summary-grid compact">

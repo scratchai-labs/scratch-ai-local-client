@@ -64,3 +64,8 @@ tools/verification/tmp-chicken-rabbit-formula-userdata/
 sum-1-to-n-screenshots/
 sum-1-to-n-run.log
 tools/verification/tmp-sum-1-to-n-userdata/
+
+# lesson goal input screenshots
+lesson-goal-input-screenshots/
+lesson-goal-input-run.log
+tools/verification/tmp-lesson-goal-input-userdata/

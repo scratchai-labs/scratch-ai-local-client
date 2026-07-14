@@ -32,7 +32,7 @@ const chooseScratchButton = document.getElementById("choose-scratch-button") as 
 const retryButton = document.getElementById("retry-button") as HTMLButtonElement | null;
 const settingsButton = document.getElementById("settings-button") as HTMLButtonElement | null;
 const generateAiButton = document.getElementById("generate-ai-button") as HTMLButtonElement | null;
-const lessonGoalSelect = document.getElementById("lesson-goal-select") as HTMLSelectElement | null;
+const lessonGoalInput = document.getElementById("lesson-goal-input") as HTMLInputElement | null;
 
 function showActionError(message: string) {
   if (!errorElement) {
@@ -54,22 +54,20 @@ function normalizeState(rawState: unknown): DesktopCompanionState {
   return desktopCompanionStateSchema.parse(rawState);
 }
 
-function syncLessonGoalSelect(state: DesktopCompanionState) {
-  if (!lessonGoalSelect) {
+function syncLessonGoalInput(state: DesktopCompanionState) {
+  if (!lessonGoalInput) {
     return;
   }
   const nextValue = state.lessonGoal ?? "";
-  const hasOption = Array.from(lessonGoalSelect.options).some((option) => option.value === nextValue);
-  if (nextValue && !hasOption) {
-    const customOption = document.createElement("option");
-    customOption.value = nextValue;
-    customOption.textContent = nextValue;
-    lessonGoalSelect.append(customOption);
+  // 输入中不强制覆盖，避免把正在打的字冲掉
+  if (document.activeElement === lessonGoalInput) {
+    lessonGoalInput.disabled = state.aiStatus === "loading";
+    return;
   }
-  if (lessonGoalSelect.value !== nextValue) {
-    lessonGoalSelect.value = nextValue;
+  if (lessonGoalInput.value !== nextValue) {
+    lessonGoalInput.value = nextValue;
   }
-  lessonGoalSelect.disabled = state.aiStatus === "loading";
+  lessonGoalInput.disabled = state.aiStatus === "loading";
 }
 
 function renderNormalizedState(rawState: unknown) {
@@ -97,7 +95,7 @@ function renderNormalizedState(rawState: unknown) {
     retryButton,
     generateAiButton
   });
-  syncLessonGoalSelect(state);
+  syncLessonGoalInput(state);
   renderScratchWorkspaces(document);
 }
 
@@ -160,25 +158,76 @@ function handleOpenSettings() {
 settingsButton?.addEventListener("click", handleOpenSettings);
 
 function getSelectedLessonGoal() {
-  return lessonGoalSelect?.value?.trim() || undefined;
+  return lessonGoalInput?.value?.trim() || undefined;
 }
 
-lessonGoalSelect?.addEventListener("change", () => {
-  if (!lessonGoalSelect) {
+let lessonGoalSaveTimer: number | undefined;
+let lessonGoalSaving = false;
+let lessonGoalPendingValue: string | null = null;
+
+async function persistLessonGoal(goal: string) {
+  if (!lessonGoalInput) {
     return;
   }
-  const goal = lessonGoalSelect.value || "";
-  lessonGoalSelect.disabled = true;
-  void Promise.resolve()
-    .then(() => getDesktopCompanionApi().saveLessonGoal(goal))
-    .catch((error) => {
-      showActionError(error instanceof Error ? error.message : "保存本课目标失败。");
-    })
-    .finally(() => {
-      if (lessonGoalSelect) {
-        lessonGoalSelect.disabled = false;
-      }
-    });
+  if (lessonGoalSaving) {
+    lessonGoalPendingValue = goal;
+    return;
+  }
+  lessonGoalSaving = true;
+  lessonGoalInput.disabled = true;
+  try {
+    await getDesktopCompanionApi().saveLessonGoal(goal);
+  } catch (error) {
+    showActionError(error instanceof Error ? error.message : "保存本课目标失败。");
+  } finally {
+    lessonGoalSaving = false;
+    if (lessonGoalInput) {
+      lessonGoalInput.disabled = false;
+    }
+    if (lessonGoalPendingValue !== null) {
+      const pending = lessonGoalPendingValue;
+      lessonGoalPendingValue = null;
+      void persistLessonGoal(pending);
+    }
+  }
+}
+
+function schedulePersistLessonGoal() {
+  if (!lessonGoalInput) {
+    return;
+  }
+  const goal = lessonGoalInput.value || "";
+  if (lessonGoalSaveTimer) {
+    window.clearTimeout(lessonGoalSaveTimer);
+  }
+  lessonGoalSaveTimer = window.setTimeout(() => {
+    void persistLessonGoal(goal);
+  }, 350);
+}
+
+lessonGoalInput?.addEventListener("input", () => {
+  schedulePersistLessonGoal();
+});
+
+lessonGoalInput?.addEventListener("change", () => {
+  schedulePersistLessonGoal();
+});
+
+lessonGoalInput?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    if (lessonGoalSaveTimer) {
+      window.clearTimeout(lessonGoalSaveTimer);
+    }
+    void persistLessonGoal(lessonGoalInput?.value || "");
+  }
+});
+
+lessonGoalInput?.addEventListener("blur", () => {
+  if (lessonGoalSaveTimer) {
+    window.clearTimeout(lessonGoalSaveTimer);
+  }
+  void persistLessonGoal(lessonGoalInput?.value || "");
 });
 
 generateAiButton?.addEventListener("click", () => {

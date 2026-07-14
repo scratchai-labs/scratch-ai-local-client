@@ -144,6 +144,14 @@
 - 产物：`student-sim-multi-project-screenshots/`（37 张截图 + timeline/summary/REPORT）
 - 观察：四类项目 DeepSeek 均能返回可理解提示；运动提示最稳；鸡兔同笼能导向询问/变量/减法运算，但公式完整性不稳定；复杂游戏能识别“碰奶酪加分”，自动对着做侦测链仍易失败。
 
+## 2026-07-14 本课目标改为自由输入 + 点击联调
+- 状态：已完成
+- 需求：不要下拉选择，改为可选手动输入目标；不输入也能用；并做一轮完整点击输入测试验证效果。
+- 实现：主界面 `lesson-goal-input` 文本框，失焦/回车/防抖保存；空目标走自动识别。
+- 联调：`tools/verification/scripts/verify-lesson-goal-input-path.mjs`，产物 `lesson-goal-input-screenshots/`（36步/70图）。
+- 结果对比旧鸡兔路径：输入目标后 DeepSeek 多次给出完整公式 `rabbits=(feet-2*heads)/2`、`chickens=heads-rabbits`，并持续要求说出来；未见运动漂移，未见“改算总头脚”反转。
+- 修改：renderer/index.html、renderer.ts、验证脚本、gitignore。
+
 ## 2026-07-14 本课目标输入（稳定传 goal）
 - 状态：已完成
 - 需求：给自动刷新和手动提示都带上稳定的“本课目标”，降低数学题任务反转/运动漂移。
