@@ -4,110 +4,27 @@
 <meta charset="UTF-8" />
 <title>Scratch AI 教练 · 使用文档</title>
 <style>
-  @page {
-    size: A4;
-    margin: 18mm 16mm 18mm 16mm;
-  }
-  :root {
-    --ink: #1f2937;
-    --muted: #4b5563;
-    --line: #d7dee8;
-    --accent: #1d4ed8;
-    --soft: #f8fafc;
-    --code-bg: #f3f4f6;
-  }
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  :root { --ink:#1f2937; --muted:#4b5563; --line:#d7dee8; --accent:#1d4ed8; --soft:#f8fafc; --code-bg:#f3f4f6; }
   * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    color: var(--ink);
-    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Segoe UI", sans-serif;
-    font-size: 11.5pt;
-    line-height: 1.65;
-  }
-  h1 {
-    font-size: 24pt;
-    line-height: 1.25;
-    margin: 0 0 12pt;
-    color: #0f172a;
-    border-bottom: 3px solid var(--accent);
-    padding-bottom: 10pt;
-  }
-  h2 {
-    font-size: 15pt;
-    margin: 22pt 0 8pt;
-    color: #0f172a;
-    page-break-after: avoid;
-    border-left: 4px solid var(--accent);
-    padding-left: 10px;
-  }
-  h3 {
-    font-size: 12.5pt;
-    margin: 14pt 0 6pt;
-    color: #1e293b;
-    page-break-after: avoid;
-  }
-  p { margin: 0 0 8pt; }
-  ul, ol { margin: 0 0 10pt; padding-left: 1.3em; }
-  li { margin: 2pt 0; }
-  blockquote {
-    margin: 8pt 0 12pt;
-    padding: 8pt 12pt;
-    background: #eff6ff;
-    border-left: 4px solid var(--accent);
-    color: #1e3a8a;
-  }
-  blockquote p { margin: 0; }
-  code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.9em;
-    background: var(--code-bg);
-    padding: 0.1em 0.35em;
-    border-radius: 4px;
-  }
-  pre {
-    background: #0f172a;
-    color: #e2e8f0;
-    padding: 12pt;
-    border-radius: 8px;
-    overflow: hidden;
-    font-size: 9.5pt;
-    line-height: 1.5;
-    page-break-inside: avoid;
-  }
-  pre code {
-    background: transparent;
-    color: inherit;
-    padding: 0;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 8pt 0 14pt;
-    font-size: 10.5pt;
-    page-break-inside: avoid;
-  }
-  th, td {
-    border: 1px solid var(--line);
-    padding: 7px 9px;
-    vertical-align: top;
-    text-align: left;
-  }
-  th {
-    background: #eef2ff;
-    color: #1e3a8a;
-    font-weight: 650;
-  }
-  tr:nth-child(even) td { background: var(--soft); }
-  hr {
-    border: none;
-    border-top: 1px solid var(--line);
-    margin: 16pt 0;
-  }
-  a { color: var(--accent); text-decoration: none; }
-  .cover-note {
-    color: var(--muted);
-    font-size: 10.5pt;
-  }
+  body { margin:0; color:var(--ink); font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Segoe UI",sans-serif; font-size:11.5pt; line-height:1.65; }
+  h1 { font-size:24pt; line-height:1.25; margin:0 0 12pt; color:#0f172a; border-bottom:3px solid var(--accent); padding-bottom:10pt; }
+  h2 { font-size:15pt; margin:22pt 0 8pt; color:#0f172a; page-break-after:avoid; border-left:4px solid var(--accent); padding-left:10px; }
+  h3 { font-size:12.5pt; margin:14pt 0 6pt; color:#1e293b; page-break-after:avoid; }
+  p { margin:0 0 8pt; }
+  ul, ol { margin:0 0 10pt; padding-left:1.3em; }
+  li { margin:2pt 0; }
+  blockquote { margin:8pt 0 12pt; padding:8pt 12pt; background:#eff6ff; border-left:4px solid var(--accent); color:#1e3a8a; }
+  blockquote p { margin:0; }
+  code { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.9em; background:var(--code-bg); padding:0.1em 0.35em; border-radius:4px; }
+  pre { background:#0f172a; color:#e2e8f0; padding:12pt; border-radius:8px; overflow:hidden; font-size:9.5pt; line-height:1.5; page-break-inside:avoid; }
+  pre code { background:transparent; color:inherit; padding:0; }
+  table { width:100%; border-collapse:collapse; margin:8pt 0 14pt; font-size:10.5pt; page-break-inside:avoid; }
+  th, td { border:1px solid var(--line); padding:7px 9px; vertical-align:top; text-align:left; }
+  th { background:#eef2ff; color:#1e3a8a; font-weight:650; }
+  tr:nth-child(even) td { background:var(--soft); }
+  hr { border:none; border-top:1px solid var(--line); margin:16pt 0; }
+  a { color:var(--accent); text-decoration:none; }
 </style>
 </head>
 <body>
@@ -208,7 +125,7 @@
   → 确认 / 选择 Scratch 软件路径
   → 点击「打开已选 Scratch」（不要自己先开 Scratch）
   → 等待状态变为「已连接」
-  → （可选）打开 DeepSeek 设置填写 API Key
+  → （可选，详见第 8 节）打开 DeepSeek 设置添加 API Key
   → 在 Scratch 中创作；查看当前角色程序与下一步提示</code></pre>
 <h3>6.1 选择 Scratch 软件</h3>
 <ol>
@@ -291,33 +208,111 @@
 <li>无 Key / 上游失败时，显示本地基础提示，保证学生仍可继续</li>
 </ul>
 <hr/>
-<h2>8. DeepSeek 设置</h2>
-<p>点击主界面 <strong>「DeepSeek 设置」</strong> 打开设置窗口。</p>
-<h3>8.1 API Key</h3>
+<h2>8. 如何添加 DeepSeek API Key（重点）</h2>
+<p>正式安装包<strong>不预置</strong> API Key。若要使用线上 AI 生成更好的下一步提示，需要你自己在本机填写 DeepSeek Key。</p>
+<h3>8.1 准备：先拿到 Key</h3>
 <ol>
-<li>在输入框粘贴你的 DeepSeek API Key  </li>
-<li>建议先点 <strong>「测试 Key」</strong>，确认可用 / 余额状态  </li>
-<li>再点保存  </li>
-<li>Key 以明文保存在<strong>当前电脑、当前用户</strong>可读写位置  </li>
-<li>清除 Key 后：不再请求 DeepSeek，仅使用本地基础提示</li>
+<li>打开 DeepSeek 开放平台（官方控制台，常见入口为 <code>https://platform.deepseek.com</code>）</li>
+<li>注册 / 登录账号</li>
+<li>进入 <strong>API Keys</strong>（API 密钥）页面</li>
+<li>新建一把密钥，<strong>立刻复制并妥善保存</strong></li>
+<li>确认账号有可用余额（没余额时，Key 可能测得通但仍无法正常出提示）</li>
 </ol>
-<h3>8.2 模型选择</h3>
-<p>当前固定可选：</p>
-<table><thead><tr><th>模型</th><th>说明</th></tr></thead><tbody>
-<tr><td><code>deepseek-v4-flash</code></td><td>默认；更快、更适合课堂连续请求</td></tr>
-<tr><td><code>deepseek-v4-pro</code></td><td>更强；可能更慢、费用更高</td></tr>
+<blockquote><p>安全提醒：  <br/>- 不要把 Key 发给学生、不要截图发群  <br/>- 不要把 Key 写进共享 U 盘上的公开文档  <br/>- 机房如需共用，建议由老师在每台电脑本地分别配置，或使用可轮换的专用 Key</p></blockquote>
+<h3>8.2 在伴随程序中添加 Key（推荐步骤）</h3>
+<ol>
+<li>启动 <strong>Scratch AI 教练</strong>（桌面伴随程序）</li>
+<li>在主窗口右上角点击 <strong>「DeepSeek 设置」</strong>  </li>
+</ol>
+<p>   会打开独立窗口，标题为「DeepSeek 本地设置」</p>
+<ol>
+<li>在 <strong>「DeepSeek API Key」</strong> 输入框中粘贴你的 Key  </li>
+</ol>
+<p>   （输入框是密码样式，不会明文一直显示）</p>
+<ol>
+<li>先点 <strong>「测试 Key」</strong>（强烈建议）  </li>
+</ol>
+<p>   - 成功：会提示 Key 可用，并可能显示余额摘要  </p>
+<p>   - 失败：常见为 Key 无效、网络不通、超时、余额不足</p>
+<ol>
+<li>测试通过后，点 <strong>「保存 Key」</strong></li>
+<li>关闭设置窗口，回到主界面  </li>
+</ol>
+<p>   主界面「AI 配置摘要 / 提示来源」应变为类似：  </p>
+<p>   <strong>「当前使用本机保存的 DeepSeek Key」</strong> 或 <strong>「当前提示来源：DeepSeek（模型名）」</strong></p>
+<ol>
+<li>连接 Scratch 后，点 <strong>「生成下一步提示」</strong> 验证是否真的走线上 AI</li>
+</ol>
+<h3>8.3 按钮分别做什么</h3>
+<table><thead><tr><th>按钮</th><th>作用</th></tr></thead><tbody>
+<tr><td>测试 Key</td><td>用当前输入框内容（或已保存 Key）请求 DeepSeek 校验接口，检查是否可用</td></tr>
+<tr><td>保存 Key</td><td>把 Key 写入本机用户配置；之后生成提示会优先走 DeepSeek</td></tr>
+<tr><td>清除 Key</td><td>删除本机已保存 Key；之后不再请求 DeepSeek，只使用本地基础提示</td></tr>
 </tbody></table>
-<p>保存后，主界面的「提示来源」会反映当前模型。</p>
-<h3>8.3 下一步提示触发方式</h3>
+<h3>8.4 添加成功后的默认行为</h3>
+<ul>
+<li>Key 以<strong>明文</strong>保存在当前电脑，并限制为<strong>当前系统用户</strong>可读写  </li>
+<li><strong>保存 Key 后，客户端默认会切到「手动点击」</strong>  </li>
+</ul>
+<p>  这样避免学生改积木时频繁自动请求、产生额外费用  </p>
+<ul>
+<li>如需连续自动跟随，可再到设置里改回「自动刷新」并保存</li>
+</ul>
+<h3>8.5 模型选择（可选，但建议确认）</h3>
+<p>在同一设置窗口的 <strong>「模型选择」</strong>：</p>
+<table><thead><tr><th>模型</th><th>说明</th><th>建议</th></tr></thead><tbody>
+<tr><td><code>deepseek-v4-flash</code></td><td>默认；更快，更适合课堂连续请求</td><td>日常首选</td></tr>
+<tr><td><code>deepseek-v4-pro</code></td><td>更强；可能更慢、费用更高</td><td>需要更稳判断时再用</td></tr>
+</tbody></table>
+<p>选择后点 <strong>「保存模型」</strong>。  </p>
+<p>主界面的「提示来源」会显示当前模型。</p>
+<h3>8.6 下一步提示触发方式（可选）</h3>
 <table><thead><tr><th>模式</th><th>行为</th><th>适用场景</th></tr></thead><tbody>
-<tr><td>自动刷新（默认）</td><td>连接成功后、积木有效变化稳定后自动请求</td><td>自由探索、希望持续跟随</td></tr>
-<tr><td>手动点击</td><td>仅在点击「生成下一步提示」时请求</td><td>课堂演示、避免提示频繁刷新</td></tr>
+<tr><td>自动刷新</td><td>连接成功后、积木有效变化稳定后自动请求</td><td>自由探索、希望持续跟随</td></tr>
+<tr><td>手动点击</td><td>仅在点击「生成下一步提示」时请求</td><td>课堂演示、控制费用、避免提示乱跳</td></tr>
 </tbody></table>
-<blockquote><p>保存 Key 后，客户端默认会切到手动点击（减少误触发费用与界面跳动）。可按需要再改回自动。</p></blockquote>
-<h3>8.4 没有 Key 能不能用？</h3>
+<p>改完后点 <strong>「保存触发方式」</strong>。</p>
+<h3>8.7 怎么确认 Key 已经生效</h3>
+<p>按下面清单自检：</p>
+<ol>
+<li>设置页状态不再提示「还没有保存本机 DeepSeek Key」</li>
+<li>主界面 AI 摘要显示已使用本机保存的 Key</li>
+<li>生成提示后，提示来源显示 <strong>DeepSeek</strong>，而不是「本地基础提示」</li>
+<li>若仍显示本地基础提示：重新打开设置 → 再测 Key → 再保存 → 再生成一次</li>
+</ol>
+<h3>8.8 更换 / 删除 Key</h3>
+<p><strong>更换：</strong></p>
+<ol>
+<li>打开「DeepSeek 设置」</li>
+<li>输入新 Key</li>
+<li>点「测试 Key」</li>
+<li>点「保存 Key」</li>
+</ol>
+<p><strong>删除：</strong></p>
+<ol>
+<li>打开「DeepSeek 设置」</li>
+<li>点「清除 Key」</li>
+<li>之后只会使用本地基础提示</li>
+</ol>
+<h3>8.9 没有 Key 能不能用？</h3>
 <p>可以。  </p>
 <p>未配置 Key、Key 无效、余额不足或上游失败时，会回退到<strong>本地基础提示</strong>，仍给出有限的下一步积木建议。  </p>
 <p>线上 AI 质量通常更好，但不是硬性门槛。</p>
+<h3>8.10 添加 Key 常见问题</h3>
+<table><thead><tr><th>现象</th><th>可能原因</th><th>处理</th></tr></thead><tbody>
+<tr><td>点了保存，但仍像没 Key</td><td>只输入了没点「保存 Key」</td><td>重新粘贴后明确点保存</td></tr>
+<tr><td>测试 Key 失败</td><td>复制少了字符 / 混入空格 / Key 已作废</td><td>回平台重新创建并完整复制</td></tr>
+<tr><td>测试成功但提示仍走本地</td><td>网络中断、模型返回无法校验、请求超时</td><td>看主界面提示来源；重试「生成下一步提示」；必要时重启伴随程序</td></tr>
+<tr><td>余额不足</td><td>平台账号欠费</td><td>充值后再测 Key</td></tr>
+<tr><td>机房每台都要配？</td><td>Key 存在本机用户配置里，不随安装包分发</td><td>每台电脑各自配置，或由老师批量配置</td></tr>
+</tbody></table>
+<h3>8.11 老师批量配置建议（机房）</h3>
+<ol>
+<li>先用一台样机验证：填 Key → 测试 → 保存 → 生成提示成功  </li>
+<li>再在其余机器重复同样步骤  </li>
+<li>课堂建议统一设为 <strong>手动点击</strong>，避免同时自动刷提示  </li>
+<li>课程结束后如需回收权限，可在各机点「清除 Key」，并在 DeepSeek 平台轮换/作废旧密钥</li>
+</ol>
 <hr/>
 <h2>9. 学生日常用法</h2>
 <ol>
@@ -492,6 +487,6 @@ npm run package:mac:dmg</code></pre>
 <h2>许可证</h2>
 <p>本项目采用 <strong>AGPL-3.0</strong> 许可证。</p>
 <hr/>
-<p><em>文档根据仓库当前本地客户端主线整理，覆盖下载安装、首次连接、日常使用、设置、排障与反馈路径。若界面文案随小版本微调，以实际软件界面为准。</em></p>
+<p><em>文档根据仓库当前本地客户端主线整理，覆盖下载安装、首次连接、DeepSeek Key 添加、日常使用、设置、排障与反馈路径。若界面文案随小版本微调，以实际软件界面为准。</em></p>
 </body>
 </html>

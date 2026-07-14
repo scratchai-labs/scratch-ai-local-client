@@ -8,6 +8,7 @@
 
 ## 已完成
 
+- 2026-07-14：补充使用文档中的 DeepSeek API Key 添加步骤：平台获取 Key、设置页粘贴/测试/保存、生效确认、更换清除、常见问题与机房批量配置；已同步重生成 MD/PDF/HTML，并更新桌面「淮河课程Word文稿」中的《Scratch AI教练-使用说明》。
 - 2026-07-14：撰写 Scratch AI 教练最终用户使用文档（Markdown + PDF）。基于 README / SOP / 架构 / 桌面端界面能力整理下载安装、首次连接、主界面、DeepSeek 设置、师生日常用法、FAQ、日志反馈与限制说明；产出 `docs/user-guide.zh-CN.md` 与 `docs/user-guide.zh-CN.pdf`，并在 `docs/README.zh-CN.md` 加入入口。
 - 2026-07-13：修复简单项目没有推荐积木的问题；根因是 DeepSeek 返回 summary-only 时客户端无条件按“完整项目”接受，导致简单“绿旗+动作”项目推荐区为空。现仅当本地快照也有事件、控制、规则/反馈等完整度证据时才接受空推荐；否则保留为 DeepSeek 请求成功但补本地结构化推荐积木。已补回归测试，并通过 desktop-companion 186 项全量测试。
 - 2026-07-12：修复 DeepSeek 仅依据积木类别误判项目完整的问题；向模型发送舞台与全部角色的完整脚本连接、字段、输入、条件分支、变量、广播及玩家输入证据，并要求从绿旗开始核对真实可达路径，避免把 Mouse1 的鼠标控制错误说成控制 Cat 2。已通过全仓测试（共享包 12 项、verification 34 项、desktop-companion 185 项）。
