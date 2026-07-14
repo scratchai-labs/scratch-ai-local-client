@@ -8,6 +8,7 @@
 
 ## 已完成
 
+- 2026-07-14：将用户使用说明改写为小白友好版：去除开发/架构等专业表述，改为安装、首次使用、按钮说明、添加 Key、学生老师用法、常见问题与速查；同步更新 PDF/HTML 及桌面课程资料目录。
 - 2026-07-14：下载 GitHub Releases 最新 4 个安装包（v0.2.0）到桌面「淮河课程Word文稿/Scratch AI教练-安装包-v0.2.0」；并在使用文档显著位置标注“软件持续开发更新中，有问题欢迎随时沟通交流”，同步更新 MD/PDF/HTML。
 - 2026-07-14：补充使用文档中的 DeepSeek API Key 添加步骤：平台获取 Key、设置页粘贴/测试/保存、生效确认、更换清除、常见问题与机房批量配置；已同步重生成 MD/PDF/HTML，并更新桌面「淮河课程Word文稿」中的《Scratch AI教练-使用说明》。
 - 2026-07-14：撰写 Scratch AI 教练最终用户使用文档（Markdown + PDF）。基于 README / SOP / 架构 / 桌面端界面能力整理下载安装、首次连接、主界面、DeepSeek 设置、师生日常用法、FAQ、日志反馈与限制说明；产出 `docs/user-guide.zh-CN.md` 与 `docs/user-guide.zh-CN.pdf`，并在 `docs/README.zh-CN.md` 加入入口。
