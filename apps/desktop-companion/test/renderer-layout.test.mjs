@@ -84,5 +84,13 @@ test("lesson goal input uses its own full-width row below action buttons", async
   assert.match(html, /\.action-row\s*\{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(128px,\s*1fr\)\);/);
   assert.match(html, /\.lesson-goal-row\s*\{[\s\S]*grid-template-columns:\s*1fr;/);
   assert.match(html, /\.lesson-goal-row input\s*\{[\s\S]*min-height:\s*36px;/);
+  assert.match(html, /\.lesson-goal-row input\s*\{[\s\S]*font-size:\s*var\(--text-note\);/);
   assert.doesNotMatch(html, /<div class="action-heading">[\s\S]*<div class="lesson-goal-row">[\s\S]*<\/div>\s*<\/div>\s*<div class="summary-grid compact">/);
+});
+
+test("lesson goal input stays enabled while saving and while AI hints load", async () => {
+  const source = await readFile(new URL("../src/renderer/renderer.ts", import.meta.url), "utf8");
+
+  assert.doesNotMatch(source, /lessonGoalInput\.disabled\s*=\s*state\.aiStatus\s*===\s*"loading"/);
+  assert.doesNotMatch(source, /lessonGoalInput\.disabled\s*=\s*true/);
 });

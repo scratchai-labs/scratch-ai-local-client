@@ -204,6 +204,62 @@ test("buildRecommendedBlockXml fills fields and values for effect, menu and vari
   assert.match(setVariableXml, /<field name="NUM">0<\/field>/);
 });
 
+test("buildRecommendedBlockXml infers sum variable defaults from recommendation text", () => {
+  const sumXml = buildRecommendedBlockXml({
+    opcode: "data_setvariableto",
+    category: "变量",
+    label: "将变量设为",
+    reason: "初始化累加和为 0。"
+  });
+  const counterXml = buildRecommendedBlockXml({
+    opcode: "data_setvariableto",
+    category: "变量",
+    label: "将变量设为",
+    reason: "计数器 i 从 1 开始。"
+  });
+  const changeSumXml = buildRecommendedBlockXml({
+    opcode: "data_changevariableby",
+    category: "变量",
+    label: "将变量增加",
+    reason: "每次让 sum 增加 i。"
+  });
+  const changeCounterXml = buildRecommendedBlockXml({
+    opcode: "data_changevariableby",
+    category: "变量",
+    label: "将变量增加",
+    reason: "每次让 i 增加 1。"
+  });
+
+  assert.match(sumXml, /<field name="VARIABLE"[^>]*>sum<\/field>/);
+  assert.match(sumXml, /<field name="NUM">0<\/field>/);
+  assert.match(counterXml, /<field name="VARIABLE"[^>]*>i<\/field>/);
+  assert.match(counterXml, /<field name="NUM">1<\/field>/);
+  assert.match(changeSumXml, /<field name="VARIABLE"[^>]*>sum<\/field>/);
+  assert.match(changeSumXml, /<value name="VALUE">\s*<block type="data_variable">/);
+  assert.match(changeSumXml, /<field name="VARIABLE"[^>]*>i<\/field>/);
+  assert.match(changeCounterXml, /<field name="VARIABLE"[^>]*>i<\/field>/);
+  assert.match(changeCounterXml, /<field name="NUM">1<\/field>/);
+});
+
+test("buildRecommendedStructureXml keeps distinct inferred sum variables in connected recommendations", () => {
+  const xml = buildRecommendedStructureXml({
+    root: {
+      opcode: "data_setvariableto",
+      category: "变量",
+      label: "将变量设为",
+      reason: "初始化累加和为 0。",
+      next: {
+        opcode: "data_setvariableto",
+        category: "变量",
+        label: "将变量设为",
+        reason: "计数器 i 从 1 开始。"
+      }
+    }
+  });
+
+  assert.match(xml, /<field name="VARIABLE"[^>]*>sum<\/field>[\s\S]*<field name="VARIABLE"[^>]*>i<\/field>/);
+});
+
 test("buildRecommendedBlockXml does not leave common input blocks as empty shells", () => {
   const opcodes = [
     "event_whenkeypressed",

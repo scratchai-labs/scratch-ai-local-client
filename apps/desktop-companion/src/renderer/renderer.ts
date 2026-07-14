@@ -61,13 +61,11 @@ function syncLessonGoalInput(state: DesktopCompanionState) {
   const nextValue = state.lessonGoal ?? "";
   // 输入中不强制覆盖，避免把正在打的字冲掉
   if (document.activeElement === lessonGoalInput) {
-    lessonGoalInput.disabled = state.aiStatus === "loading";
     return;
   }
   if (lessonGoalInput.value !== nextValue) {
     lessonGoalInput.value = nextValue;
   }
-  lessonGoalInput.disabled = state.aiStatus === "loading";
 }
 
 function renderNormalizedState(rawState: unknown) {
@@ -174,16 +172,12 @@ async function persistLessonGoal(goal: string) {
     return;
   }
   lessonGoalSaving = true;
-  lessonGoalInput.disabled = true;
   try {
     await getDesktopCompanionApi().saveLessonGoal(goal);
   } catch (error) {
     showActionError(error instanceof Error ? error.message : "保存本课目标失败。");
   } finally {
     lessonGoalSaving = false;
-    if (lessonGoalInput) {
-      lessonGoalInput.disabled = false;
-    }
     if (lessonGoalPendingValue !== null) {
       const pending = lessonGoalPendingValue;
       lessonGoalPendingValue = null;

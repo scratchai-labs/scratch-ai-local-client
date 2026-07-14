@@ -502,10 +502,6 @@ const DEFAULT_BROADCAST_ATTRIBUTES = {
   id: "broadcast-message-1",
   variabletype: BROADCAST_VARIABLE_TYPE
 };
-const DEFAULT_VARIABLE_ATTRIBUTES = {
-  id: "variable-score",
-  variabletype: SCALAR_VARIABLE_TYPE
-};
 const DEFAULT_LIST_ATTRIBUTES = {
   id: "list-items",
   variabletype: LIST_VARIABLE_TYPE
@@ -637,6 +633,121 @@ function buildTextShadowValueXml(inputName: string, text: string) {
 
 function buildNumberShadowValueXml(inputName: string, value: string) {
   return buildValueShadowXml(inputName, "math_number", "NUM", value);
+}
+
+function getRecommendedBlockText(block: RecommendedBlock) {
+  return [block.label, block.reason, block.example]
+    .map((value) => normalizeString(value))
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function hasStandaloneToken(text: string, token: string) {
+  return new RegExp(`(^|[^a-z0-9_])${token}([^a-z0-9_]|$)`, "i").test(text);
+}
+
+function buildRecommendedVariableAttributes(variableName: string) {
+  const normalizedName = normalizeString(variableName) || "分数";
+  const idSuffix = normalizedName.replace(/[^\w-]+/g, "-") || "score";
+  return {
+    id: `variable-${idSuffix}`,
+    variabletype: SCALAR_VARIABLE_TYPE
+  };
+}
+
+function buildRecommendedVariableFieldXml(variableName: string) {
+  return buildFieldXml("VARIABLE", variableName, buildRecommendedVariableAttributes(variableName));
+}
+
+function buildVariableReporterValueXml(inputName: string, variableName: string) {
+  return buildValueElementXml(
+    inputName,
+    buildElementXml("block", "data_variable", buildRecommendedVariableFieldXml(variableName))
+  );
+}
+
+function inferRecommendedVariableName(block: RecommendedBlock) {
+  const text = getRecommendedBlockText(block);
+  const mentionsSum = /sum|累加和|总和|合计/.test(text);
+  const mentionsCounter = /计数器|计数|自增/.test(text) || hasStandaloneToken(text, "i");
+  const mentionsN = /上限|次数/.test(text) || hasStandaloneToken(text, "n");
+
+  if (block.opcode === "data_changevariableby") {
+    if (/sum\s*(?:增加|加|\+=)|(?:累加和|总和|合计).*(?:增加|加)/.test(text)) {
+      return "sum";
+    }
+    if (/i\s*(?:增加|加|\+=|自增)|(?:计数器|计数).*(?:增加|加|1|一)/.test(text)) {
+      return "i";
+    }
+  }
+
+  if (mentionsSum) {
+    return "sum";
+  }
+  if (mentionsCounter) {
+    return "i";
+  }
+  if (mentionsN) {
+    return "n";
+  }
+  return "分数";
+}
+
+function inferNumberNearVariable(text: string, variableName: string) {
+  const escapedVariable = variableName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const patterns = [
+    new RegExp(`${escapedVariable}\\s*(?:设为|设置为|=|为|从)\\s*(-?\\d+(?:\\.\\d+)?)`, "i"),
+    new RegExp(`${escapedVariable}[^\\d-]{0,12}(-?\\d+(?:\\.\\d+)?)`, "i")
+  ];
+
+  if (variableName === "sum") {
+    patterns.push(/(?:累加和|总和|合计)[^\d-]{0,12}(-?\d+(?:\.\d+)?)/i);
+  }
+  if (variableName === "i") {
+    patterns.push(/(?:计数器|计数)[^\d-]{0,12}(-?\d+(?:\.\d+)?)/i);
+  }
+  if (variableName === "n") {
+    patterns.push(/(?:上限|次数)[^\d-]{0,12}(-?\d+(?:\.\d+)?)/i);
+  }
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  return null;
+}
+
+function inferRecommendedSetVariableValue(block: RecommendedBlock, variableName: string) {
+  const text = getRecommendedBlockText(block);
+  const inferred = inferNumberNearVariable(text, variableName);
+  if (inferred) {
+    return inferred;
+  }
+  if (variableName === "i") {
+    return "1";
+  }
+  if (variableName === "n") {
+    const firstNumber = text.match(/-?\d+(?:\.\d+)?/)?.[0];
+    return firstNumber ?? "100";
+  }
+  return "0";
+}
+
+function inferRecommendedChangeVariableValue(block: RecommendedBlock, variableName: string) {
+  const text = getRecommendedBlockText(block);
+  if (variableName === "sum" && /(?:增加|加上|\+=)\s*i/.test(text)) {
+    return buildVariableReporterValueXml("VALUE", "i");
+  }
+
+  const explicitNumber =
+    text.match(/(?:增加|加上|\+=)\s*(-?\d+(?:\.\d+)?)/)?.[1] ??
+    inferNumberNearVariable(text, variableName);
+
+  return buildNumberShadowValueXml("VALUE", explicitNumber ?? "1");
 }
 
 function buildWholeNumberShadowValueXml(inputName: string, value: string) {
@@ -1014,20 +1125,33 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
         `${buildFieldXml("OPERATOR", "abs")}${buildNumberShadowValueXml("NUM", "-10")}`
       );
     case "data_setvariableto":
-      return buildElementXml(
-        "block",
-        block.opcode,
-        `${buildFieldXml("VARIABLE", "分数", DEFAULT_VARIABLE_ATTRIBUTES)}${buildNumberShadowValueXml("VALUE", "0")}`
-      );
+      {
+        const variableName = inferRecommendedVariableName(block);
+        return buildElementXml(
+          "block",
+          block.opcode,
+          `${buildRecommendedVariableFieldXml(variableName)}${buildNumberShadowValueXml(
+            "VALUE",
+            inferRecommendedSetVariableValue(block, variableName)
+          )}`
+        );
+      }
     case "data_changevariableby":
-      return buildElementXml(
-        "block",
-        block.opcode,
-        `${buildFieldXml("VARIABLE", "分数", DEFAULT_VARIABLE_ATTRIBUTES)}${buildNumberShadowValueXml("VALUE", "1")}`
-      );
+      {
+        const variableName = inferRecommendedVariableName(block);
+        return buildElementXml(
+          "block",
+          block.opcode,
+          `${buildRecommendedVariableFieldXml(variableName)}${inferRecommendedChangeVariableValue(block, variableName)}`
+        );
+      }
     case "data_showvariable":
     case "data_hidevariable":
-      return buildElementXml("block", block.opcode, buildFieldXml("VARIABLE", "分数", DEFAULT_VARIABLE_ATTRIBUTES));
+      return buildElementXml(
+        "block",
+        block.opcode,
+        buildRecommendedVariableFieldXml(inferRecommendedVariableName(block))
+      );
     case "data_addtolist":
       return buildElementXml(
         "block",
