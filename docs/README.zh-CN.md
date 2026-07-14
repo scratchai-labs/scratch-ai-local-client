@@ -7,6 +7,7 @@
 
 ## 开源入口
 
+- 用户使用文档：[`./user-guide.zh-CN.md`](./user-guide.zh-CN.md) / [`./user-guide.zh-CN.pdf`](./user-guide.zh-CN.pdf)
 - 项目总览：[`../README.zh-CN.md`](../README.zh-CN.md)
 - English overview: [`../README.en.md`](../README.en.md)
 - 贡献指南：[`../CONTRIBUTING.zh-CN.md`](../CONTRIBUTING.zh-CN.md)

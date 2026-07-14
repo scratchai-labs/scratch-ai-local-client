@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>Scratch AI 教练 · 使用文档</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 16mm 18mm 16mm;
+  }
+  :root {
+    --ink: #1f2937;
+    --muted: #4b5563;
+    --line: #d7dee8;
+    --accent: #1d4ed8;
+    --soft: #f8fafc;
+    --code-bg: #f3f4f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Segoe UI", sans-serif;
+    font-size: 11.5pt;
+    line-height: 1.65;
+  }
+  h1 {
+    font-size: 24pt;
+    line-height: 1.25;
+    margin: 0 0 12pt;
+    color: #0f172a;
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 10pt;
+  }
+  h2 {
+    font-size: 15pt;
+    margin: 22pt 0 8pt;
+    color: #0f172a;
+    page-break-after: avoid;
+    border-left: 4px solid var(--accent);
+    padding-left: 10px;
+  }
+  h3 {
+    font-size: 12.5pt;
+    margin: 14pt 0 6pt;
+    color: #1e293b;
+    page-break-after: avoid;
+  }
+  p { margin: 0 0 8pt; }
+  ul, ol { margin: 0 0 10pt; padding-left: 1.3em; }
+  li { margin: 2pt 0; }
+  blockquote {
+    margin: 8pt 0 12pt;
+    padding: 8pt 12pt;
+    background: #eff6ff;
+    border-left: 4px solid var(--accent);
+    color: #1e3a8a;
+  }
+  blockquote p { margin: 0; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9em;
+    background: var(--code-bg);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+  }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 12pt;
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 9.5pt;
+    line-height: 1.5;
+    page-break-inside: avoid;
+  }
+  pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8pt 0 14pt;
+    font-size: 10.5pt;
+    page-break-inside: avoid;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 7px 9px;
+    vertical-align: top;
+    text-align: left;
+  }
+  th {
+    background: #eef2ff;
+    color: #1e3a8a;
+    font-weight: 650;
+  }
+  tr:nth-child(even) td { background: var(--soft); }
+  hr {
+    border: none;
+    border-top: 1px solid var(--line);
+    margin: 16pt 0;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  .cover-note {
+    color: var(--muted);
+    font-size: 10.5pt;
+  }
+</style>
+</head>
+<body>
+<h1>Scratch AI 教练 · 使用文档</h1>
+<blockquote><p>版本对应：桌面伴随程序 <strong>v0.2.0</strong>  <br/>适用平台：Windows / macOS  <br/>文档类型：最终用户与教师使用手册  <br/>仓库：<code>scratch-ai-local-client</code></p></blockquote>
+<hr/>
+<h2>1. 这是什么</h2>
+<p><code>Scratch AI 教练</code>（桌面伴随程序，Scratch Desktop Companion）是面向 <strong>Scratch Desktop</strong> 的本机 AI 伴随工具。</p>
+<p>它<strong>不会修改</strong> Scratch 官方源码，也不会往作品里自动插入积木。  </p>
+<p>它会：</p>
+<ol>
+<li>由伴随程序<strong>受控启动</strong>本机 Scratch Desktop  </li>
+<li>通过只读桥接读取当前作品与当前角色脚本  </li>
+<li>用 Scratch 原版风格展示「当前角色程序」与「推荐积木」  </li>
+<li>基于当前作品生成 <strong>下一步关键积木提示</strong>（默认走 DeepSeek；无 Key 或失败时回退本地基础提示）</li>
+</ol>
+<p>一句话：<strong>学生继续在 Scratch 里自己搭积木；教练窗口只观察、提示、推荐。</strong></p>
+<hr/>
+<h2>2. 你能得到什么</h2>
+<table><thead><tr><th>能力</th><th>说明</th></tr></thead><tbody>
+<tr><td>连接本机 Scratch</td><td>自动识别常见安装路径，也可手动选择</td></tr>
+<tr><td>当前角色同步</td><td>显示正在编辑的角色 / 舞台</td></tr>
+<tr><td>当前角色程序</td><td>以 Scratch 原版彩色积木只读渲染当前脚本</td></tr>
+<tr><td>下一步提示</td><td>一句简短中文建议 + 1–3 个关键推荐积木结构</td></tr>
+<tr><td>推荐积木</td><td>按官方积木样式展示；非法/不支持积木会被过滤</td></tr>
+<tr><td>自动 / 手动刷新</td><td>可在设置里切换：积木变化自动刷新，或手动点击生成</td></tr>
+<tr><td>本地回退</td><td>未配置 DeepSeek Key 或上游失败时，仍有本地基础提示</td></tr>
+<tr><td>系统托盘</td><td>关闭窗口不退出，缩回托盘继续驻留</td></tr>
+</tbody></table>
+<hr/>
+<h2>3. 系统要求</h2>
+<h3>3.1 操作系统</h3>
+<ul>
+<li><strong>Windows 10 / 11</strong>（推荐 64 位）</li>
+<li><strong>macOS</strong>（支持 <code>.zip</code> 便携包与 <code>.dmg</code> 安装包）</li>
+</ul>
+<h3>3.2 必备软件</h3>
+<ul>
+<li>已安装 <strong>Scratch Desktop / Scratch 3 Desktop</strong></li>
+<li>可选：本机 DeepSeek API Key（用于线上 AI 提示；没有也能用本地基础提示）</li>
+</ul>
+<h3>3.3 重要约束（请先读）</h3>
+<ul>
+<li>当前主流程是：<strong>伴随程序启动 Scratch</strong>，再建立只读连接。  </li>
+<li><strong>不支持</strong>先手工双击打开 Scratch，再让伴随程序“附着”上去。  </li>
+<li>如果 Scratch 已由用户手工打开：请先<strong>完全退出 Scratch</strong>，再回到伴随程序点「打开已选 Scratch」。</li>
+</ul>
+<hr/>
+<h2>4. 下载安装包</h2>
+<p>正式下载入口：<strong>GitHub Releases</strong>  </p>
+<p>仓库：<code>https://github.com/scratchai-labs/scratch-ai-local-client</code></p>
+<p>当前固定分发 <strong>4 个无 Key 包</strong>：</p>
+<table><thead><tr><th>平台</th><th>文件名</th><th>用途</th></tr></thead><tbody>
+<tr><td>Windows</td><td><code>ScratchDesktopCompanion-portable.exe</code></td><td>便携版，双击即可运行</td></tr>
+<tr><td>Windows</td><td><code>ScratchDesktopCompanion-setup.exe</code></td><td>安装版，按向导安装</td></tr>
+<tr><td>macOS</td><td><code>ScratchDesktopCompanion-mac.zip</code></td><td>便携版 <code>.app</code> 压缩包</td></tr>
+<tr><td>macOS</td><td><code>ScratchDesktopCompanion-mac.dmg</code></td><td>磁盘映像安装包</td></tr>
+</tbody></table>
+<p>说明：</p>
+<ul>
+<li>正式 Release <strong>不附带</strong>预置 API Key 的 <code>with-key</code> 版本。  </li>
+<li><code>main</code> 分支的 GitHub Actions 产物仅供开发检查，正式使用请下 Release。</li>
+</ul>
+<hr/>
+<h2>5. 安装与首次启动</h2>
+<h3>5.1 Windows · 安装版（setup.exe）</h3>
+<ol>
+<li>下载 <code>ScratchDesktopCompanion-setup.exe</code>  </li>
+<li>双击，按向导安装到固定目录（例如 <code>C:\ScratchDesktopCompanion\</code>）  </li>
+<li>启动后确认<strong>系统托盘</strong>出现伴随程序图标  </li>
+<li>打开主窗口，继续第 6 节首次连接流程</li>
+</ol>
+<h3>5.2 Windows · 便携版（portable.exe）</h3>
+<ol>
+<li>将 <code>ScratchDesktopCompanion-portable.exe</code> 放到固定目录  </li>
+<li>双击运行  </li>
+<li>后续与安装版相同</li>
+</ol>
+<blockquote><p>提示：便携版启动通常比已解压目录稍慢；现场批量部署也可使用解压后的 <code>win-unpacked</code> 目录（若你从开发产物获得）。</p></blockquote>
+<h3>5.3 macOS · DMG</h3>
+<ol>
+<li>下载并打开 <code>ScratchDesktopCompanion-mac.dmg</code>  </li>
+<li>将 <code>ScratchDesktopCompanion.app</code> 拖到「应用程序」或自选目录  </li>
+<li>首次打开若被 macOS 安全策略拦截：在「系统设置 → 隐私与安全性」中允许打开  </li>
+<li>启动后确认菜单栏 / 托盘区域有伴随程序入口</li>
+</ol>
+<h3>5.4 macOS · ZIP 便携包</h3>
+<ol>
+<li>解压 <code>ScratchDesktopCompanion-mac.zip</code>  </li>
+<li>得到 <code>ScratchDesktopCompanion.app</code>  </li>
+<li>双击运行（同样可能需要手动允许来自未签名开发者的应用）</li>
+</ol>
+<blockquote><p>当前正式发布链路<strong>不做</strong> macOS 签名 / 公证，首次打开可能需要额外信任步骤。</p></blockquote>
+<hr/>
+<h2>6. 五分钟上手（推荐流程）</h2>
+<p>按顺序做，成功率最高：</p>
+<pre><code>启动伴随程序
+  → 确认 / 选择 Scratch 软件路径
+  → 点击「打开已选 Scratch」（不要自己先开 Scratch）
+  → 等待状态变为「已连接」
+  → （可选）打开 DeepSeek 设置填写 API Key
+  → 在 Scratch 中创作；查看当前角色程序与下一步提示</code></pre>
+<h3>6.1 选择 Scratch 软件</h3>
+<ol>
+<li>打开伴随程序主窗口  </li>
+<li>若已自动识别，会显示「已选 Scratch」路径  </li>
+<li>若未识别，点 <strong>「选择 Scratch 软件」</strong></li>
+</ol>
+<p>可选路径示例：</p>
+<p><strong>Windows</strong></p>
+<ul>
+<li><code>Scratch.exe</code> / <code>Scratch 3.exe</code>  </li>
+<li>常见安装目录下的可执行文件  </li>
+<li>有效的桌面快捷方式 <code>.lnk</code>（优先选真实 exe）</li>
+</ul>
+<p><strong>macOS</strong></p>
+<ul>
+<li><code>/Applications</code> 或 <code>~/Applications</code> 下的  </li>
+</ul>
+<p>  <code>Scratch.app</code> / <code>Scratch Desktop.app</code> / <code>Scratch 3.app</code>  </p>
+<ul>
+<li>或应用包内真实可执行文件</li>
+</ul>
+<h3>6.2 打开已选 Scratch</h3>
+<ol>
+<li>点击 <strong>「打开已选 Scratch」</strong>  </li>
+<li>等待约 3–10 秒  </li>
+<li>状态应变为类似 <strong>「已连接」</strong> / 「已连接到 Scratch Desktop」  </li>
+<li>主界面应能看到：</li>
+</ol>
+<p>   - 已选 Scratch 路径  </p>
+<p>   - 当前角色  </p>
+<p>   - 同步时间  </p>
+<p>   - 当前角色程序（原版积木视图）</p>
+<h3>6.3 开始获得提示</h3>
+<ul>
+<li><strong>默认：自动刷新</strong>  </li>
+</ul>
+<p>  连接成功后，以及后续积木发生有效变化并稳定后，会自动请求下一步提示。  </p>
+<ul>
+<li><strong>也可：手动点击</strong>  </li>
+</ul>
+<p>  到「DeepSeek 设置」切到「手动点击」，再点主界面 <strong>「生成下一步提示」</strong>。</p>
+<p>建议低年级课堂优先用<strong>手动点击</strong>，避免学生改积木时提示频繁跳动。</p>
+<hr/>
+<h2>7. 主界面说明</h2>
+<p>主窗口大致分为：</p>
+<h3>7.1 顶部标题栏</h3>
+<ul>
+<li>产品名称与简短说明  </li>
+<li><strong>DeepSeek 设置</strong> 按钮（打开独立设置窗口）</li>
+</ul>
+<h3>7.2 操作区按钮</h3>
+<table><thead><tr><th>按钮</th><th>作用</th></tr></thead><tbody>
+<tr><td>选择 Scratch 软件</td><td>手动指定 Scratch 可执行文件 / 应用</td></tr>
+<tr><td>打开已选 Scratch</td><td>由伴随程序受控启动 Scratch 并建立连接</td></tr>
+<tr><td>重新连接</td><td>连接异常时重试桥接</td></tr>
+<tr><td>生成下一步提示</td><td>主动请求一轮 AI / 本地提示</td></tr>
+</tbody></table>
+<h3>7.3 状态信息</h3>
+<ul>
+<li><strong>状态</strong>：是否已连接  </li>
+<li><strong>当前角色</strong>：Scratch 中正在编辑的角色 / 舞台  </li>
+<li><strong>同步时间</strong>：最近一次状态刷新时间  </li>
+<li><strong>已选 Scratch</strong>：当前使用的可执行文件路径  </li>
+<li><strong>AI 配置摘要 / 提示来源</strong>：是否已配置 Key、当前走 DeepSeek 还是本地基础提示</li>
+</ul>
+<h3>7.4 当前角色程序</h3>
+<ul>
+<li>标题会体现当前角色（例如「Cat 的程序」）  </li>
+<li>以 Scratch 原版风格只读显示当前角色脚本  </li>
+<li>多脚本时可在区域内滚动浏览  </li>
+<li><strong>只读</strong>：不能在此窗口改积木；请回到 Scratch 操作</li>
+</ul>
+<h3>7.5 下一步提示 / 推荐积木</h3>
+<ul>
+<li>一句简短总提示（中文）  </li>
+<li>1–3 个关键推荐积木（含简短原因）  </li>
+<li>推荐结构可能包含前后连接、条件槽、子堆栈关系  </li>
+<li>若作品已被判定为完整，可能只说明玩法/使用方式，不再强制塞推荐积木  </li>
+<li>无 Key / 上游失败时，显示本地基础提示，保证学生仍可继续</li>
+</ul>
+<hr/>
+<h2>8. DeepSeek 设置</h2>
+<p>点击主界面 <strong>「DeepSeek 设置」</strong> 打开设置窗口。</p>
+<h3>8.1 API Key</h3>
+<ol>
+<li>在输入框粘贴你的 DeepSeek API Key  </li>
+<li>建议先点 <strong>「测试 Key」</strong>，确认可用 / 余额状态  </li>
+<li>再点保存  </li>
+<li>Key 以明文保存在<strong>当前电脑、当前用户</strong>可读写位置  </li>
+<li>清除 Key 后：不再请求 DeepSeek，仅使用本地基础提示</li>
+</ol>
+<h3>8.2 模型选择</h3>
+<p>当前固定可选：</p>
+<table><thead><tr><th>模型</th><th>说明</th></tr></thead><tbody>
+<tr><td><code>deepseek-v4-flash</code></td><td>默认；更快、更适合课堂连续请求</td></tr>
+<tr><td><code>deepseek-v4-pro</code></td><td>更强；可能更慢、费用更高</td></tr>
+</tbody></table>
+<p>保存后，主界面的「提示来源」会反映当前模型。</p>
+<h3>8.3 下一步提示触发方式</h3>
+<table><thead><tr><th>模式</th><th>行为</th><th>适用场景</th></tr></thead><tbody>
+<tr><td>自动刷新（默认）</td><td>连接成功后、积木有效变化稳定后自动请求</td><td>自由探索、希望持续跟随</td></tr>
+<tr><td>手动点击</td><td>仅在点击「生成下一步提示」时请求</td><td>课堂演示、避免提示频繁刷新</td></tr>
+</tbody></table>
+<blockquote><p>保存 Key 后，客户端默认会切到手动点击（减少误触发费用与界面跳动）。可按需要再改回自动。</p></blockquote>
+<h3>8.4 没有 Key 能不能用？</h3>
+<p>可以。  </p>
+<p>未配置 Key、Key 无效、余额不足或上游失败时，会回退到<strong>本地基础提示</strong>，仍给出有限的下一步积木建议。  </p>
+<p>线上 AI 质量通常更好，但不是硬性门槛。</p>
+<hr/>
+<h2>9. 学生日常用法</h2>
+<ol>
+<li><strong>先开伴随程序</strong>，不要先双击 Scratch  </li>
+<li>确认已选 Scratch 路径正确  </li>
+<li>点 <strong>「打开已选 Scratch」</strong>  </li>
+<li>在 Scratch 里正常创作（拖积木、换角色、打开 <code>.sb3</code> 均可）  </li>
+<li>看伴随窗口：</li>
+</ol>
+<p>   - 当前角色是否一致  </p>
+<p>   - 当前角色程序是否更新  </p>
+<p>   - 下一步提示 / 推荐积木  </p>
+<ol>
+<li>需要时点 <strong>「生成下一步提示」</strong>（手动模式）  </li>
+<li>关掉伴随主窗口 → 程序会缩回托盘，不一定退出  </li>
+<li>下课退出：从托盘菜单选择退出（或结束应用）</li>
+</ol>
+<p><strong>请记住：</strong></p>
+<ul>
+<li>推荐积木是「建议」，不是标准答案  </li>
+<li>学生必须自己在 Scratch 工具箱里找到并搭建  </li>
+<li>换角色后，旧角色的提示会失效，以当前角色 / 最新作品为准  </li>
+<li>空白作品通常不会触发有意义的 AI 辅导起点</li>
+</ul>
+<hr/>
+<h2>10. 教师 / 机房建议</h2>
+<h3>10.1 课前准备</h3>
+<ul>
+<li>确认每台机器已安装 Scratch Desktop  </li>
+<li>预装伴随程序（安装版或固定目录便携版）  </li>
+<li>首次开机后完成一次「选择 Scratch → 打开已选 Scratch」  </li>
+<li>若使用线上 AI：提前配置并测试 DeepSeek Key  </li>
+<li>抽查至少 3 台机器：连接、角色切换、生成提示、推荐积木显示</li>
+</ul>
+<h3>10.2 课中协作</h3>
+<ul>
+<li>状态异常时：先「重新连接」  </li>
+<li>学生误开了 Scratch：让其完全退出 Scratch，再由伴随程序打开  </li>
+<li>托盘图标可快速唤回主窗口  </li>
+<li>建议课堂默认 <strong>手动点击</strong>，由老师控制何时请求提示</li>
+</ul>
+<h3>10.3 隐私与数据边界（简要）</h3>
+<ul>
+<li>不修改 Scratch 源码，不向作品写入积木  </li>
+<li>AI 请求发送的是当前作品的<strong>结构化摘要</strong>（脚本连接、字段、条件、变量/广播关系等），不是完整媒体资源包  </li>
+<li>辅导上下文主要在当前运行会话内存中，不作为长期学生档案  </li>
+<li>API Key 只保存在本机用户配置中</li>
+</ul>
+<hr/>
+<h2>11. 常见问题 FAQ</h2>
+<h3>Q1：状态一直停在「请先选择 Scratch 软件」？</h3>
+<ul>
+<li>Scratch 是否真的安装了  </li>
+<li>是否选中了正确的 <code>Scratch.exe</code> / <code>Scratch 3.exe</code> / <code>.app</code>  </li>
+<li>桌面快捷方式是否失效  </li>
+<li>重新点一次「选择 Scratch 软件」，优先真实可执行文件</li>
+</ul>
+<h3>Q2：一直提示「请从伴随程序打开已选 Scratch」？</h3>
+<p>说明还没走通受控启动链路。  </p>
+<p>处理：</p>
+<ol>
+<li>不要手工双击 Scratch  </li>
+<li>若 Scratch 已打开，先完全退出  </li>
+<li>回到伴随程序点「打开已选 Scratch」</li>
+</ol>
+<h3>Q3：点了打开，但连不上？</h3>
+<ul>
+<li>看 Scratch 是否被启动  </li>
+<li>点「重新连接」  </li>
+<li>确认选中的是 Scratch 本体，不是错误快捷方式  </li>
+<li>仍失败时收集日志（见第 12 节）</li>
+</ul>
+<h3>Q4：当前角色程序是空白 / 不更新？</h3>
+<ul>
+<li>确认状态已是「已连接」  </li>
+<li>在 Scratch 中确认该角色是否真有脚本  </li>
+<li>切换角色或增删积木后再观察  </li>
+<li>点「重新连接」  </li>
+<li>若刚删光脚本，旧视图应被清空；若仍残留，重启伴随程序</li>
+</ul>
+<h3>Q5：推荐积木区为空？</h3>
+<p>可能原因：</p>
+<ul>
+<li>作品被判断为已较完整，仅返回使用说明  </li>
+<li>DeepSeek 返回了不可渲染/不在白名单的积木，已被过滤  </li>
+<li>尚未配置 Key，且本地基础提示也未能给出结构  </li>
+<li>请求仍在进行中</li>
+</ul>
+<p>可尝试：再点「生成下一步提示」、检查 Key、查看提示来源文案。</p>
+<h3>Q6：为什么显示「本地基础提示」而不是 DeepSeek？</h3>
+<p>常见原因：</p>
+<ul>
+<li>未保存 API Key  </li>
+<li>Key 无效 / 余额不足  </li>
+<li>网络或上游接口失败  </li>
+<li>模型返回结构无法通过客户端校验，已安全降级</li>
+</ul>
+<p>到设置页用「测试 Key」排查。</p>
+<h3>Q7：macOS 打不开应用？</h3>
+<p>未签名应用会被 Gatekeeper 拦截。到「系统设置 → 隐私与安全性」允许打开，或按本机安全策略由管理员批准。</p>
+<h3>Q8：关闭窗口后程序还在吗？</h3>
+<p>是。关闭主窗口默认<strong>隐藏到托盘</strong>，不会直接退出。需要彻底退出请用托盘菜单。</p>
+<h3>Q9：可以附着到已经打开的 Scratch 吗？</h3>
+<p><strong>当前不支持。</strong> 必须由伴随程序启动 Scratch。</p>
+<h3>Q10：支持 Linux / 网页版 Scratch 吗？</h3>
+<p>当前主线只维护 <strong>Windows + macOS 桌面本地版</strong>，面向 Scratch Desktop。</p>
+<hr/>
+<h2>12. 日志与问题反馈</h2>
+<h3>12.1 日志路径</h3>
+<p><strong>Windows（优先）：</strong></p>
+<pre><code>C:\Users\&lt;当前用户名&gt;\AppData\Roaming\@scratch-ai\desktop-companion\desktop-companion.log</code></pre>
+<p><strong>Windows（旧版兼容）：</strong></p>
+<pre><code>C:\Users\&lt;当前用户名&gt;\AppData\Roaming\scratch-desktop-companion\desktop-companion.log</code></pre>
+<p><strong>macOS：</strong></p>
+<pre><code>~/Library/Application Support/@scratch-ai/desktop-companion/desktop-companion.log</code></pre>
+<h3>12.2 反馈时请附带</h3>
+<ul>
+<li>操作系统与版本  </li>
+<li>使用的安装形态（portable / setup / zip / dmg）  </li>
+<li>软件版本号（当前文档对应 v0.2.0）  </li>
+<li>窗口顶部状态文案  </li>
+<li>当前角色、当前角色程序、推荐积木截图  </li>
+<li>日志最后 30–50 行  </li>
+<li>是否配置了 DeepSeek、模型名、是否点过「测试 Key」</li>
+</ul>
+<p>Issue 入口：仓库 GitHub Issues  </p>
+<p>安全问题请勿公开提 issue，参见仓库 <code>SECURITY.zh-CN.md</code>。</p>
+<hr/>
+<h2>13. 开发者快速入口（可选）</h2>
+<p>若你要改代码 / 本地联调，而不是只当用户使用：</p>
+<pre><code>git clone git@github.com:scratchai-labs/scratch-ai-local-client.git
+cd scratch-ai-local-client
+npm ci
+npm run test</code></pre>
+<p>桌面端开发启动：</p>
+<pre><code>cd apps/desktop-companion
+npm run dev</code></pre>
+<p>常用出包（仓库根目录）：</p>
+<pre><code>npm run package:win:bundle
+npm run package:mac:zip
+npm run package:mac:dmg</code></pre>
+<p>更多工程说明见：</p>
+<ul>
+<li><code>README.zh-CN.md</code>  </li>
+<li><code>docs/architecture.zh-CN.md</code>  </li>
+<li><code>docs/releasing.zh-CN.md</code>  </li>
+<li><code>apps/desktop-companion/README.md</code>  </li>
+<li><code>apps/desktop-companion/SOP.zh-CN.md</code></li>
+</ul>
+<hr/>
+<h2>14. 当前限制（使用前知情）</h2>
+<ol>
+<li>只支持「伴随程序受控启动 + CDP 注入」，不支持附着手工打开的 Scratch  </li>
+<li>正式分发包无预置 Key；线上 AI 需自备 DeepSeek Key  </li>
+<li>macOS 当前无自动签名 / 公证流程  </li>
+<li>推荐积木受官方 opcode 白名单与结构校验约束，模型胡编积木不会原样展示  </li>
+<li>界面默认面向中文用户；Scratch 语言会在桥接成功后尽量沿用上次记录的界面语言  </li>
+<li>本仓不包含服务器端；跨仓规划见 <code>scratch-ai-docs</code></li>
+</ol>
+<hr/>
+<h2>15. 一页速查卡</h2>
+<table><thead><tr><th>场景</th><th>你该做什么</th></tr></thead><tbody>
+<tr><td>第一次使用</td><td>安装 → 选 Scratch → 打开已选 Scratch → 等已连接</td></tr>
+<tr><td>学生上课</td><td>只从伴随程序开 Scratch；看提示后自己搭积木</td></tr>
+<tr><td>想要更好 AI</td><td>DeepSeek 设置里填 Key → 测试 → 保存</td></tr>
+<tr><td>提示乱跳</td><td>设置改为「手动点击」</td></tr>
+<tr><td>连不上</td><td>退出手工打开的 Scratch → 重新打开已选 Scratch / 重新连接</td></tr>
+<tr><td>窗口关了</td><td>去托盘点图标唤回</td></tr>
+<tr><td>要报 bug</td><td>截图 + 状态文案 + 日志末尾</td></tr>
+</tbody></table>
+<hr/>
+<h2>许可证</h2>
+<p>本项目采用 <strong>AGPL-3.0</strong> 许可证。</p>
+<hr/>
+<p><em>文档根据仓库当前本地客户端主线整理，覆盖下载安装、首次连接、日常使用、设置、排障与反馈路径。若界面文案随小版本微调，以实际软件界面为准。</em></p>
+</body>
+</html>

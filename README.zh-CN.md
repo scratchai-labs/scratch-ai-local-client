@@ -67,6 +67,7 @@ npm run dev
 
 ## 文档导航
 
+- 用户使用文档：[`docs/user-guide.zh-CN.md`](docs/user-guide.zh-CN.md) / [`docs/user-guide.zh-CN.pdf`](docs/user-guide.zh-CN.pdf)
 - 仓库结构：[`docs/project-structure.zh-CN.md`](docs/project-structure.zh-CN.md)
 - 发布与出包：[`docs/releasing.zh-CN.md`](docs/releasing.zh-CN.md)
 - 跨仓库文档与规划：[`scratch-ai-docs`](https://github.com/scratchai-labs/scratch-ai-docs)
