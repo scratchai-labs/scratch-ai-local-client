@@ -7,6 +7,13 @@
 
 ---
 
+> **📢 重要提示**  
+> **本软件持续开发更新中。** 功能、界面和安装包会随版本迭代持续优化。  
+> **使用中遇到问题、有改进建议，或想交流教学场景，欢迎随时沟通交流。**  
+> 正式安装包请优先使用 GitHub Releases 最新版本；若你拿到的是随本文档附带的本地安装包，请先确认版本号。
+
+---
+
 ## 1. 这是什么
 
 `Scratch AI 教练`（桌面伴随程序，Scratch Desktop Companion）是面向 **Scratch Desktop** 的本机 AI 伴随工具。
@@ -60,8 +67,11 @@
 
 ## 4. 下载安装包
 
+### 4.1 最新正式版（推荐）
+
 正式下载入口：**GitHub Releases**  
-仓库：`https://github.com/scratchai-labs/scratch-ai-local-client`
+仓库：`https://github.com/scratchai-labs/scratch-ai-local-client`  
+当前文档对应版本：**v0.2.0**
 
 当前固定分发 **4 个无 Key 包**：
 
@@ -75,7 +85,30 @@
 说明：
 
 - 正式 Release **不附带**预置 API Key 的 `with-key` 版本。  
-- `main` 分支的 GitHub Actions 产物仅供开发检查，正式使用请下 Release。
+- `main` 分支的 GitHub Actions 产物仅供开发检查，正式使用请下 Release。  
+- **软件持续开发更新中**；后续新版本会继续通过 Releases 发布，建议有条件时定期检查更新。
+
+### 4.2 随本文档附带的安装包（若已拷贝）
+
+若你是从课程资料目录拿到本说明，同目录下可能已附带最新 4 个安装包，例如：
+
+```text
+Scratch AI教练-安装包-v0.2.0/
+  ├── ScratchDesktopCompanion-portable.exe
+  ├── ScratchDesktopCompanion-setup.exe
+  ├── ScratchDesktopCompanion-mac.zip
+  ├── ScratchDesktopCompanion-mac.dmg
+  └── 安装包说明.txt
+```
+
+可直接使用该目录中的文件安装；版本以目录名 / 说明文件为准。
+
+### 4.3 沟通与反馈
+
+> **有问题欢迎随时沟通交流。**  
+> 无论是安装失败、连不上 Scratch、Key 配置、课堂使用建议，还是功能想法，都欢迎反馈。  
+> 也可通过仓库 GitHub Issues 提交问题：  
+> `https://github.com/scratchai-labs/scratch-ai-local-client/issues`
 
 ---
 
@@ -547,6 +580,8 @@ npm run package:mac:dmg
 | 连不上 | 退出手工打开的 Scratch → 重新打开已选 Scratch / 重新连接 |
 | 窗口关了 | 去托盘点图标唤回 |
 | 要报 bug | 截图 + 状态文案 + 日志末尾 |
+| 想交流 / 提建议 | 随时沟通；或提 GitHub Issue |
+| 想用最新版 | 查 GitHub Releases，或使用随文档附带安装包 |
 
 ---
 
@@ -557,3 +592,5 @@ npm run package:mac:dmg
 ---
 
 *文档根据仓库当前本地客户端主线整理，覆盖下载安装、首次连接、DeepSeek Key 添加、日常使用、设置、排障与反馈路径。若界面文案随小版本微调，以实际软件界面为准。*
+
+**软件持续开发更新中，有问题欢迎随时沟通交流。**
