@@ -104,6 +104,13 @@ function getProjectOpcodes(snapshot: ProjectSnapshot) {
   return snapshot.sprites.flatMap((sprite) => sprite.scripts.flatMap((script) => script.blockOpcodes));
 }
 
+function getAllProjectOpcodes(snapshot: ProjectSnapshot) {
+  return [
+    ...getProjectOpcodes(snapshot),
+    ...snapshot.blocks.map((block) => block.opcode)
+  ];
+}
+
 function hasOpcodePrefix(opcodes: string[], prefix: string) {
   return opcodes.some((opcode) => opcode.startsWith(prefix));
 }
@@ -250,6 +257,7 @@ function detectCoachingTaskIntent(options: GenerateCoachHintOptions): CoachingTa
   const hasI = variableNames.some((name) => /^(i|计数|计数器)$/i.test(name));
   const mentionsChickenRabbit = /鸡兔|同笼|chicken|rabbit/.test(combined);
   const mentionsSum = /1到n|1到n|累加|求和|sum=|求和|合计/.test(combined) || /1\+2|1到/.test(combined);
+  const mentionsCalculation = /平方|乘以自己|计算|算出|公式|number\*number|number.*number/.test(combined);
   const motionHeavy =
     hasModule(options.programAreaModules, "motion") &&
     !hasModule(options.programAreaModules, "data") &&
@@ -266,6 +274,7 @@ function detectCoachingTaskIntent(options: GenerateCoachHintOptions): CoachingTa
   if (hasI) signals.push("var:i");
   if (mentionsChickenRabbit) signals.push("text:chicken-rabbit");
   if (mentionsSum) signals.push("text:sum");
+  if (mentionsCalculation) signals.push("text:calculation");
 
   if ((hasHeads && hasFeet) || mentionsChickenRabbit || ((hasChickens || hasRabbits) && (hasHeads || hasFeet))) {
     return {
@@ -289,8 +298,8 @@ function detectCoachingTaskIntent(options: GenerateCoachHintOptions): CoachingTa
     };
   }
 
-  if (hasSum || hasN || hasI || hasModule(options.programAreaModules, "operator")) {
-    const mathSignals = hasSum || hasN || hasI || hasModule(options.programAreaModules, "data");
+  if (hasSum || hasN || hasI || mentionsCalculation || hasModule(options.programAreaModules, "operator")) {
+    const mathSignals = hasSum || hasN || hasI || mentionsCalculation || hasModule(options.programAreaModules, "data");
     if (mathSignals && !motionHeavy) {
       return {
         taskType: "math-generic",
@@ -674,6 +683,11 @@ function buildSystemPrompt(customSystemPrompt?: string) {
 }
 
 function buildFallbackCoachResponse(options: GenerateCoachHintOptions): CoachResponse {
+  const completedSquareResponse = buildCompletedSquareCoachResponse(options);
+  if (completedSquareResponse) {
+    return completedSquareResponse;
+  }
+
   const intent = detectCoachingTaskIntent(options);
   if (isMathTaskType(intent.taskType)) {
     const mathResponse = buildMathFallbackCoachResponse(options, intent);
@@ -1061,6 +1075,90 @@ function filterRecommendedNode(
   return filteredNode;
 }
 
+function appendReasonDetail(reason: string, detail: string) {
+  return reason.includes(detail) ? reason : `${reason} ${detail}`;
+}
+
+function isSayOpcode(opcode: string) {
+  return opcode === "looks_say" || opcode === "looks_sayforsecs";
+}
+
+function isSquareCalculationGoal(options: GenerateCoachHintOptions) {
+  const text = normalizeIntentText(
+    [
+      options.goal,
+      options.snapshot.goal,
+      ...options.currentTargetPrograms,
+      ...options.snapshot.sprites.flatMap((sprite) =>
+        sprite.scripts.flatMap((script) => script.blockSequence)
+      )
+    ].join("|")
+  );
+  return /平方|乘以自己|number\*number|number.*number/.test(text);
+}
+
+function buildCompletedSquareCoachResponse(options: GenerateCoachHintOptions): CoachResponse | null {
+  if (!isSquareCalculationGoal(options)) {
+    return null;
+  }
+
+  const opcodes = getAllProjectOpcodes(options.snapshot);
+  const variableNames = collectProjectVariableNames(options.snapshot).map((name) => name.toLowerCase());
+  const hasNumber = variableNames.some((name) => name === "number" || name === "数字" || name === "输入的数");
+  const hasResult = variableNames.some((name) => name === "result" || name === "结果");
+  const hasInput = opcodes.includes("sensing_askandwait") || opcodes.includes("sensing_answer");
+  const hasMultiply = opcodes.includes("operator_multiply");
+  const hasSay = opcodes.includes("looks_say") || opcodes.includes("looks_sayforsecs");
+
+  if (!hasNumber || !hasResult || !hasInput || !hasMultiply || !hasSay) {
+    return null;
+  }
+
+  const answerText = "你的平方计算已经完成。点击绿旗，输入一个数字，角色会说出它的平方结果。";
+  return {
+    answerText,
+    recommendedBlocks: [],
+    nextStep: answerText,
+    detectedIssues: []
+  };
+}
+
+function enrichRecommendedNodeForMathIntent(
+  node: RecommendedBlockNode,
+  options: GenerateCoachHintOptions,
+  intent = detectCoachingTaskIntent(options)
+): RecommendedBlockNode {
+  const enrichedNode: RecommendedBlockNode = {
+    opcode: node.opcode,
+    category: node.category,
+    label: node.label,
+    reason: node.reason
+  };
+  const reasonText = normalizeIntentText(node.reason);
+  const squareGoal = isSquareCalculationGoal(options);
+
+  if (intent.taskType === "math-sum" && isSayOpcode(node.opcode) && !/sum|累加和|总和|合计/.test(reasonText)) {
+    enrichedNode.reason = appendReasonDetail(node.reason, "说话内容要放入 sum 变量，不能只填“结果”。");
+  }
+
+  if (squareGoal && node.opcode === "data_setvariableto" && !/result.*number|number.*result/.test(reasonText)) {
+    enrichedNode.reason = appendReasonDetail(node.reason, "将 result 设为 number * number。");
+  }
+
+  if (squareGoal && isSayOpcode(node.opcode) && !/result|计算结果|平方结果/.test(reasonText)) {
+    enrichedNode.reason = appendReasonDetail(node.reason, "说话内容要放入 result 变量，不能只填“结果”。");
+  }
+
+  for (const relation of ["condition", "substack", "substack2", "next"] as const) {
+    const child = node[relation];
+    if (child) {
+      enrichedNode[relation] = enrichRecommendedNodeForMathIntent(child, options, intent);
+    }
+  }
+
+  return enrichedNode;
+}
+
 function hasCompletionEvidenceForSummaryOnlyResponse(snapshot: ProjectSnapshot) {
   const opcodes = getProjectOpcodes(snapshot);
   const blockCount = snapshot.sprites.reduce((total, sprite) => total + sprite.blockCount, 0);
@@ -1090,6 +1188,11 @@ function hasCompletionEvidenceForSummaryOnlyResponse(snapshot: ProjectSnapshot) 
 function normalizeCoachResponse(rawPayload: unknown, options: GenerateCoachHintOptions) {
   if (!rawPayload || typeof rawPayload !== "object") {
     return rawPayload;
+  }
+
+  const completedSquareResponse = buildCompletedSquareCoachResponse(options);
+  if (completedSquareResponse) {
+    return completedSquareResponse;
   }
 
   const candidate = rawPayload as Record<string, unknown>;
@@ -1124,7 +1227,7 @@ function normalizeCoachResponse(rawPayload: unknown, options: GenerateCoachHintO
       throw new Error("DeepSeek 没有返回可用的官方推荐积木。");
     }
 
-    let renderableRoot: RecommendedBlockNode | undefined = filteredRoot;
+    let renderableRoot: RecommendedBlockNode | undefined = enrichRecommendedNodeForMathIntent(filteredRoot, options);
     let recommendation: RecommendedBlockStructure | undefined;
     while (renderableRoot && !recommendation) {
       recommendation = sanitizeRecommendedStructure({

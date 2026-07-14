@@ -2015,3 +2015,206 @@ test("CoachService filters ask recommendations for fixed upper-bound sum goals",
   );
   assert.equal(result.coachResponse.recommendedBlocks[0]?.opcode, "control_repeat");
 });
+
+test("CoachService makes fixed sum output recommendations say the sum variable", async () => {
+  const service = new CoachService(async () => {
+    return {
+      ok: true,
+      async json() {
+        return {
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  summary: "循环结束后输出结果。",
+                  recommendation: {
+                    root: {
+                      opcode: "looks_sayforsecs",
+                      category: "外观",
+                      label: "说 2 秒",
+                      reason: "输出结果"
+                    }
+                  }
+                })
+              }
+            }
+          ]
+        };
+      }
+    };
+  });
+
+  const snapshot = createSnapshot();
+  snapshot.programAreaModules = [
+    { id: "event", label: "事件", blockCount: 1 },
+    { id: "data", label: "变量", blockCount: 2 },
+    { id: "control", label: "控制", blockCount: 1 }
+  ];
+  snapshot.globalVariables = [
+    { id: "sum", name: "sum", value: 0, isCloud: false },
+    { id: "i", name: "i", value: 1, isCloud: false }
+  ];
+  snapshot.sprites[0].variables = snapshot.globalVariables;
+  snapshot.sprites[0].scripts[0] = {
+    spriteName: "Cat",
+    event: "when green flag clicked",
+    blockSequence: ["当绿旗被点击", "将 sum 设为 0", "将 i 设为 1", "重复执行 100 次"],
+    blockOpcodes: ["event_whenflagclicked", "data_setvariableto", "data_setvariableto", "control_repeat"]
+  };
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["当绿旗被点击 -> 将 sum 设为 0 -> 将 i 设为 1 -> 重复执行 100 次"],
+    programAreaModules: snapshot.programAreaModules,
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "1+2+3...+100 求和并说出结果",
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.equal(result.coachResponse.recommendedBlocks[0]?.opcode, "looks_sayforsecs");
+  assert.match(result.coachResponse.recommendedBlocks[0]?.reason ?? "", /sum/);
+});
+
+test("CoachService treats square-number goals as math and keeps result output concrete", async () => {
+  const service = new CoachService(async () => {
+    return {
+      ok: true,
+      async json() {
+        return {
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  summary: "计算并输出结果。",
+                  recommendation: {
+                    root: {
+                      opcode: "data_setvariableto",
+                      category: "变量",
+                      label: "将变量设为",
+                      reason: "计算平方",
+                      next: {
+                        opcode: "looks_sayforsecs",
+                        category: "外观",
+                        label: "说 2 秒",
+                        reason: "输出结果"
+                      }
+                    }
+                  }
+                })
+              }
+            }
+          ]
+        };
+      }
+    };
+  });
+
+  const snapshot = createSnapshot();
+  snapshot.programAreaModules = [
+    { id: "event", label: "事件", blockCount: 1 },
+    { id: "sensing", label: "侦测", blockCount: 2 },
+    { id: "data", label: "变量", blockCount: 2 }
+  ];
+  snapshot.globalVariables = [
+    { id: "number", name: "number", value: 0, isCloud: false },
+    { id: "result", name: "result", value: 0, isCloud: false }
+  ];
+  snapshot.sprites[0].variables = snapshot.globalVariables;
+  snapshot.sprites[0].scripts[0] = {
+    spriteName: "Cat",
+    event: "when green flag clicked",
+    blockSequence: ["当绿旗被点击", "询问 请输入一个数 并等待", "将 number 设为 回答", "将 result 设为 0"],
+    blockOpcodes: ["event_whenflagclicked", "sensing_askandwait", "data_setvariableto", "data_setvariableto"]
+  };
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["当绿旗被点击 -> 询问请输入一个数 -> 将 number 设为 回答 -> 将 result 设为 0"],
+    programAreaModules: snapshot.programAreaModules,
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "输入一个数，计算它的平方并说出来",
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.equal(result.coachResponse.recommendedBlocks[0]?.opcode, "data_setvariableto");
+  assert.match(result.coachResponse.recommendedBlocks[0]?.reason ?? "", /result|number/);
+  assert.equal(result.coachResponse.recommendedBlocks[1]?.opcode, "looks_sayforsecs");
+  assert.match(result.coachResponse.recommendedBlocks[1]?.reason ?? "", /result/);
+});
+
+test("CoachService returns completed summary after square-number program can say the computed result", async () => {
+  const service = new CoachService(async () => {
+    return {
+      ok: true,
+      async json() {
+        return {
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  summary: "先准备累加结果变量 sum。",
+                  recommendation: {
+                    root: {
+                      opcode: "data_setvariableto",
+                      category: "变量",
+                      label: "将变量设为",
+                      reason: "把 sum 设为 0"
+                    }
+                  }
+                })
+              }
+            }
+          ]
+        };
+      }
+    };
+  });
+
+  const snapshot = createSnapshot();
+  snapshot.programAreaModules = [
+    { id: "event", label: "事件", blockCount: 1 },
+    { id: "sensing", label: "侦测", blockCount: 2 },
+    { id: "data", label: "变量", blockCount: 2 },
+    { id: "operator", label: "运算", blockCount: 1 },
+    { id: "looks", label: "外观", blockCount: 1 }
+  ];
+  snapshot.globalVariables = [
+    { id: "number", name: "number", value: 7, isCloud: false },
+    { id: "result", name: "result", value: 49, isCloud: false }
+  ];
+  snapshot.sprites[0].variables = snapshot.globalVariables;
+  snapshot.sprites[0].blockCount = 7;
+  snapshot.sprites[0].scripts[0] = {
+    spriteName: "Cat",
+    event: "when green flag clicked",
+    blockSequence: ["当绿旗被点击", "询问 请输入一个数 并等待", "将 number 设为 回答", "将 result 设为", "说 2 秒"],
+    blockOpcodes: ["event_whenflagclicked", "sensing_askandwait", "data_setvariableto", "data_setvariableto", "looks_sayforsecs"]
+  };
+  snapshot.blocks = [
+    { id: "flag", opcode: "event_whenflagclicked", category: "事件", label: "当绿旗被点击", spriteName: "Cat", topLevel: true },
+    { id: "ask", opcode: "sensing_askandwait", category: "侦测", label: "询问并等待", spriteName: "Cat", topLevel: false },
+    { id: "answer", opcode: "sensing_answer", category: "侦测", label: "回答", spriteName: "Cat", topLevel: false },
+    { id: "set-number", opcode: "data_setvariableto", category: "变量", label: "将 number 设为", spriteName: "Cat", topLevel: false },
+    { id: "set-result", opcode: "data_setvariableto", category: "变量", label: "将 result 设为", spriteName: "Cat", topLevel: false },
+    { id: "multiply", opcode: "operator_multiply", category: "运算", label: "乘", spriteName: "Cat", topLevel: false },
+    { id: "say", opcode: "looks_sayforsecs", category: "外观", label: "说 2 秒", spriteName: "Cat", topLevel: false }
+  ];
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["当绿旗被点击 -> 询问请输入一个数 -> 将 number 设为 回答 -> 将 result 设为 -> 说 2 秒"],
+    programAreaModules: snapshot.programAreaModules,
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "输入一个数，计算它的平方并说出来",
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.equal(result.coachResponse.recommendedBlocks.length, 0);
+  assert.match(result.coachResponse.answerText, /平方计算已经完成/);
+});

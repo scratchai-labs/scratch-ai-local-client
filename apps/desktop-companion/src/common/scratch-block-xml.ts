@@ -660,16 +660,30 @@ function buildRecommendedVariableFieldXml(variableName: string) {
   return buildFieldXml("VARIABLE", variableName, buildRecommendedVariableAttributes(variableName));
 }
 
+function buildVariableReporterBlockXml(variableName: string) {
+  return buildElementXml("block", "data_variable", buildRecommendedVariableFieldXml(variableName));
+}
+
 function buildVariableReporterValueXml(inputName: string, variableName: string) {
+  return buildValueElementXml(inputName, buildVariableReporterBlockXml(variableName));
+}
+
+function buildVariableMathValueXml(inputName: string, opcode: string, leftVariable: string, rightVariable: string) {
   return buildValueElementXml(
     inputName,
-    buildElementXml("block", "data_variable", buildRecommendedVariableFieldXml(variableName))
+    buildElementXml(
+      "block",
+      opcode,
+      `${buildVariableReporterValueXml("NUM1", leftVariable)}${buildVariableReporterValueXml("NUM2", rightVariable)}`
+    )
   );
 }
 
 function inferRecommendedVariableName(block: RecommendedBlock) {
   const text = getRecommendedBlockText(block);
   const mentionsSum = /sum|累加和|总和|合计/.test(text);
+  const mentionsResult = hasStandaloneToken(text, "result") || /结果变量|计算结果|存入结果/.test(text);
+  const mentionsNumber = hasStandaloneToken(text, "number") || /输入的数|这个数|数字/.test(text);
   const mentionsCounter = /计数器|计数|自增/.test(text) || hasStandaloneToken(text, "i");
   const mentionsN = /上限|次数/.test(text) || hasStandaloneToken(text, "n");
 
@@ -684,6 +698,12 @@ function inferRecommendedVariableName(block: RecommendedBlock) {
 
   if (mentionsSum) {
     return "sum";
+  }
+  if (mentionsResult) {
+    return "result";
+  }
+  if (mentionsNumber) {
+    return "number";
   }
   if (mentionsCounter) {
     return "i";
@@ -737,6 +757,18 @@ function inferRecommendedSetVariableValue(block: RecommendedBlock, variableName:
   return "0";
 }
 
+function inferRecommendedSetVariableValueXml(block: RecommendedBlock, variableName: string) {
+  const text = getRecommendedBlockText(block);
+  if (
+    variableName === "result" &&
+    /平方|乘以自己|\*\s*number|number\s*\*|number.*number|回答.*回答|answer.*answer/.test(text)
+  ) {
+    return buildVariableMathValueXml("VALUE", "operator_multiply", "number", "number");
+  }
+
+  return buildNumberShadowValueXml("VALUE", inferRecommendedSetVariableValue(block, variableName));
+}
+
 function inferRecommendedChangeVariableValue(block: RecommendedBlock, variableName: string) {
   const text = getRecommendedBlockText(block);
   if (variableName === "sum" && /(?:增加|加上|\+=)\s*i/.test(text)) {
@@ -748,6 +780,27 @@ function inferRecommendedChangeVariableValue(block: RecommendedBlock, variableNa
     inferNumberNearVariable(text, variableName);
 
   return buildNumberShadowValueXml("VALUE", explicitNumber ?? "1");
+}
+
+function inferRecommendedOutputVariableName(block: RecommendedBlock) {
+  const text = getRecommendedBlockText(block);
+  if (/sum|累加和|总和|合计/.test(text)) {
+    return "sum";
+  }
+  if (hasStandaloneToken(text, "result") || /计算结果|结果变量|平方结果/.test(text)) {
+    return "result";
+  }
+  if (/兔|rabbit/.test(text) && /鸡|chicken/.test(text)) {
+    return "result";
+  }
+  return null;
+}
+
+function buildRecommendedMessageValueXml(block: RecommendedBlock, fallbackText: string) {
+  const outputVariable = inferRecommendedOutputVariableName(block);
+  return outputVariable
+    ? buildVariableReporterValueXml("MESSAGE", outputVariable)
+    : buildTextShadowValueXml("MESSAGE", fallbackText);
 }
 
 function buildWholeNumberShadowValueXml(inputName: string, value: string) {
@@ -980,13 +1033,13 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
       return buildElementXml("block", block.opcode, buildNumberShadowValueXml("VOLUME", "100"));
     case "looks_say":
     case "looks_think":
-      return buildElementXml("block", block.opcode, buildTextShadowValueXml("MESSAGE", messageText));
+      return buildElementXml("block", block.opcode, buildRecommendedMessageValueXml(block, messageText));
     case "looks_sayforsecs":
     case "looks_thinkforsecs":
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildTextShadowValueXml("MESSAGE", messageText)}${buildNumberShadowValueXml("SECS", "2")}`
+        `${buildRecommendedMessageValueXml(block, messageText)}${buildNumberShadowValueXml("SECS", "2")}`
       );
     case "control_wait":
       return buildElementXml("block", block.opcode, buildPositiveNumberShadowValueXml("DURATION", "1"));
@@ -1130,9 +1183,9 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
         return buildElementXml(
           "block",
           block.opcode,
-          `${buildRecommendedVariableFieldXml(variableName)}${buildNumberShadowValueXml(
-            "VALUE",
-            inferRecommendedSetVariableValue(block, variableName)
+          `${buildRecommendedVariableFieldXml(variableName)}${inferRecommendedSetVariableValueXml(
+            block,
+            variableName
           )}`
         );
       }

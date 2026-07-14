@@ -703,9 +703,15 @@ ${findVmHelpersSource()}
     "data_variable","data_itemoflist","data_itemnumoflist","data_lengthoflist","data_listcontainsitem"
   ]);
   const containerOpcodes = new Set(["control_forever","control_repeat","control_if","control_if_else","control_repeat_until"]);
-  const opcodes = (Array.isArray(${JSON.stringify(recommendedBlocks)}) ? ${JSON.stringify(recommendedBlocks)} : [])
+  const recommendations = (Array.isArray(${JSON.stringify(recommendedBlocks)}) ? ${JSON.stringify(recommendedBlocks)} : [])
+    .filter(b => b && typeof b.opcode === "string");
+  const opcodes = recommendations
     .map(b => (b && typeof b.opcode === "string" ? b.opcode : null))
     .filter(Boolean);
+  const recommendationText = recommendations
+    .map(b => [b.label, b.reason, b.example].filter(Boolean).join(" "))
+    .join(" ")
+    .toLowerCase();
 
   const vm = findVm();
   if (!vm || !vm.runtime || typeof vm.toJSON !== "function" || typeof vm.loadProject !== "function") {
@@ -718,6 +724,101 @@ ${findVmHelpersSource()}
   const sprite = project.targets.find(t => !t.isStage) || project.targets[0];
   if (!sprite) return JSON.stringify({ ok: false, error: "sprite-missing" });
   const { ids: varIds } = collectStageVariables(project);
+  function varPrimitive(name) { return [12, name, varIds[name]]; }
+  async function loadProjectWithBlocks(newBlocks, semanticKind, rebuiltOpcodes) {
+    sprite.blocks = newBlocks;
+    if (!Array.isArray(project.extensions)) project.extensions = [];
+    if (opcodes.some(op => op.startsWith("pen_")) && !project.extensions.includes("pen")) {
+      project.extensions.push("pen");
+    }
+    if (typeof vm.stopAll === "function") vm.stopAll();
+    await vm.loadProject(JSON.stringify(project));
+    const loaded = await waitFor(() => {
+      const target = getSpriteTarget(vm);
+      const count = target?.blocks?._blocks ? Object.keys(target.blocks._blocks).length : 0;
+      return Boolean(target && count > 0);
+    }, 15000);
+    const runtimeSprite = getSpriteTarget(vm);
+    if (runtimeSprite && typeof vm.setEditingTarget === "function" && runtimeSprite.id) {
+      vm.setEditingTarget(runtimeSprite.id);
+    }
+    await sleep(1000);
+    notifyCapture(${JSON.stringify(label || 'apply-recommended')});
+    const runtimeOpcodes = runtimeSprite?.blocks?._blocks ? Object.values(runtimeSprite.blocks._blocks).map(b => b.opcode) : [];
+    return JSON.stringify({
+      ok: Boolean(loaded && runtimeOpcodes.length > 0),
+      error: loaded ? (runtimeOpcodes.length > 0 ? null : "blocks-empty-after-load") : "project-load-timeout",
+      semanticKind,
+      appliedOpcodes: opcodes,
+      rebuiltOpcodes,
+      reporterRecommended: opcodes.filter(op => reporterOpcodes.has(op)),
+      currentTargetName: runtimeSprite?.sprite?.name ?? null,
+      runtimeBlockCount: runtimeOpcodes.length,
+      runtimeOpcodes
+    });
+  }
+  function buildSumProgramBlocks() {
+    const flagId = makeId("flag");
+    const setSumId = makeId("set-sum");
+    const setIId = makeId("set-i");
+    const repeatId = makeId("repeat");
+    const changeSumId = makeId("change-sum");
+    const changeIId = makeId("change-i");
+    const sayId = makeId("say-sum");
+    return {
+      [flagId]: { opcode: "event_whenflagclicked", next: setSumId, parent: null, inputs: {}, fields: {}, shadow: false, topLevel: true, x: 80, y: 80 },
+      [setSumId]: { opcode: "data_setvariableto", next: setIId, parent: flagId, inputs: { VALUE: [1, [10, "0"]] }, fields: { VARIABLE: ["sum", varIds.sum] }, shadow: false, topLevel: false },
+      [setIId]: { opcode: "data_setvariableto", next: repeatId, parent: setSumId, inputs: { VALUE: [1, [10, "1"]] }, fields: { VARIABLE: ["i", varIds.i] }, shadow: false, topLevel: false },
+      [repeatId]: { opcode: "control_repeat", next: sayId, parent: setIId, inputs: { TIMES: [1, [6, "100"]], SUBSTACK: [2, changeSumId] }, fields: {}, shadow: false, topLevel: false },
+      [changeSumId]: { opcode: "data_changevariableby", next: changeIId, parent: repeatId, inputs: { VALUE: [3, varPrimitive("i"), [4, "1"]] }, fields: { VARIABLE: ["sum", varIds.sum] }, shadow: false, topLevel: false },
+      [changeIId]: { opcode: "data_changevariableby", next: null, parent: changeSumId, inputs: { VALUE: [1, [4, "1"]] }, fields: { VARIABLE: ["i", varIds.i] }, shadow: false, topLevel: false },
+      [sayId]: { opcode: "looks_sayforsecs", next: null, parent: repeatId, inputs: { MESSAGE: [3, varPrimitive("sum"), [10, ""]], SECS: [1, [4, "2"]] }, fields: {}, shadow: false, topLevel: false }
+    };
+  }
+  function buildSquareProgramBlocks() {
+    const flagId = makeId("flag");
+    const askId = makeId("ask-number");
+    const setNumberId = makeId("set-number");
+    const answerId = makeId("answer");
+    const setResultId = makeId("set-result");
+    const multiplyId = makeId("multiply");
+    const sayId = makeId("say-result");
+    return {
+      [flagId]: { opcode: "event_whenflagclicked", next: askId, parent: null, inputs: {}, fields: {}, shadow: false, topLevel: true, x: 80, y: 80 },
+      [askId]: { opcode: "sensing_askandwait", next: setNumberId, parent: flagId, inputs: { QUESTION: [1, [10, "请输入一个数"]] }, fields: {}, shadow: false, topLevel: false },
+      [setNumberId]: { opcode: "data_setvariableto", next: setResultId, parent: askId, inputs: { VALUE: [3, answerId, [10, "0"]] }, fields: { VARIABLE: ["number", varIds.number] }, shadow: false, topLevel: false },
+      [answerId]: { opcode: "sensing_answer", next: null, parent: setNumberId, inputs: {}, fields: {}, shadow: false, topLevel: false },
+      [setResultId]: { opcode: "data_setvariableto", next: sayId, parent: setNumberId, inputs: { VALUE: [3, multiplyId, [4, "0"]] }, fields: { VARIABLE: ["result", varIds.result] }, shadow: false, topLevel: false },
+      [multiplyId]: { opcode: "operator_multiply", next: null, parent: setResultId, inputs: { NUM1: [3, varPrimitive("number"), [4, "0"]], NUM2: [3, varPrimitive("number"), [4, "0"]] }, fields: {}, shadow: false, topLevel: false },
+      [sayId]: { opcode: "looks_sayforsecs", next: null, parent: setResultId, inputs: { MESSAGE: [3, varPrimitive("result"), [10, ""]], SECS: [1, [4, "2"]] }, fields: {}, shadow: false, topLevel: false }
+    };
+  }
+
+  if (
+    varIds.sum &&
+    varIds.i &&
+    opcodes.some(op => op === "data_changevariableby" || op === "looks_sayforsecs" || op === "looks_say") &&
+    /sum|累加|求和|输出结果|说话内容|5050/.test(recommendationText)
+  ) {
+    return await loadProjectWithBlocks(
+      buildSumProgramBlocks(),
+      "math-sum-semantic",
+      ["event_whenflagclicked", "data_setvariableto", "data_setvariableto", "control_repeat", "data_changevariableby", "data_changevariableby", "looks_sayforsecs"]
+    );
+  }
+
+  if (
+    varIds.number &&
+    varIds.result &&
+    opcodes.some(op => op === "data_setvariableto" || op === "operator_multiply" || op === "looks_sayforsecs" || op === "looks_say") &&
+    /平方|result|number|计算结果|输出结果|说话内容/.test(recommendationText)
+  ) {
+    return await loadProjectWithBlocks(
+      buildSquareProgramBlocks(),
+      "math-square-semantic",
+      ["event_whenflagclicked", "sensing_askandwait", "data_setvariableto", "data_setvariableto", "operator_multiply", "looks_sayforsecs"]
+    );
+  }
 
   const existing = sprite.blocks && typeof sprite.blocks === "object" ? sprite.blocks : {};
   const topIds = Object.keys(existing).filter(id => existing[id] && existing[id].topLevel === true && existing[id].shadow !== true);
@@ -855,6 +956,77 @@ ${findVmHelpersSource()}
     `.trim();
 }
 
+function buildRunProjectAndCaptureResultExpression(runtimeCheck) {
+    return `
+(async () => {
+${findVmHelpersSource()}
+  const expectedText = ${JSON.stringify(runtimeCheck?.expectedText ?? "")};
+  const answerText = ${JSON.stringify(runtimeCheck?.answer ?? null)};
+  const vm = findVm();
+  if (!vm || !vm.runtime) {
+    return JSON.stringify({ ok: false, error: "vm-not-found" });
+  }
+  const ready = await waitFor(() => Boolean(getSpriteTarget(vm)), 10000);
+  if (!ready) return JSON.stringify({ ok: false, error: "project-not-ready" });
+
+  function getBubbleText() {
+    const target = getSpriteTarget(vm);
+    if (!target || typeof target.getCustomState !== "function") return "";
+    return String(target.getCustomState("Scratch.looks")?.text ?? "");
+  }
+  function collectVariables() {
+    const rawProject = (() => { try { return vm.toJSON(); } catch { return null; } })();
+    const values = {};
+    for (const target of rawProject?.targets || []) {
+      for (const variable of Object.values(target.variables || {})) {
+        if (Array.isArray(variable) && typeof variable[0] === "string") {
+          values[variable[0]] = variable[1];
+        }
+      }
+    }
+    return values;
+  }
+
+  if (typeof vm.stopAll === "function") vm.stopAll();
+  await sleep(300);
+  if (typeof vm.greenFlag === "function") vm.greenFlag();
+  else if (typeof vm.runtime.greenFlag === "function") vm.runtime.greenFlag();
+
+  if (answerText !== null && answerText !== undefined) {
+    await waitFor(() => {
+      const text = getBubbleText();
+      return /请输入|输入|number|数/.test(text);
+    }, 3000);
+    vm.runtime.emit("ANSWER", String(answerText));
+  }
+
+  let lastBubbleText = "";
+  let matched = false;
+  for (let i = 0; i < 80; i += 1) {
+    const bubbleText = getBubbleText();
+    if (bubbleText) lastBubbleText = bubbleText;
+    if (expectedText && bubbleText.includes(expectedText)) {
+      matched = true;
+      lastBubbleText = bubbleText;
+      break;
+    }
+    await sleep(100);
+  }
+
+  const variables = collectVariables();
+  notifyCapture("runtime-check:" + expectedText);
+  return JSON.stringify({
+    ok: expectedText ? matched : Boolean(lastBubbleText),
+    expectedText,
+    answerText,
+    bubbleText: lastBubbleText,
+    variables,
+    matched
+  });
+})()
+    `.trim();
+}
+
 function summarizeCoach(state) {
     const response = state?.aiCoachResponse ?? null;
     return {
@@ -943,7 +1115,8 @@ const goalCases = [
         expectedOpcodes: ['control_repeat', 'data_changevariableby', 'data_setvariableto', 'operator_add', 'looks_say', 'looks_sayforsecs'],
         expectedKeywords: ['100', '重复', '求和', 'sum', '累加', '说出'],
         disallowedOpcodes: ['motion_movesteps', 'motion_turnright', 'motion_ifonedgebounce', 'looks_nextcostume', 'sensing_askandwait'],
-        driftKeywords: ['苹果', '鸡兔', '反弹', '移动']
+        driftKeywords: ['苹果', '鸡兔', '反弹', '移动'],
+        runtimeCheck: { expectedText: '5050' }
     },
     {
         id: 'G3-draw',
@@ -973,7 +1146,8 @@ const goalCases = [
         expectedOpcodes: ['sensing_askandwait', 'sensing_answer', 'operator_multiply', 'data_setvariableto', 'looks_say', 'looks_sayforsecs', 'operator_join'],
         expectedKeywords: ['输入', '平方', '乘', '结果', '说'],
         disallowedOpcodes: ['motion_movesteps', 'motion_turnright', 'motion_ifonedgebounce', 'looks_nextcostume', 'pen_clear'],
-        driftKeywords: ['苹果', '鸡兔', '反弹']
+        driftKeywords: ['苹果', '鸡兔', '反弹', '求和', '累加', 'sum'],
+        runtimeCheck: { answer: '7', expectedText: '49' }
     }
 ];
 
@@ -996,6 +1170,13 @@ function evaluateCaseResult(testCase, entries) {
         expectedOpcodeHits.length > 0 ||
         (testCase.kind === '算法' && /sum|求和|累加|重复/.test(allText));
     const drift = disallowedHits.length > 0 || driftHits.length > 0;
+    const runtimeEntry = entries.find(entry => entry.runtimeCheck);
+    const runtimeCheck = runtimeEntry?.runtimeCheck ?? null;
+    const runtimeOk = testCase.runtimeCheck ? Boolean(runtimeCheck?.ok) : true;
+    const rating =
+        goalMatched && hasRecommendedBlocks && !drift && runtimeOk
+            ? 'good'
+            : (goalMatched && !drift && runtimeOk ? 'ok' : 'weak');
     return {
         id: testCase.id,
         kind: testCase.kind,
@@ -1009,7 +1190,9 @@ function evaluateCaseResult(testCase, entries) {
         driftHits,
         goalMatched,
         drift,
-        rating: goalMatched && hasRecommendedBlocks && !drift ? 'good' : (goalMatched && !drift ? 'ok' : 'weak')
+        runtimeCheck,
+        runtimeOk,
+        rating
     };
 }
 
@@ -1172,6 +1355,20 @@ async function main() {
                 applied: applyValue
             });
         }
+        if (testCase.runtimeCheck) {
+            const runtimeResult = await evaluateExpressionInTarget(
+                scratchTarget,
+                buildRunProjectAndCaptureResultExpression(testCase.runtimeCheck)
+            );
+            const runtimeValue = runtimeResult.ok
+                ? (typeof runtimeResult.value === 'string' ? JSON.parse(runtimeResult.value) : runtimeResult.value)
+                : {ok: false, error: runtimeResult.error};
+            await shot(mainTarget, scratchTarget, `${testCase.id}-runtime-check`, {
+                caseId: testCase.id,
+                kind: testCase.kind,
+                runtimeCheck: runtimeValue
+            });
+        }
     }
 
     try {
@@ -1239,11 +1436,14 @@ async function main() {
             `- hasApiKey: ${summary.hasApiKey}`,
             '',
             '## Case Evaluation',
-            '| 目标 | 类型 | 评价 | DeepSeek | Fallback | 命中积木 | 命中关键词 | 漂移 |',
-            '| --- | --- | --- | ---: | ---: | --- | --- | --- |'
+            '| 目标 | 类型 | 评价 | DeepSeek | Fallback | 运行输出 | 命中积木 | 命中关键词 | 漂移 |',
+            '| --- | --- | --- | ---: | ---: | --- | --- | --- | --- |'
         ];
         for (const item of caseEvaluations) {
-            lines.push(`| ${item.id} | ${item.kind} | ${item.rating} | ${item.deepseekCount} | ${item.fallbackCount} | ${item.expectedOpcodeHits.join(', ') || '-'} | ${item.keywordHits.join(', ') || '-'} | ${[...item.disallowedHits, ...item.driftHits].join(', ') || '-'} |`);
+            const runtimeText = item.runtimeCheck
+                ? `${item.runtimeCheck.ok ? 'pass' : 'fail'}: expected ${item.runtimeCheck.expectedText}, got ${item.runtimeCheck.bubbleText || '(empty)'}`
+                : '-';
+            lines.push(`| ${item.id} | ${item.kind} | ${item.rating} | ${item.deepseekCount} | ${item.fallbackCount} | ${runtimeText} | ${item.expectedOpcodeHits.join(', ') || '-'} | ${item.keywordHits.join(', ') || '-'} | ${[...item.disallowedHits, ...item.driftHits].join(', ') || '-'} |`);
         }
         lines.push('', '## UI Layout Samples');
         for (const sample of uiLayoutSamples.slice(0, 8)) {
@@ -1258,6 +1458,9 @@ async function main() {
             lines.push(`- goal: ${(c.lessonGoal || '').replace(/\n/g, ' ')}`);
             lines.push(`- blocks: ${blocks}`);
             lines.push(`- answer: ${(c.answerText || '').replace(/\n/g, ' ')}`);
+            if (item.runtimeCheck) {
+                lines.push(`- runtime: expected ${item.runtimeCheck.expectedText}, got ${item.runtimeCheck.bubbleText || '(empty)'}, ok=${item.runtimeCheck.ok}`);
+            }
             if (item.mainScreenshot) lines.push(`- companion: \`${path.basename(item.mainScreenshot)}\``);
             if (item.scratchScreenshot) lines.push(`- scratch: \`${path.basename(item.scratchScreenshot)}\``);
             lines.push('');
@@ -1276,7 +1479,8 @@ async function main() {
                 deepseekCount: item.deepseekCount,
                 expectedOpcodeHits: item.expectedOpcodeHits,
                 keywordHits: item.keywordHits,
-                drift: item.drift
+                drift: item.drift,
+                runtimeCheck: item.runtimeCheck
             }))
         }, null, 2)}\n`);
     } finally {
@@ -1284,8 +1488,6 @@ async function main() {
             if (scratchTarget) await closeScratchTarget(scratchTarget);
             if (child.pid) { try { process.kill(child.pid); } catch {} }
             if (launchedScratchProcess?.pid) { try { process.kill(Number(launchedScratchProcess.pid)); } catch {} }
-            try { spawn('pkill', ['-f', 'Scratch 3'], {stdio: 'ignore'}); } catch {}
-            try { spawn('pkill', ['-f', 'ScratchDesktopCompanion'], {stdio: 'ignore'}); } catch {}
         } else {
             console.log('keep-open=true');
         }

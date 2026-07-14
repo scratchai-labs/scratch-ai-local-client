@@ -241,6 +241,41 @@ test("buildRecommendedBlockXml infers sum variable defaults from recommendation 
   assert.match(changeCounterXml, /<field name="NUM">1<\/field>/);
 });
 
+test("buildRecommendedBlockXml uses variable reporters for math output bubbles", () => {
+  const saySumXml = buildRecommendedBlockXml({
+    opcode: "looks_sayforsecs",
+    category: "外观",
+    label: "说 2 秒",
+    reason: "循环结束后说出 sum 的值。"
+  });
+  const sayResultXml = buildRecommendedBlockXml({
+    opcode: "looks_sayforsecs",
+    category: "外观",
+    label: "说 2 秒",
+    reason: "输出 result 计算结果。"
+  });
+
+  assert.match(saySumXml, /<value name="MESSAGE">\s*<block type="data_variable">/);
+  assert.match(saySumXml, /<field name="VARIABLE"[^>]*>sum<\/field>/);
+  assert.doesNotMatch(saySumXml, /<field name="TEXT">结果<\/field>/);
+  assert.match(sayResultXml, /<value name="MESSAGE">\s*<block type="data_variable">/);
+  assert.match(sayResultXml, /<field name="VARIABLE"[^>]*>result<\/field>/);
+});
+
+test("buildRecommendedBlockXml renders square calculation into result variable", () => {
+  const xml = buildRecommendedBlockXml({
+    opcode: "data_setvariableto",
+    category: "变量",
+    label: "将变量设为",
+    reason: "计算 number 的平方并存入 result，也就是 result = number * number。"
+  });
+
+  assert.match(xml, /<field name="VARIABLE"[^>]*>result<\/field>/);
+  assert.match(xml, /<value name="VALUE">\s*<block type="operator_multiply">/);
+  assert.match(xml, /<value name="NUM1">\s*<block type="data_variable">/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>number<\/field>[\s\S]*<field name="VARIABLE"[^>]*>number<\/field>/);
+});
+
 test("buildRecommendedStructureXml keeps distinct inferred sum variables in connected recommendations", () => {
   const xml = buildRecommendedStructureXml({
     root: {

@@ -75,5 +75,6 @@ tools/verification/tmp-lesson-goal-input-userdata/
 multi-goal-deepseek-screenshots*/
 multi-goal-recording-*/
 multi-goal-split-recording-*/
+runtime-output-verification-*/
 multi-goal-deepseek-run.log
 tools/verification/tmp-multi-goal-deepseek-userdata/
