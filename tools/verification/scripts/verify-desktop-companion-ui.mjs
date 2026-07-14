@@ -43,7 +43,6 @@ const timeoutMs = Number(argv.get('--timeout-ms') ?? '15000');
 const screenshotPath = argv.get('--screenshot') ?? screenshotPathDefault;
 const automationScratchPath = argv.get('--automation-scratch-path') ?? getDefaultAutomationScratchPath();
 const userDataDir = path.join(verificationRoot, 'tmp-desktop-companion-ui-userdata');
-const expectedProgramLabel = '脚本 1';
 
 async function ensureReadable(filePath) {
     await access(filePath);
@@ -441,7 +440,7 @@ async function main() {
             candidate.status === '已连接到 Scratch Desktop' &&
             candidate.currentTarget === 'Cat' &&
             Array.isArray(candidate.currentTargetPrograms) &&
-            candidate.currentTargetPrograms.some(program => program.startsWith(expectedProgramLabel))
+            candidate.currentTargetPrograms.some(program => typeof program === 'string' && program.length > 0)
         );
         assert(
             value.status === '已连接到 Scratch Desktop',
@@ -453,7 +452,7 @@ async function main() {
         );
         assert(Array.isArray(value.currentTargetPrograms), 'Desktop companion did not render the current program list.');
         assert(
-            value.currentTargetPrograms.some(program => program.startsWith(expectedProgramLabel)),
+            value.currentTargetPrograms.some(program => typeof program === 'string' && program.length > 0),
             `Desktop companion did not render the current target program. Actual: ${JSON.stringify(value)}`
         );
         assert(

@@ -1939,3 +1939,79 @@ test("CoachService filters motion recommendations for math chicken-rabbit DeepSe
   assert.equal(result.coachResponse.recommendedBlocks[0]?.opcode, "data_setvariableto");
 });
 
+test("CoachService filters ask recommendations for fixed upper-bound sum goals", async () => {
+  const service = new CoachService(async () => {
+    return {
+      ok: true,
+      async json() {
+        return {
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  summary: "先询问 n，再循环求和。",
+                  recommendation: {
+                    root: {
+                      opcode: "sensing_askandwait",
+                      category: "侦测",
+                      label: "询问并等待",
+                      reason: "询问 n",
+                      next: {
+                        opcode: "control_repeat",
+                        category: "控制",
+                        label: "重复执行",
+                        reason: "重复 100 次",
+                        substack: {
+                          opcode: "data_changevariableby",
+                          category: "变量",
+                          label: "将变量增加",
+                          reason: "sum 增加 i"
+                        }
+                      }
+                    }
+                  }
+                })
+              }
+            }
+          ]
+        };
+      }
+    };
+  });
+
+  const snapshot = createSnapshot();
+  snapshot.programAreaModules = [
+    { id: "event", label: "事件", blockCount: 1 },
+    { id: "data", label: "变量", blockCount: 3 },
+    { id: "control", label: "控制", blockCount: 1 }
+  ];
+  snapshot.globalVariables = [
+    { id: "n", name: "n", value: 100, isCloud: false },
+    { id: "sum", name: "sum", value: 0, isCloud: false },
+    { id: "i", name: "i", value: 1, isCloud: false }
+  ];
+  snapshot.sprites[0].variables = snapshot.globalVariables;
+  snapshot.sprites[0].scripts[0] = {
+    spriteName: "Cat",
+    event: "when green flag clicked",
+    blockSequence: ["当绿旗被点击", "将 n 设为 100", "将 sum 设为 0", "将 i 设为 1"],
+    blockOpcodes: ["event_whenflagclicked", "data_setvariableto", "data_setvariableto", "data_setvariableto"]
+  };
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["当绿旗被点击 -> 将 n 设为 100 -> 将 sum 设为 0 -> 将 i 设为 1"],
+    programAreaModules: snapshot.programAreaModules,
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "1+100 用重复执行求和，并说出结果",
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.equal(
+    result.coachResponse.recommendedBlocks.some((block) => block.opcode === "sensing_askandwait"),
+    false
+  );
+  assert.equal(result.coachResponse.recommendedBlocks[0]?.opcode, "control_repeat");
+});

@@ -246,26 +246,45 @@
 
       .lesson-goal-row {
         display: grid;
-        grid-template-columns: auto minmax(0, 1fr);
-        gap: 8px;
+        grid-template-columns: minmax(140px, 0.26fr) minmax(0, 1fr);
+        gap: 10px;
         align-items: center;
-        margin-top: 6px;
+        padding: 7px 9px;
+        border: 1px solid rgba(37, 99, 235, 0.16);
+        border-radius: var(--control-radius);
+        background: #f8fbff;
+      }
+
+      .lesson-goal-copy {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
       }
 
       .lesson-goal-row label {
-        color: var(--text-muted, #5b6472);
-        font-size: var(--text-mini, 12px);
+        color: var(--ink);
+        font-size: var(--text-note);
+        font-weight: 650;
+        white-space: nowrap;
+      }
+
+      .lesson-goal-row span {
+        overflow: hidden;
+        color: var(--muted);
+        font-size: var(--text-mini);
+        line-height: 1.35;
+        text-overflow: ellipsis;
         white-space: nowrap;
       }
 
       .lesson-goal-row input {
         width: 100%;
-        min-height: 30px;
+        min-height: 32px;
         border-radius: 8px;
         border: 1px solid rgba(15, 23, 42, 0.12);
         background: #fff;
         color: inherit;
-        padding: 4px 8px;
+        padding: 5px 10px;
         font: inherit;
       }
 
@@ -568,6 +587,11 @@
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
+        .lesson-goal-row {
+          grid-template-columns: 1fr;
+          gap: 6px;
+        }
+
         .action-heading {
           align-items: stretch;
         }
@@ -607,17 +631,21 @@
                 <button id="retry-button" class="button secondary" type="button">重新连接</button>
                 <button id="generate-ai-button" class="button primary" type="button">生成下一步提示</button>
               </div>
-              <div class="lesson-goal-row">
+            </div>
+            <div class="lesson-goal-row">
+              <div class="lesson-goal-copy">
                 <label for="lesson-goal-input">本课目标</label>
-                <input
-                  id="lesson-goal-input"
-                  type="text"
-                  maxlength="200"
-                  placeholder="可选填写，例如：鸡兔同笼 / 1到n求和；不填则自动识别"
-                  aria-label="本课目标"
-                  autocomplete="off"
-                />
+                <span id="lesson-goal-help">可选填写，AI 更贴题。</span>
               </div>
+              <input
+                id="lesson-goal-input"
+                type="text"
+                maxlength="200"
+                placeholder="例如：1+100 用重复执行求和并说出结果；不填则自动识别"
+                aria-label="本课目标"
+                aria-describedby="lesson-goal-help"
+                autocomplete="off"
+              />
             </div>
             <div class="summary-grid compact">
               <div class="summary-card">

@@ -38,7 +38,7 @@ const HINT_ONLY_USER_PROMPT =
   "这是一次基于最新快照的全新复评。请完整阅读舞台和全部角色的全部脚本，尤其使用 projectScriptEvidence 核对每个积木的真实字段、输入、条件分支和广播名称；不要沿用之前的完整性结论，也不要根据角色名或游戏题材脑补快照中没有的功能。请从绿旗入口开始追踪实际执行路径，确认广播发送条件能够到达、接收脚本能够启动，并区分自动运行与按键/鼠标控制。先从整个 Scratch 项目判断它是否已经形成完整、可运行、目标清楚的作品；summary 中提到的每项玩法都必须有当前脚本证据且实际可达。若还没完成，再给出“下一步做什么”的提示和按顺序连接的具体积木；优先基于已经使用过的模块继续推进，不要让学生一下子大改。不要把当前角色已经存在的事件帽子积木再次作为下一步推荐；如果后续积木需要接到现有脚本中，只返回需要新增的部分。若项目已经完整，不要为了给建议而强行添加功能，可以不返回 recommendation，只在 summary 里简短告诉学生如何启动、操作或体验。";
 
 const TASK_TYPE_GUIDANCE =
-  "先判断作品任务类型，再给下一步提示：1) 数学计算题：变量名或脚本出现 heads/feet/chickens/rabbits/n/sum/i/total 等，或目标含鸡兔同笼/求和/累加/公式时，按计算题辅导。2) 游戏动画题：以移动、碰撞、得分、按键控制为主时，按游戏动画辅导。3) 混合题：有数学变量又有运动时，优先补全计算与结果输出，不要为了热闹再加无关动画。数学计算题硬性规则：- 已知量是 heads/feet 或 n 时，下一步必须朝求解目标量推进，禁止把任务反转成“用鸡兔再算总头脚”或“为了动画而移动/旋转/反弹”。- 鸡兔同笼优先：rabbits=(feet-2*heads)/2，chickens=heads-rabbits，最后用 looks_say 或显示变量说出结果。- 1到n求和优先：初始化 sum=0 与 i=1，重复 n 次，循环内 sum 增加 i、i 增加 1，最后说出 sum。- 缺计算时优先推荐 data_setvariableto / data_changevariableby / operator_add / operator_subtract / operator_multiply / operator_divide / control_repeat / sensing_askandwait / looks_sayforsecs。- 除非学生目标明确要求动画，不要推荐 motion_movesteps、motion_turnright、motion_ifonedgebounce、looks_switchcostumeto 作为数学题的下一步。";
+  "先判断作品任务类型，再给下一步提示：1) 数学计算题：变量名或脚本出现 heads/feet/chickens/rabbits/n/sum/i/total 等，或目标含鸡兔同笼/求和/累加/公式时，按计算题辅导。2) 游戏动画题：以移动、碰撞、得分、按键控制为主时，按游戏动画辅导。3) 混合题：有数学变量又有运动时，优先补全计算与结果输出，不要为了热闹再加无关动画。数学计算题硬性规则：- 已知量是 heads/feet 或 n 时，下一步必须朝求解目标量推进，禁止把任务反转成“用鸡兔再算总头脚”或“为了动画而移动/旋转/反弹”。- 鸡兔同笼优先：rabbits=(feet-2*heads)/2，chickens=heads-rabbits，最后用 looks_say 或显示变量说出结果。- 1到n求和优先：初始化 sum=0 与 i=1，重复 n 次，循环内 sum 增加 i、i 增加 1，最后说出 sum；如果目标已经写明 100 这类固定上限，不要再推荐 sensing_askandwait 询问 n，直接使用已知上限。- 缺计算时优先推荐 data_setvariableto / data_changevariableby / operator_add / operator_subtract / operator_multiply / operator_divide / control_repeat / sensing_askandwait / looks_sayforsecs。- 除非学生目标明确要求动画，不要推荐 motion_movesteps、motion_turnright、motion_ifonedgebounce、looks_switchcostumeto 作为数学题的下一步。";
 
 const NON_REPEATABLE_HAT_OPCODE_SET = new Set([
   "event_whenflagclicked",
@@ -939,6 +939,9 @@ function isAvailableRecommendedOpcode(opcode: string, options: GenerateCoachHint
   }
 
   const intent = detectCoachingTaskIntent(options);
+  if (opcode === "sensing_askandwait" && shouldAvoidAskForFixedSumGoal(options, intent)) {
+    return false;
+  }
   if (isMathTaskType(intent.taskType) && MATH_TASK_DISALLOWED_OPCODES.has(opcode)) {
     return false;
   }
@@ -949,6 +952,22 @@ function isAvailableRecommendedOpcode(opcode: string, options: GenerateCoachHint
   }
 
   return options.loadedExtensions.includes(extensionId) || options.snapshot.loadedExtensions.includes(extensionId);
+}
+
+function shouldAvoidAskForFixedSumGoal(
+  options: GenerateCoachHintOptions,
+  intent = detectCoachingTaskIntent(options)
+) {
+  if (intent.taskType !== "math-sum") {
+    return false;
+  }
+
+  const goalText = normalizeIntentText(options.goal || options.snapshot.goal || "");
+  if (!goalText || /询问|输入|回答|ask/.test(goalText)) {
+    return false;
+  }
+
+  return /\d+/.test(goalText) && /(求和|累加|1到|1\+)/.test(goalText);
 }
 
 function canUseRecommendationRelation(opcode: string, relation: "condition" | "substack" | "substack2") {

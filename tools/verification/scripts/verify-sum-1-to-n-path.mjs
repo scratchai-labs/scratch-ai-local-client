@@ -7,7 +7,7 @@
  * 而不是纯公式运算。
  *
  * 阶段：
- *  A start     : 绿旗 + n=10
+ *  A start     : 绿旗 + n=100
  *  B vars      : n/sum/i 变量齐，但 sum 仍是 0、没有循环
  *  C loop-empty: 有重复 n 次，但循环体为空或只改 i
  *  D near-add  : 循环里有 i=i+1，缺 sum=sum+i
@@ -41,6 +41,8 @@ const requestedScratchExe = argv.get('--scratch-exe') ?? null;
 const companionDebugPort = Number(argv.get('--port') ?? '9383');
 const timeoutMs = Number(argv.get('--timeout-ms') ?? '120000');
 const maxFollowSteps = Number(argv.get('--follow-steps') ?? '4');
+const sumTargetN = String(argv.get('--n') ?? '100');
+const lessonGoal = String(argv.get('--goal') ?? `1到${sumTargetN} 用重复执行求和，并说出结果`);
 const keepOpen = argv.get('--keep-open') === 'true';
 
 const artifactDir =
@@ -278,6 +280,7 @@ async function waitForMainState(target, predicate, errorMessage, options = {}) {
                 status: lastState.status,
                 aiStatus: lastState.aiStatus,
                 aiProvider: lastState.aiProvider,
+                lessonGoal: lastState.lessonGoal,
                 programs: lastState.currentTargetPrograms,
                 answerText: lastState.aiCoachResponse?.answerText,
                 recommendedBlocks: (lastState.aiCoachResponse?.recommendedBlocks ?? []).map(b => b.opcode),
@@ -288,16 +291,92 @@ async function waitForMainState(target, predicate, errorMessage, options = {}) {
     });
 }
 async function clickButton(target, selector) {
-    const clickResult = await evaluateExpressionInTarget(target, `
+    return await withTargetConnection(target, async connection => {
+        await connection.send('Runtime.enable');
+        const targetInfo = await connection.send('Runtime.evaluate', {
+            expression: `
 (() => {
   const button = document.querySelector(${JSON.stringify(selector)});
   if (!(button instanceof HTMLButtonElement)) return { ok: false, error: "button-not-found" };
-  button.click();
-  return { ok: true };
+  button.scrollIntoView({ block: "center", inline: "center" });
+  const rect = button.getBoundingClientRect();
+  return {
+    ok: true,
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2,
+    disabledBefore: button.disabled
+  };
 })()
-    `.trim());
-    if (!clickResult.ok) throw new Error(clickResult.error ?? `Failed to click ${selector}.`);
-    return clickResult.value ?? {};
+            `.trim(),
+            awaitPromise: true,
+            returnByValue: true,
+            userGesture: true
+        });
+        const value = targetInfo.result?.value ?? {};
+        if (!value.ok) throw new Error(value.error ?? `Failed to locate ${selector}.`);
+        await connection.send('Input.dispatchMouseEvent', {type: 'mouseMoved', x: value.x, y: value.y, button: 'none'});
+        await connection.send('Input.dispatchMouseEvent', {type: 'mousePressed', x: value.x, y: value.y, button: 'left', clickCount: 1});
+        await connection.send('Input.dispatchMouseEvent', {type: 'mouseReleased', x: value.x, y: value.y, button: 'left', clickCount: 1});
+        await sleep(80);
+        const after = await connection.send('Runtime.evaluate', {
+            expression: `
+(() => {
+  const button = document.querySelector(${JSON.stringify(selector)});
+  if (!(button instanceof HTMLButtonElement)) return { ok: false, error: "button-not-found-after-click" };
+  return { ok: true, disabledImmediately: button.disabled };
+})()
+            `.trim(),
+            awaitPromise: true,
+            returnByValue: true,
+            userGesture: true
+        });
+        return after.result?.value ?? {ok: true};
+    });
+}
+
+async function typeLessonGoal(target, goalText) {
+    return await withTargetConnection(target, async connection => {
+        await connection.send('Runtime.enable');
+        const targetInfo = await connection.send('Runtime.evaluate', {
+            expression: `
+(() => {
+  const input = document.querySelector('#lesson-goal-input');
+  if (!(input instanceof HTMLInputElement)) return { ok: false, error: "lesson-goal-input-missing" };
+  input.scrollIntoView({ block: "center", inline: "center" });
+  const descriptor = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value");
+  if (descriptor && typeof descriptor.set === "function") descriptor.set.call(input, "");
+  else input.value = "";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  const rect = input.getBoundingClientRect();
+  return { ok: true, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+})()
+            `.trim(),
+            awaitPromise: true,
+            returnByValue: true,
+            userGesture: true
+        });
+        const value = targetInfo.result?.value ?? {};
+        if (!value.ok) throw new Error(value.error ?? 'Failed to locate lesson goal input.');
+        await connection.send('Input.dispatchMouseEvent', {type: 'mouseMoved', x: value.x, y: value.y, button: 'none'});
+        await connection.send('Input.dispatchMouseEvent', {type: 'mousePressed', x: value.x, y: value.y, button: 'left', clickCount: 1});
+        await connection.send('Input.dispatchMouseEvent', {type: 'mouseReleased', x: value.x, y: value.y, button: 'left', clickCount: 1});
+        await connection.send('Input.insertText', {text: goalText});
+        const after = await connection.send('Runtime.evaluate', {
+            expression: `
+(() => {
+  const input = document.querySelector('#lesson-goal-input');
+  if (!(input instanceof HTMLInputElement)) return { ok: false, error: "lesson-goal-input-missing-after-type" };
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  input.blur();
+  return { ok: true, value: input.value, placeholder: input.placeholder || "" };
+})()
+            `.trim(),
+            awaitPromise: true,
+            returnByValue: true,
+            userGesture: true
+        });
+        return after.result?.value ?? {};
+    });
 }
 
 function findVmHelpersSource() {
@@ -389,6 +468,7 @@ function buildSeedExpression(stageName) {
 (async () => {
 ${findVmHelpersSource()}
   const stageName = ${JSON.stringify(stageName)};
+  const targetN = ${JSON.stringify(sumTargetN)};
   const vm = findVm();
   if (!vm || !vm.runtime || typeof vm.toJSON !== "function" || typeof vm.loadProject !== "function") {
     return JSON.stringify({ ok: false, error: "vm-not-found" });
@@ -416,16 +496,16 @@ ${findVmHelpersSource()}
   const sayId = makeId("say");
 
   if (stageName === "A-start") {
-    // 学生只写下 n=10
+    // 学生只写下 n=100
     sprite.blocks = {
       [flagId]: { opcode: "event_whenflagclicked", next: setNId, parent: null, inputs: {}, fields: {}, shadow: false, topLevel: true, x: 70, y: 70 },
-      [setNId]: { opcode: "data_setvariableto", next: null, parent: flagId, inputs: { VALUE: [1, [10, "10"]] }, fields: { VARIABLE: varField("n", ids) }, shadow: false, topLevel: false }
+      [setNId]: { opcode: "data_setvariableto", next: null, parent: flagId, inputs: { VALUE: [1, [10, targetN]] }, fields: { VARIABLE: varField("n", ids) }, shadow: false, topLevel: false }
     };
   } else if (stageName === "B-vars-only") {
-    // 变量都有了：n=10 sum=0 i=1，但还不会循环累加
+    // 变量都有了：n=100 sum=0 i=1，但还不会循环累加
     sprite.blocks = {
       [flagId]: { opcode: "event_whenflagclicked", next: setNId, parent: null, inputs: {}, fields: {}, shadow: false, topLevel: true, x: 70, y: 70 },
-      [setNId]: { opcode: "data_setvariableto", next: setSumId, parent: flagId, inputs: { VALUE: [1, [10, "10"]] }, fields: { VARIABLE: varField("n", ids) }, shadow: false, topLevel: false },
+      [setNId]: { opcode: "data_setvariableto", next: setSumId, parent: flagId, inputs: { VALUE: [1, [10, targetN]] }, fields: { VARIABLE: varField("n", ids) }, shadow: false, topLevel: false },
       [setSumId]: { opcode: "data_setvariableto", next: setIId, parent: setNId, inputs: { VALUE: [1, [10, "0"]] }, fields: { VARIABLE: varField("sum", ids) }, shadow: false, topLevel: false },
       [setIId]: { opcode: "data_setvariableto", next: null, parent: setSumId, inputs: { VALUE: [1, [10, "1"]] }, fields: { VARIABLE: varField("i", ids) }, shadow: false, topLevel: false }
     };
@@ -433,22 +513,22 @@ ${findVmHelpersSource()}
     // 知道要用“重复 n 次”，但循环体是空的
     sprite.blocks = {
       [flagId]: { opcode: "event_whenflagclicked", next: setNId, parent: null, inputs: {}, fields: {}, shadow: false, topLevel: true, x: 70, y: 70 },
-      [setNId]: { opcode: "data_setvariableto", next: setSumId, parent: flagId, inputs: { VALUE: [1, [10, "10"]] }, fields: { VARIABLE: varField("n", ids) }, shadow: false, topLevel: false },
+      [setNId]: { opcode: "data_setvariableto", next: setSumId, parent: flagId, inputs: { VALUE: [1, [10, targetN]] }, fields: { VARIABLE: varField("n", ids) }, shadow: false, topLevel: false },
       [setSumId]: { opcode: "data_setvariableto", next: setIId, parent: setNId, inputs: { VALUE: [1, [10, "0"]] }, fields: { VARIABLE: varField("sum", ids) }, shadow: false, topLevel: false },
       [setIId]: { opcode: "data_setvariableto", next: repeatId, parent: setSumId, inputs: { VALUE: [1, [10, "1"]] }, fields: { VARIABLE: varField("i", ids) }, shadow: false, topLevel: false },
-      [repeatId]: { opcode: "control_repeat", next: null, parent: setIId, inputs: { TIMES: [1, [6, "10"]], SUBSTACK: [1, null] }, fields: {}, shadow: false, topLevel: false }
+      [repeatId]: { opcode: "control_repeat", next: null, parent: setIId, inputs: { TIMES: [1, [6, targetN]], SUBSTACK: [1, null] }, fields: {}, shadow: false, topLevel: false }
     };
   } else if (stageName === "D-near-add") {
     // 循环里只会 i=i+1，还没做 sum=sum+i
     const plusIId = makeId("plus-i");
     sprite.blocks = {
       [flagId]: { opcode: "event_whenflagclicked", next: setNId, parent: null, inputs: {}, fields: {}, shadow: false, topLevel: true, x: 70, y: 70 },
-      [setNId]: { opcode: "data_setvariableto", next: setSumId, parent: flagId, inputs: { VALUE: [1, [10, "10"]] }, fields: { VARIABLE: varField("n", ids) }, shadow: false, topLevel: false },
+      [setNId]: { opcode: "data_setvariableto", next: setSumId, parent: flagId, inputs: { VALUE: [1, [10, targetN]] }, fields: { VARIABLE: varField("n", ids) }, shadow: false, topLevel: false },
       [setSumId]: { opcode: "data_setvariableto", next: setIId, parent: setNId, inputs: { VALUE: [1, [10, "0"]] }, fields: { VARIABLE: varField("sum", ids) }, shadow: false, topLevel: false },
       [setIId]: { opcode: "data_setvariableto", next: repeatId, parent: setSumId, inputs: { VALUE: [1, [10, "1"]] }, fields: { VARIABLE: varField("i", ids) }, shadow: false, topLevel: false },
       [repeatId]: {
         opcode: "control_repeat", next: null, parent: setIId,
-        inputs: { TIMES: [1, [6, "10"]], SUBSTACK: [2, changeIId] },
+        inputs: { TIMES: [1, [6, targetN]], SUBSTACK: [2, changeIId] },
         fields: {}, shadow: false, topLevel: false
       },
       [changeIId]: {
@@ -470,12 +550,12 @@ ${findVmHelpersSource()}
     const setILoopId = makeId("set-i-loop");
     sprite.blocks = {
       [flagId]: { opcode: "event_whenflagclicked", next: setNId, parent: null, inputs: {}, fields: {}, shadow: false, topLevel: true, x: 70, y: 70 },
-      [setNId]: { opcode: "data_setvariableto", next: setSumId, parent: flagId, inputs: { VALUE: [1, [10, "10"]] }, fields: { VARIABLE: varField("n", ids) }, shadow: false, topLevel: false },
+      [setNId]: { opcode: "data_setvariableto", next: setSumId, parent: flagId, inputs: { VALUE: [1, [10, targetN]] }, fields: { VARIABLE: varField("n", ids) }, shadow: false, topLevel: false },
       [setSumId]: { opcode: "data_setvariableto", next: setIId, parent: setNId, inputs: { VALUE: [1, [10, "0"]] }, fields: { VARIABLE: varField("sum", ids) }, shadow: false, topLevel: false },
       [setIId]: { opcode: "data_setvariableto", next: repeatId, parent: setSumId, inputs: { VALUE: [1, [10, "1"]] }, fields: { VARIABLE: varField("i", ids) }, shadow: false, topLevel: false },
       [repeatId]: {
         opcode: "control_repeat", next: null, parent: setIId,
-        inputs: { TIMES: [1, [6, "10"]], SUBSTACK: [2, setSumLoopId] },
+        inputs: { TIMES: [1, [6, targetN]], SUBSTACK: [2, setSumLoopId] },
         fields: {}, shadow: false, topLevel: false
       },
       [setSumLoopId]: {
@@ -535,6 +615,7 @@ function buildApplyRecommendedBlocksExpression(recommendedBlocks, label) {
     return `
 (async () => {
 ${findVmHelpersSource()}
+  const targetN = ${JSON.stringify(sumTargetN)};
   function defaultFieldsForOpcode(opcode, varIds) {
     if (opcode === "data_setvariableto" || opcode === "data_changevariableby" || opcode === "data_showvariable" || opcode === "data_hidevariable") {
       // prefer sum/i/n for 1..n accumulator
@@ -552,11 +633,11 @@ ${findVmHelpersSource()}
     const positive = (name, value) => ({ [name]: [1, [5, String(value)]] });
     switch (opcode) {
       case "looks_say":
-      case "looks_think": return text("MESSAGE", "sum of 1 to n");
+      case "looks_think": return text("MESSAGE", "sum of 1 to " + targetN);
       case "looks_sayforsecs":
-      case "looks_thinkforsecs": return { MESSAGE: [1, [10, "sum of 1 to n"]], SECS: [1, [4, "2"]] };
+      case "looks_thinkforsecs": return { MESSAGE: [1, [10, "sum of 1 to " + targetN]], SECS: [1, [4, "2"]] };
       case "control_wait": return positive("DURATION", 1);
-      case "control_repeat": return number("TIMES", 10);
+      case "control_repeat": return number("TIMES", targetN);
       case "data_setvariableto": return { VALUE: [1, [10, "0"]] };
       case "data_changevariableby": return { VALUE: [1, [4, "1"]] };
       case "operator_add":
@@ -565,7 +646,7 @@ ${findVmHelpersSource()}
       case "operator_divide":
       case "operator_mod":
         return { NUM1: [1, [4, "1"]], NUM2: [1, [4, "2"]] };
-      case "sensing_askandwait": return text("QUESTION", "How many heads?");
+      case "sensing_askandwait": return text("QUESTION", "请输入 n");
       case "sensing_answer": return {};
       default: return {};
     }
@@ -738,7 +819,7 @@ ${findVmHelpersSource()}
     if (blocks[id].opcode === "looks_say" || blocks[id].opcode === "looks_sayforsecs") {
       blocks[id].inputs = {
         ...(blocks[id].inputs || {}),
-        MESSAGE: [1, [10, "sum=?"]]
+        MESSAGE: [1, [10, "sum 1.." + targetN + "=?"]]
       };
     }
   }
@@ -780,6 +861,7 @@ function summarizeCoach(state) {
         aiStatus: state?.aiStatus ?? null,
         aiProvider: state?.aiProvider ?? null,
         aiModel: state?.aiModel ?? null,
+        lessonGoal: state?.lessonGoal ?? null,
         currentTargetName: state?.currentTargetName ?? null,
         programs: state?.currentTargetPrograms ?? [],
         answerText: response?.answerText ?? null,
@@ -841,7 +923,7 @@ async function main() {
     await ensureReadable(companionExe);
 
     const stages = [
-        {name: 'A-start', tag: 'A-start', note: 'n=10 only', follow: maxFollowSteps},
+        {name: 'A-start', tag: 'A-start', note: `n=${sumTargetN} only`, follow: maxFollowSteps},
         {name: 'B-vars-only', tag: 'B-vars', note: 'n/sum/i present, no loop', follow: maxFollowSteps},
         {name: 'C-loop-empty', tag: 'C-loop', note: 'repeat exists, body empty', follow: maxFollowSteps},
         {name: 'D-near-add', tag: 'D-near', note: 'loop increments i, missing sum+=i', follow: maxFollowSteps},
@@ -853,6 +935,8 @@ async function main() {
         companionExe,
         scratchExe,
         artifactDir,
+        lessonGoal,
+        sumTargetN,
         hasApiKey: Boolean(config.customAiApiKey),
         stages: stages.map(s => s.name),
         maxFollowSteps
@@ -960,6 +1044,23 @@ async function main() {
         await sleep(1500);
         await shot(mainTarget, null, 'main-initial');
 
+        const typedGoal = await typeLessonGoal(mainTarget, lessonGoal);
+        try {
+            await waitForMainState(
+                mainTarget,
+                s => (s.lessonGoal || '') === lessonGoal,
+                'lesson goal not saved',
+                {timeoutMs: 15000}
+            );
+        } catch {
+            // Continue; screenshots and summary still show whether the input took effect.
+        }
+        await sleep(800);
+        await shot(mainTarget, null, 'goal-typed', {
+            typedGoal,
+            expectedGoal: lessonGoal
+        });
+
         const launchLogOffset = await getLogSize();
         const launchClick = await clickButton(mainTarget, '#launch-button');
         assert(launchClick.ok === true, `launch failed: ${JSON.stringify(launchClick)}`);
@@ -1008,6 +1109,8 @@ async function main() {
             artifactDir,
             companionExe,
             scratchExe,
+            lessonGoal,
+            sumTargetN,
             companionDebugPort,
             scratchDebugPort: launchedScratchProcess?.debugPort ?? null,
             hasApiKey: Boolean(config.customAiApiKey),
@@ -1030,12 +1133,14 @@ async function main() {
         const lines = [
             '# Sum 1 to N Path Report',
             '',
+            `- lessonGoal: ${summary.lessonGoal}`,
+            `- n: ${summary.sumTargetN}`,
             `- steps: ${summary.steps}`,
             `- screenshots: ${summary.screenshots.length}`,
             `- hasApiKey: ${summary.hasApiKey}`,
             '',
             '## Stages',
-            '- A-start: n=10 only',
+            `- A-start: n=${summary.sumTargetN} only`,
             '- B-vars: n/sum/i present, no loop',
             '- C-loop: repeat exists, body empty',
             '- D-near: loop increments i, missing sum+=i',
@@ -1058,6 +1163,8 @@ async function main() {
         process.stdout.write(`${JSON.stringify({
             ok: true,
             artifactDir,
+            lessonGoal: summary.lessonGoal,
+            sumTargetN: summary.sumTargetN,
             steps: summary.steps,
             screenshotCount: summary.screenshots.length,
             stageCounts: Object.fromEntries(Object.entries(summary.stages).map(([k, v]) => [k, v.length]))
