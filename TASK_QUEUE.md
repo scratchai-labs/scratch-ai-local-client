@@ -131,3 +131,16 @@
 - 产物：`progressive-click-screenshots/`（截图 + timeline.json + summary.json + REPORT.md）
 - 观察：简单/中等场景 DeepSeek 能给出合理下一步；部分轮次 DeepSeek 返回 JSON 结构非法（next=null）会回退本地 heuristic；侦测/变量类推荐在自动“对着做”时仍不稳定。
 
+## 2026-07-14 多项目学生模拟联调（运动 + 鸡兔同笼 + 复杂游戏）
+
+- 状态：已完成
+- 需求：模拟学生打开软件、写程序、按 DeepSeek 提示对着做；覆盖运动以外的鸡兔同笼等逻辑题。
+- 做法：新增 `tools/verification/scripts/verify-student-sim-multi-project.mjs`，真实启动伴随程序/Scratch，覆盖 4 个项目种子并逐步截图。
+- 覆盖：
+  1. P1 运动基础（绿旗起步）
+  2. P2 鸡兔同笼起步（heads=35/feet=94）
+  3. P3 鸡兔同笼半成品（rabbits 待计算）
+  4. P4 复杂游戏 Cat and a Mouse
+- 产物：`student-sim-multi-project-screenshots/`（37 张截图 + timeline/summary/REPORT）
+- 观察：四类项目 DeepSeek 均能返回可理解提示；运动提示最稳；鸡兔同笼能导向询问/变量/减法运算，但公式完整性不稳定；复杂游戏能识别“碰奶酪加分”，自动对着做侦测链仍易失败。
+

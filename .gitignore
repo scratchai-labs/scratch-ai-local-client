@@ -49,3 +49,8 @@ tools/verification/last-*.json
 progressive-click-screenshots/
 progressive-click-screenshots-run.log
 tools/verification/tmp-progressive-click-userdata/
+
+# student multi-project sim screenshots
+student-sim-multi-project-screenshots/
+student-sim-multi-project-run.log
+tools/verification/tmp-student-sim-multi-project-userdata/
