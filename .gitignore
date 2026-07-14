@@ -59,3 +59,8 @@ tools/verification/tmp-student-sim-multi-project-userdata/
 chicken-rabbit-formula-screenshots/
 chicken-rabbit-formula-run.log
 tools/verification/tmp-chicken-rabbit-formula-userdata/
+
+# sum 1 to n math path screenshots
+sum-1-to-n-screenshots/
+sum-1-to-n-run.log
+tools/verification/tmp-sum-1-to-n-userdata/

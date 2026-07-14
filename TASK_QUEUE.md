@@ -144,6 +144,21 @@
 - 产物：`student-sim-multi-project-screenshots/`（37 张截图 + timeline/summary/REPORT）
 - 观察：四类项目 DeepSeek 均能返回可理解提示；运动提示最稳；鸡兔同笼能导向询问/变量/减法运算，但公式完整性不稳定；复杂游戏能识别“碰奶酪加分”，自动对着做侦测链仍易失败。
 
+## 2026-07-14 数学题 1到n累加路径加压
+- 状态：已完成
+- 需求：新开一轮数学题学生模拟，覆盖“循环+累加器”而非鸡兔公式；观察 DeepSeek 能否引导学生补全 1..n 求和。
+- 脚本：`tools/verification/scripts/verify-sum-1-to-n-path.mjs`
+- 产物：`sum-1-to-n-screenshots/`（35 步 / 69 张截图 / summary+timeline+REPORT）
+- 阶段：A-start(n=10) → B-vars(n/sum/i) → C-loop(空循环) → D-near(i自增缺sum) → E-output(缺说出口)
+- 观察：
+  1. DeepSeek 命中约 14 次，本地 fallback 约 7 次（C/D/E 种子后与部分 follow 易降级）。
+  2. 最好信号：A 阶段明确“重复执行累加 / sum 增加 i”；D/E 也出现“sum 每次增加 i，同时 i 增加 1”。
+  3. 主要失败模式是“运动漂移”：一旦脚本被 apply 混入旋转/造型/移动，提示会滑向动画游戏（反弹、走几步），偏离数学求和。
+  4. 空循环阶段（C）与接近完成阶段（E）都不稳定：常见 fallback 条件判断，或忽略“说出口 sum”。
+  5. 与鸡兔同笼对比：循环/累加语义可被 DeepSeek 讲对，但易被运动类积木上下文带偏；公式题则是任务反转。
+  6. 自动 apply 仅为学生模拟近似；结论以提示文本与 opcode 为准。
+
+
 ## 2026-07-14 鸡兔同笼完整公式路径加压
 - 状态：已完成
 - 需求：专门压测鸡兔同笼从半成品到完整公式（算兔/算鸡/验算/说出口），观察 DeepSeek 是否能逐步带到可运行答案。
