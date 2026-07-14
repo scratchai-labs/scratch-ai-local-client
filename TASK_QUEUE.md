@@ -8,6 +8,7 @@
 
 ## 已完成
 
+- 2026-07-14：完成 5 种本课目标真实点击联调与 UI 收口：主界面“操作”按钮和“本课目标”输入拆成清晰多行布局，输入框实测 614x36，不再挤在按钮行；修复 `desktop-companion:save-lesson-goal` 主进程 IPC 缺失 handler 导致目标未保存的问题，确保 DeepSeek 能收到学生填写的目标。新增 `verify-multi-goal-deepseek-coaching.mjs`，用打包版教练真实点击打开 Scratch、真实输入目标并跟随提示测试小游戏、算法、绘图、动画、交互数学 5 类目标，产物 `multi-goal-deepseek-screenshots-v4/`（22 步/43 图），5 类均为 `good`，均走 DeepSeek（每类 3 次）、fallback 0、无漂移。已通过定向回归、根级 `npm run test` 全量测试、macOS `.app`/`.zip` 打包与手工 DMG 校验。
 - 2026-07-14：完成 1+100/1到100 重复执行求和路径收口：主界面“本课目标”独立成完整输入行，避免按钮区拥挤；用户说明补充本课目标填写口径并同步 MD/HTML/PDF；CoachService 对固定上限求和目标过滤 `sensing_askandwait`，避免 100 已知时又询问 n；真实启动打包版教练，再点击打开 Scratch，输入目标并跑 5 阶段求和联调，产物 `sum-1-plus-100-screenshots-v2/`（33 步/62 图），未再出现 heads/鸡兔污染。已通过全量测试（shared 12、verification 34、desktop-companion 193）、源码 UI 冒烟、macOS `.app`/`.zip` 出包与手工 DMG 校验。
 - 2026-07-14：使用说明补充三点口径：1）建议自己申请 DeepSeek Key，效果更好；2）当前为测试版；3）有问题随时联系。已同步文首提示、准备项、Key 章节、速查卡、文末与安装包说明。
 - 2026-07-14：将用户使用说明改写为小白友好版：去除开发/架构等专业表述，改为安装、首次使用、按钮说明、添加 Key、学生老师用法、常见问题与速查；同步更新 PDF/HTML 及桌面课程资料目录。

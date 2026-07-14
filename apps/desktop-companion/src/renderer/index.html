@@ -227,36 +227,38 @@
       }
 
       .action-panel {
-        gap: 7px;
-        padding: 8px 10px;
+        gap: 10px;
+        padding: 10px 12px;
       }
 
       .action-heading {
-        display: flex;
-        align-items: center;
-        gap: 10px;
+        display: grid;
+        gap: 8px;
       }
 
       .action-row {
         display: grid;
-        flex: 1;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 6px;
+        width: 100%;
+        grid-template-columns: repeat(4, minmax(128px, 1fr));
+        gap: 8px;
       }
 
       .lesson-goal-row {
         display: grid;
-        grid-template-columns: minmax(140px, 0.26fr) minmax(0, 1fr);
-        gap: 10px;
-        align-items: center;
-        padding: 7px 9px;
+        grid-template-columns: 1fr;
+        gap: 6px;
+        padding: 9px 10px;
         border: 1px solid rgba(37, 99, 235, 0.16);
         border-radius: var(--control-radius);
         background: #f8fbff;
       }
 
       .lesson-goal-copy {
-        display: grid;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        column-gap: 10px;
+        row-gap: 2px;
         gap: 2px;
         min-width: 0;
       }
@@ -269,17 +271,14 @@
       }
 
       .lesson-goal-row span {
-        overflow: hidden;
         color: var(--muted);
         font-size: var(--text-mini);
         line-height: 1.35;
-        text-overflow: ellipsis;
-        white-space: nowrap;
       }
 
       .lesson-goal-row input {
         width: 100%;
-        min-height: 32px;
+        min-height: 36px;
         border-radius: 8px;
         border: 1px solid rgba(15, 23, 42, 0.12);
         background: #fff;
@@ -294,7 +293,7 @@
 
       .action-row .button {
         width: 100%;
-        min-height: 30px;
+        min-height: 34px;
         padding-inline: 8px;
       }
 
@@ -585,19 +584,6 @@
         .summary-grid.compact,
         .action-row {
           grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
-        .lesson-goal-row {
-          grid-template-columns: 1fr;
-          gap: 6px;
-        }
-
-        .action-heading {
-          align-items: stretch;
-        }
-
-        .action-heading {
-          flex-direction: column;
         }
       }
     </style>

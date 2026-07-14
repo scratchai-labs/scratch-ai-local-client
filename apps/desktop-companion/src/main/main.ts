@@ -360,6 +360,13 @@ async function handleSaveAiHintTriggerMode(mode: "auto" | "manual") {
   await sessionManager?.saveAiHintTriggerMode(mode);
 }
 
+async function handleSaveLessonGoal(goal: string) {
+  if (launchOptions.automationActions) {
+    return;
+  }
+  await sessionManager?.saveLessonGoal(goal);
+}
+
 async function handleSaveCustomAiPrompt(prompt: string) {
   if (launchOptions.automationActions) {
     return;

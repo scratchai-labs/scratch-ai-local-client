@@ -68,8 +68,8 @@ test("action and next-step panels use dense layouts to keep program scrolling lo
 
   assert.match(html, /<section class="panel action-panel">/);
   assert.match(html, /<div class="action-heading">/);
-  assert.match(html, /\.action-panel\s*\{[\s\S]*padding:\s*8px 10px;/);
-  assert.match(html, /\.action-heading\s*\{[\s\S]*display:\s*flex;/);
+  assert.match(html, /\.action-panel\s*\{[\s\S]*padding:\s*10px 12px;/);
+  assert.match(html, /\.action-heading\s*\{[\s\S]*display:\s*grid;/);
   assert.match(html, /\.summary-card\s*\{[\s\S]*padding:\s*6px 9px;/);
   assert.match(html, /\.hint-panel\s*\{[\s\S]*padding:\s*9px 12px;/);
   assert.doesNotMatch(html, /DeepSeek Key 和“自动 \/ 手动提示”/);
@@ -81,6 +81,8 @@ test("lesson goal input uses its own full-width row below action buttons", async
   assert.match(html, /<\/div>\s*<div class="lesson-goal-row">/);
   assert.match(html, /<span id="lesson-goal-help"/);
   assert.match(html, /aria-describedby="lesson-goal-help"/);
-  assert.match(html, /\.lesson-goal-row\s*\{[\s\S]*grid-template-columns:\s*minmax\(140px,\s*0\.26fr\)\s+minmax\(0,\s*1fr\);/);
+  assert.match(html, /\.action-row\s*\{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(128px,\s*1fr\)\);/);
+  assert.match(html, /\.lesson-goal-row\s*\{[\s\S]*grid-template-columns:\s*1fr;/);
+  assert.match(html, /\.lesson-goal-row input\s*\{[\s\S]*min-height:\s*36px;/);
   assert.doesNotMatch(html, /<div class="action-heading">[\s\S]*<div class="lesson-goal-row">[\s\S]*<\/div>\s*<\/div>\s*<div class="summary-grid compact">/);
 });
