@@ -54,3 +54,8 @@ tools/verification/tmp-progressive-click-userdata/
 student-sim-multi-project-screenshots/
 student-sim-multi-project-run.log
 tools/verification/tmp-student-sim-multi-project-userdata/
+
+# chicken rabbit formula path screenshots
+chicken-rabbit-formula-screenshots/
+chicken-rabbit-formula-run.log
+tools/verification/tmp-chicken-rabbit-formula-userdata/

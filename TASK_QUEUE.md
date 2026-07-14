@@ -144,3 +144,16 @@
 - 产物：`student-sim-multi-project-screenshots/`（37 张截图 + timeline/summary/REPORT）
 - 观察：四类项目 DeepSeek 均能返回可理解提示；运动提示最稳；鸡兔同笼能导向询问/变量/减法运算，但公式完整性不稳定；复杂游戏能识别“碰奶酪加分”，自动对着做侦测链仍易失败。
 
+## 2026-07-14 鸡兔同笼完整公式路径加压
+- 状态：已完成
+- 需求：专门压测鸡兔同笼从半成品到完整公式（算兔/算鸡/验算/说出口），观察 DeepSeek 是否能逐步带到可运行答案。
+- 脚本：`tools/verification/scripts/verify-chicken-rabbit-formula-path.mjs`
+- 产物：`chicken-rabbit-formula-screenshots/`（35 步 / 69 张截图 / summary+timeline+REPORT）
+- 阶段：A-start → B-partial → C-ask → D-near → E-output；真实 Companion + Scratch 3 + DeepSeek Key。
+- 观察：
+  1. DeepSeek 命中 18 次，本地 fallback 1 次（C-ask-follow-1 误落到循环/运动提示）。
+  2. 能稳定导向：询问输入、变量赋值、减法算鸡、说出口（looks_say / looks_sayforsecs）。
+  3. 未出现完整经典公式推荐：`rabbits=(feet-2*heads)/2`，全程无 `operator_multiply` / `operator_divide`。
+  4. 高频“任务反转”：当脚本里已有鸡/兔变量后，常建议“算总头数/总脚数”，而非继续完善求兔公式。
+  5. 最好的公式句在 C-ask-follow-2：`鸡的数量 = 头的总数 - 兔子的数量`（部分正确，仍缺求兔公式）。
+  6. 自动 apply 推荐积木仅为学生模拟近似；结论以提示文本与 opcode 为准。
