@@ -20,6 +20,7 @@ export class StateStore {
     aiCustomModelConfigured: false,
     aiCustomPromptConfigured: false,
     aiHintTriggerMode: "auto",
+    lessonGoal: undefined,
     aiStatus: "idle"
   };
 

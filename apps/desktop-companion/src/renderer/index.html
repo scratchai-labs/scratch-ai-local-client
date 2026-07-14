@@ -244,6 +244,31 @@
         gap: 6px;
       }
 
+      .lesson-goal-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 8px;
+        align-items: center;
+        margin-top: 6px;
+      }
+
+      .lesson-goal-row label {
+        color: var(--text-muted, #5b6472);
+        font-size: var(--text-mini, 12px);
+        white-space: nowrap;
+      }
+
+      .lesson-goal-row select {
+        width: 100%;
+        min-height: 30px;
+        border-radius: 8px;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        background: #fff;
+        color: inherit;
+        padding: 4px 8px;
+        font: inherit;
+      }
+
       .action-row .button {
         width: 100%;
         min-height: 30px;
@@ -577,6 +602,15 @@
                 <button id="launch-button" class="button secondary" type="button">打开已选 Scratch</button>
                 <button id="retry-button" class="button secondary" type="button">重新连接</button>
                 <button id="generate-ai-button" class="button primary" type="button">生成下一步提示</button>
+              </div>
+              <div class="lesson-goal-row">
+                <label for="lesson-goal-select">本课目标</label>
+                <select id="lesson-goal-select" aria-label="本课目标">
+                  <option value="">自动识别（按当前作品）</option>
+                  <option value="鸡兔同笼">鸡兔同笼（已知头脚求鸡兔）</option>
+                  <option value="1到n求和">1到n求和（循环累加）</option>
+                  <option value="自由创作动画游戏">自由创作动画/游戏</option>
+                </select>
               </div>
             </div>
             <div class="summary-grid compact">

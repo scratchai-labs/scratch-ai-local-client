@@ -144,6 +144,16 @@
 - 产物：`student-sim-multi-project-screenshots/`（37 张截图 + timeline/summary/REPORT）
 - 观察：四类项目 DeepSeek 均能返回可理解提示；运动提示最稳；鸡兔同笼能导向询问/变量/减法运算，但公式完整性不稳定；复杂游戏能识别“碰奶酪加分”，自动对着做侦测链仍易失败。
 
+## 2026-07-14 本课目标输入（稳定传 goal）
+- 状态：已完成
+- 需求：给自动刷新和手动提示都带上稳定的“本课目标”，降低数学题任务反转/运动漂移。
+- 实现：
+  1. 主界面新增“本课目标”下拉：自动识别 / 鸡兔同笼 / 1到n求和 / 自由创作。
+  2. 目标写入本地配置 `lessonGoal`，状态同步到 UI。
+  3. 自动刷新与手动生成都会 `resolveLessonGoal` 后传给 CoachService。
+- 测试：desktop-companion 全量 191 项通过（含 lesson goal 持久化与复用）。
+- 修改：shared schema、config/session/main/preload/renderer、index.html
+
 ## 2026-07-14 数学题辅导漂移修复（意图识别 + fallback）
 - 状态：已完成
 - 问题：联调显示鸡兔同笼易“任务反转”，1到n累加易“运动漂移”；本地 fallback 也会推循环+右转/条件判断。

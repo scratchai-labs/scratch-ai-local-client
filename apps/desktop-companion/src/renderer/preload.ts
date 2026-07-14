@@ -40,6 +40,9 @@ const api = {
   saveAiHintTriggerMode: async (mode: "auto" | "manual") => {
     await ipcRenderer.invoke("desktop-companion:save-ai-hint-trigger-mode", mode);
   },
+  saveLessonGoal: async (goal: string) => {
+    await ipcRenderer.invoke("desktop-companion:save-lesson-goal", goal);
+  },
   saveCustomAiPrompt: async (prompt: string) => {
     await ipcRenderer.invoke("desktop-companion:save-custom-ai-prompt", prompt);
   },

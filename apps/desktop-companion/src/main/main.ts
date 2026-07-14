@@ -409,6 +409,9 @@ ipcMain.handle("desktop-companion:save-custom-ai-model", async (_event, model: s
 ipcMain.handle("desktop-companion:save-ai-hint-trigger-mode", async (_event, mode: "auto" | "manual") => {
   await handleSaveAiHintTriggerMode(mode);
 });
+ipcMain.handle("desktop-companion:save-lesson-goal", async (_event, goal: string) => {
+  await handleSaveLessonGoal(goal);
+});
 ipcMain.handle("desktop-companion:save-custom-ai-prompt", async (_event, prompt: string) => {
   await handleSaveCustomAiPrompt(prompt);
 });

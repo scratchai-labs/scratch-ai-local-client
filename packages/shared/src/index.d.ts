@@ -140,6 +140,7 @@ export type DesktopCompanionState = {
   aiCustomPrompt?: string;
   aiDefaultPrompt?: string;
   aiHintTriggerMode: "auto" | "manual";
+  lessonGoal?: string;
   aiStatus: "idle" | "loading" | "ready" | "error";
   aiProvider?: "deepseek" | "fallback";
   aiModel?: string;

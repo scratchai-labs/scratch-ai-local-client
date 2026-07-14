@@ -182,6 +182,7 @@ export class SessionManager {
     customAiModel?: string;
     customAiPrompt?: string;
     aiHintTriggerMode?: AiHintTriggerMode;
+    lessonGoal?: string;
     lastScratchLocale?: string;
   } = {};
 
@@ -440,6 +441,16 @@ export class SessionManager {
     }
   }
 
+  async saveLessonGoal(goal: string) {
+    this.config = await this.configStore.saveLessonGoal(goal);
+    const trimmed = trimText(this.config.lessonGoal);
+    this.stateStore.update({
+      ...this.getAiStatePatch(),
+      ...(trimmed ? { lessonGoal: trimmed } : { lessonGoal: undefined }),
+      aiError: undefined
+    });
+  }
+
   async requestAiHint(goal?: string) {
     if (!goal) {
       await this.refreshAiConfig();
@@ -488,7 +499,8 @@ export class SessionManager {
     }
 
     this.coachingSession.markRequestStarted(requestSnapshot);
-    this.log(`AI hint request started goal=${JSON.stringify(trimText(goal))}`);
+    const trimmedGoal = this.resolveLessonGoal(goal);
+    this.log(`AI hint request started goal=${JSON.stringify(trimmedGoal)}`);
     this.pendingRequestBaseline = requestSnapshot;
     this.stateStore.update({
       ...this.getAiStatePatch(),
@@ -496,8 +508,6 @@ export class SessionManager {
       aiLastUpdatedAt: undefined,
       aiError: undefined
     });
-
-    const trimmedGoal = trimText(goal);
     const aiConfig = this.aiConfig;
     if (!aiConfig) {
       this.stateStore.update({
@@ -931,6 +941,7 @@ export class SessionManager {
       aiCustomModelConfigured: Boolean(trimText(this.config.customAiModel)),
       aiCustomPromptConfigured: Boolean(trimText(this.config.customAiPrompt)),
       aiHintTriggerMode: this.getAiHintTriggerMode(),
+      ...(trimText(this.config.lessonGoal) ? { lessonGoal: trimText(this.config.lessonGoal) as string } : {}),
       aiDefaultPrompt: DEFAULT_HINT_ONLY_SYSTEM_PROMPT,
       aiStatus: "idle",
       detail: detail ?? this.buildWaitingDetail(hasScratchPath, scratchExecutablePath)
@@ -982,6 +993,7 @@ export class SessionManager {
       aiCustomPromptConfigured: Boolean(trimText(this.config.customAiPrompt)),
       aiCustomPrompt: this.config.customAiPrompt,
       aiHintTriggerMode: this.getAiHintTriggerMode(),
+      lessonGoal: trimText(this.config.lessonGoal) || undefined,
       aiDefaultPrompt: DEFAULT_HINT_ONLY_SYSTEM_PROMPT,
       aiModel: this.aiConfig?.model
     };
@@ -989,6 +1001,10 @@ export class SessionManager {
 
   private getAiHintTriggerMode(): AiHintTriggerMode {
     return normalizeAiHintTriggerMode(this.config.aiHintTriggerMode);
+  }
+
+  private resolveLessonGoal(goal?: string) {
+    return trimText(goal) ?? trimText(this.config.lessonGoal) ?? trimText(this.stateStore.getState().lessonGoal);
   }
 
   private resetCoachingState() {

@@ -173,6 +173,7 @@ export interface DesktopCompanionState {
   aiCustomPrompt?: string;
   aiDefaultPrompt?: string;
   aiHintTriggerMode: AiHintTriggerMode;
+  lessonGoal?: string;
   aiStatus: AiHintStatus;
   aiProvider?: AiHintProvider;
   aiModel?: string;

@@ -36,6 +36,7 @@ function createConfigStoreMock(initialPath = undefined) {
   let customAiPrompt;
   let lastScratchLocale;
   let aiHintTriggerMode = "auto";
+  let lessonGoal;
 
   return {
     load: async () => ({
@@ -44,6 +45,7 @@ function createConfigStoreMock(initialPath = undefined) {
       ...(customAiModel ? { customAiModel } : {}),
       ...(customAiPrompt ? { customAiPrompt } : {}),
       ...(lastScratchLocale ? { lastScratchLocale } : {}),
+      ...(lessonGoal ? { lessonGoal } : {}),
       aiHintTriggerMode
     }),
     saveScratchExecutablePath: async (value) => {
@@ -54,6 +56,7 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(customAiModel ? { customAiModel } : {}),
         ...(customAiPrompt ? { customAiPrompt } : {}),
         ...(lastScratchLocale ? { lastScratchLocale } : {}),
+        ...(lessonGoal ? { lessonGoal } : {}),
         aiHintTriggerMode
       };
     },
@@ -65,6 +68,7 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(customAiModel ? { customAiModel } : {}),
         ...(customAiPrompt ? { customAiPrompt } : {}),
         ...(lastScratchLocale ? { lastScratchLocale } : {}),
+        ...(lessonGoal ? { lessonGoal } : {}),
         aiHintTriggerMode
       };
     },
@@ -75,6 +79,7 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(customAiModel ? { customAiModel } : {}),
         ...(customAiPrompt ? { customAiPrompt } : {}),
         ...(lastScratchLocale ? { lastScratchLocale } : {}),
+        ...(lessonGoal ? { lessonGoal } : {}),
         aiHintTriggerMode
       };
     },
@@ -86,6 +91,7 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(customAiModel ? { customAiModel } : {}),
         ...(customAiPrompt ? { customAiPrompt } : {}),
         ...(lastScratchLocale ? { lastScratchLocale } : {}),
+        ...(lessonGoal ? { lessonGoal } : {}),
         aiHintTriggerMode
       };
     },
@@ -96,6 +102,7 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(customAiApiKey ? { customAiApiKey } : {}),
         ...(customAiPrompt ? { customAiPrompt } : {}),
         ...(lastScratchLocale ? { lastScratchLocale } : {}),
+        ...(lessonGoal ? { lessonGoal } : {}),
         aiHintTriggerMode
       };
     },
@@ -106,6 +113,7 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(customAiApiKey ? { customAiApiKey } : {}),
         ...(customAiModel ? { customAiModel } : {}),
         ...(customAiPrompt ? { customAiPrompt } : {}),
+        ...(lessonGoal ? { lessonGoal } : {}),
         aiHintTriggerMode
       };
     },
@@ -116,6 +124,7 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(customAiApiKey ? { customAiApiKey } : {}),
         ...(customAiModel ? { customAiModel } : {}),
         ...(lastScratchLocale ? { lastScratchLocale } : {}),
+        ...(lessonGoal ? { lessonGoal } : {}),
         aiHintTriggerMode
       };
     },
@@ -127,6 +136,21 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(customAiModel ? { customAiModel } : {}),
         ...(customAiPrompt ? { customAiPrompt } : {}),
         ...(lastScratchLocale ? { lastScratchLocale } : {}),
+        ...(lessonGoal ? { lessonGoal } : {}),
+        ...(lessonGoal ? { lessonGoal } : {}),
+        aiHintTriggerMode
+      };
+    },
+    saveLessonGoal: async (value) => {
+      lessonGoal = value?.trim() ? value.trim() : undefined;
+      return {
+        ...(scratchExecutablePath ? { scratchExecutablePath } : {}),
+        ...(customAiApiKey ? { customAiApiKey } : {}),
+        ...(customAiModel ? { customAiModel } : {}),
+        ...(customAiPrompt ? { customAiPrompt } : {}),
+        ...(lastScratchLocale ? { lastScratchLocale } : {}),
+        ...(lessonGoal ? { lessonGoal } : {}),
+        ...(lessonGoal ? { lessonGoal } : {}),
         aiHintTriggerMode
       };
     },
@@ -138,6 +162,7 @@ function createConfigStoreMock(initialPath = undefined) {
         ...(customAiModel ? { customAiModel } : {}),
         ...(customAiPrompt ? { customAiPrompt } : {}),
         ...(lastScratchLocale ? { lastScratchLocale } : {}),
+        ...(lessonGoal ? { lessonGoal } : {}),
         aiHintTriggerMode
       };
     }
@@ -1862,3 +1887,106 @@ test("SessionManager saves a custom teacher prompt and reuses it for hint genera
   assert.equal(stateStore.getState().aiCustomPrompt, undefined);
   assert.equal(stateStore.getState().aiDefaultPrompt?.includes("你是 Scratch 小学编程助教"), true);
 });
+
+
+test("SessionManager persists lesson goal and reuses it for AI hints", async () => {
+  const stateStore = new StateStore();
+  let capturedGoal;
+  const manager = new SessionManager(stateStore, {
+    bridgeServer: createBridgeServerMock(),
+    platform: "win32",
+    log: () => {},
+    configStore: createConfigStoreMock("C:\Scratch 3.exe"),
+    loadAiConfig: createAiConfigMock({
+      configured: true,
+      apiKey: "sk-test",
+      customKeyConfigured: true,
+      source: "custom"
+    }),
+    coachService: {
+      generateHint: async (options) => {
+        capturedGoal = options.goal;
+        return {
+          source: "deepseek",
+          model: "deepseek-v4-flash",
+          coachResponse: {
+            answerText: "先算兔子。",
+            recommendedBlocks: [
+              {
+                opcode: "data_setvariableto",
+                category: "变量",
+                label: "将变量设为",
+                reason: "保存兔子数量"
+              }
+            ],
+            nextStep: "先算兔子。",
+            detectedIssues: []
+          }
+        };
+      }
+    },
+    scratchLauncher: {},
+    scratchRemoteDebugger: {}
+  });
+
+  await manager.start();
+  await manager.saveLessonGoal("鸡兔同笼");
+  assert.equal(stateStore.getState().lessonGoal, "鸡兔同笼");
+
+  manager.handlePayload({
+    source: "test",
+    currentTargetId: "sprite-a",
+    currentTargetName: "Cat",
+    toolboxCategories: ["data", "operator"],
+    projectData: {
+      targets: [
+        {
+          id: "stage",
+          name: "Stage",
+          isStage: true,
+          variables: {
+            a: ["heads", 35],
+            b: ["feet", 94]
+          },
+          blocks: {}
+        },
+        {
+          id: "sprite-a",
+          name: "Cat",
+          isStage: false,
+          blocks: {
+            a: {
+              opcode: "event_whenflagclicked",
+              next: "b",
+              parent: null,
+              inputs: {},
+              fields: {},
+              shadow: false,
+              topLevel: true
+            },
+            b: {
+              opcode: "data_setvariableto",
+              next: null,
+              parent: "a",
+              inputs: {
+                VALUE: [1, [10, "35"]]
+              },
+              fields: {
+                VARIABLE: ["heads", "a"]
+              },
+              shadow: false,
+              topLevel: false
+            }
+          }
+        }
+      ]
+    }
+  });
+
+  await manager.requestAiHint();
+  assert.equal(capturedGoal, "鸡兔同笼");
+
+  await manager.saveLessonGoal("");
+  assert.equal(stateStore.getState().lessonGoal, undefined);
+});
+

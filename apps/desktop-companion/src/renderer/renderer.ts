@@ -32,6 +32,7 @@ const chooseScratchButton = document.getElementById("choose-scratch-button") as 
 const retryButton = document.getElementById("retry-button") as HTMLButtonElement | null;
 const settingsButton = document.getElementById("settings-button") as HTMLButtonElement | null;
 const generateAiButton = document.getElementById("generate-ai-button") as HTMLButtonElement | null;
+const lessonGoalSelect = document.getElementById("lesson-goal-select") as HTMLSelectElement | null;
 
 function showActionError(message: string) {
   if (!errorElement) {
@@ -53,8 +54,27 @@ function normalizeState(rawState: unknown): DesktopCompanionState {
   return desktopCompanionStateSchema.parse(rawState);
 }
 
+function syncLessonGoalSelect(state: DesktopCompanionState) {
+  if (!lessonGoalSelect) {
+    return;
+  }
+  const nextValue = state.lessonGoal ?? "";
+  const hasOption = Array.from(lessonGoalSelect.options).some((option) => option.value === nextValue);
+  if (nextValue && !hasOption) {
+    const customOption = document.createElement("option");
+    customOption.value = nextValue;
+    customOption.textContent = nextValue;
+    lessonGoalSelect.append(customOption);
+  }
+  if (lessonGoalSelect.value !== nextValue) {
+    lessonGoalSelect.value = nextValue;
+  }
+  lessonGoalSelect.disabled = state.aiStatus === "loading";
+}
+
 function renderNormalizedState(rawState: unknown) {
-  renderState(normalizeState(rawState), {
+  const state = normalizeState(rawState);
+  renderState(state, {
     documentRef: document,
     statusElement,
     detailElement,
@@ -77,6 +97,7 @@ function renderNormalizedState(rawState: unknown) {
     retryButton,
     generateAiButton
   });
+  syncLessonGoalSelect(state);
   renderScratchWorkspaces(document);
 }
 
@@ -138,9 +159,31 @@ function handleOpenSettings() {
 
 settingsButton?.addEventListener("click", handleOpenSettings);
 
+function getSelectedLessonGoal() {
+  return lessonGoalSelect?.value?.trim() || undefined;
+}
+
+lessonGoalSelect?.addEventListener("change", () => {
+  if (!lessonGoalSelect) {
+    return;
+  }
+  const goal = lessonGoalSelect.value || "";
+  lessonGoalSelect.disabled = true;
+  void Promise.resolve()
+    .then(() => getDesktopCompanionApi().saveLessonGoal(goal))
+    .catch((error) => {
+      showActionError(error instanceof Error ? error.message : "保存本课目标失败。");
+    })
+    .finally(() => {
+      if (lessonGoalSelect) {
+        lessonGoalSelect.disabled = false;
+      }
+    });
+});
+
 generateAiButton?.addEventListener("click", () => {
   void Promise.resolve()
-    .then(() => getDesktopCompanionApi().requestAiHint())
+    .then(() => getDesktopCompanionApi().requestAiHint(getSelectedLessonGoal()))
     .catch((error) => {
       showActionError(error instanceof Error ? error.message : "更新下一步提示失败，请查看日志。");
     });

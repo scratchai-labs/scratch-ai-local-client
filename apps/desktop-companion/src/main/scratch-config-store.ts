@@ -21,6 +21,7 @@ export class ScratchExecutableConfigStore {
       customAiModel?: string;
       customAiPrompt?: string;
       aiHintTriggerMode?: "auto" | "manual";
+      lessonGoal?: string;
       lastScratchLocale?: string;
     } = {};
 
@@ -45,6 +46,13 @@ export class ScratchExecutableConfigStore {
     }
 
     nextConfig.aiHintTriggerMode = normalizeAiHintTriggerMode(parsed.aiHintTriggerMode);
+
+    if (typeof parsed.lessonGoal === "string") {
+      const lessonGoal = parsed.lessonGoal.trim();
+      if (lessonGoal) {
+        nextConfig.lessonGoal = lessonGoal.slice(0, 200);
+      }
+    }
 
     return nextConfig;
   }
@@ -135,6 +143,22 @@ export class ScratchExecutableConfigStore {
       ...currentConfig,
       aiHintTriggerMode: normalizeAiHintTriggerMode(aiHintTriggerMode)
     };
+
+    await this.writeConfig(nextConfig);
+    return nextConfig;
+  }
+
+  async saveLessonGoal(lessonGoal: string) {
+    const currentConfig = await this.load();
+    const trimmed = lessonGoal.trim().slice(0, 200);
+    const nextConfig = {
+      ...currentConfig
+    };
+    if (trimmed) {
+      nextConfig.lessonGoal = trimmed;
+    } else {
+      delete nextConfig.lessonGoal;
+    }
 
     await this.writeConfig(nextConfig);
     return nextConfig;

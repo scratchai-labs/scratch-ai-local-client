@@ -245,6 +245,7 @@ const desktopCompanionStateSchema = z.object({
   aiCustomPrompt: z.string().optional(),
   aiDefaultPrompt: z.string().optional(),
   aiHintTriggerMode: aiHintTriggerModeSchema.default("auto"),
+  lessonGoal: z.string().max(200).optional(),
   aiStatus: aiHintStatusSchema.default("idle"),
   aiProvider: aiHintProviderSchema.optional(),
   aiModel: z.string().optional(),

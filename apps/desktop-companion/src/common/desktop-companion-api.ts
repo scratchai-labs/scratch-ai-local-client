@@ -11,6 +11,7 @@ export interface DesktopCompanionApi {
   clearCustomAiApiKey: () => Promise<void>;
   saveCustomAiModel: (model: string) => Promise<void>;
   saveAiHintTriggerMode: (mode: "auto" | "manual") => Promise<void>;
+  saveLessonGoal: (goal: string) => Promise<void>;
   saveCustomAiPrompt: (prompt: string) => Promise<void>;
   clearCustomAiPrompt: () => Promise<void>;
 }
