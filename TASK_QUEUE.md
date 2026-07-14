@@ -118,3 +118,16 @@
   4. 压缩下一步提示文案、间距与推荐原因展示高度。
 - 验证：已补 renderer/coach prompt/共享协议回归测试；共享包、verification、desktop-companion 全量测试通过。自动 UI 脚本因本机 Electron 调试端口未启动（`fetch failed`）未生成截图，已保留既有运行实例供人工查看。
 - 完成：程序面板按当前角色动态显示标题，多脚本列表和超宽脚本均可滚动；DeepSeek 接收全部角色/舞台全部脚本并支持“完整作品仅说明用法”；下一步提示区已压缩。
+
+## 2026-07-14 多轮真实点击联调（跟 AI 提示搭积木）
+
+- 状态：已完成（部分跟随步骤因复杂积木应用失败，但三轮主路径已覆盖）
+- 需求：真实启动 Scratch + 桌面伴随程序，按 AI 教练返回提示逐步搭积木；覆盖不同复杂度程序；每一步在当前文件夹截图。
+- 做法：新增 `tools/verification/scripts/verify-progressive-click-coaching.mjs`，真实打开伴随程序/Scratch，按 AI 推荐积木逐步搭建。
+- 覆盖：
+  1. Round A 简单：仅绿旗 -> 跟随移动/循环
+  2. Round B 中等：绿旗+forever+移动+反弹
+  3. Round C 复杂：加载 Cat and a Mouse 完整作品
+- 产物：`progressive-click-screenshots/`（截图 + timeline.json + summary.json + REPORT.md）
+- 观察：简单/中等场景 DeepSeek 能给出合理下一步；部分轮次 DeepSeek 返回 JSON 结构非法（next=null）会回退本地 heuristic；侦测/变量类推荐在自动“对着做”时仍不稳定。
+

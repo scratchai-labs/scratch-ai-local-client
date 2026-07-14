@@ -44,3 +44,8 @@ tools/verification/generated/
 tools/verification/artifacts/
 tools/verification/tmp-*/
 tools/verification/last-*.json
+
+# local progressive click coaching screenshots
+progressive-click-screenshots/
+progressive-click-screenshots-run.log
+tools/verification/tmp-progressive-click-userdata/
