@@ -6,26 +6,41 @@ import {
   DEEPSEEK_RECOMMENDATION_TOOL_NAME,
   DEEPSEEK_STRICT_TOOLS,
   buildDeepSeekStrictChatUrl,
+  compileDeepSeekStrictNodes,
   extractDeepSeekStrictCandidate
 } from "../dist/deepseek-strict-tools.js";
 
-test("Strict recommendation schema encodes Scratch terminal and condition relations", () => {
+function node(id, opcode, parentId, relation, params = []) {
+  return {
+    id,
+    parentId,
+    relation,
+    opcode,
+    category: "测试",
+    label: opcode,
+    reason: `验证 ${opcode}`,
+    params
+  };
+}
+
+test("Strict recommendation schema uses flat explicit links without recursive refs", () => {
   const [completeTool, recommendationTool] = DEEPSEEK_STRICT_TOOLS;
   assert.equal(completeTool.function.name, DEEPSEEK_COMPLETE_TOOL_NAME);
   assert.equal(recommendationTool.function.name, DEEPSEEK_RECOMMENDATION_TOOL_NAME);
   assert.equal(completeTool.function.strict, true);
   assert.equal(recommendationTool.function.strict, true);
 
-  const definitions = recommendationTool.function.parameters.$defs;
-  assert.equal(Object.hasOwn(definitions.foreverNode.properties, "next"), false);
-  assert.equal(Object.hasOwn(definitions.terminalNode.properties, "next"), false);
+  const parameters = recommendationTool.function.parameters;
+  assert.equal(Object.hasOwn(parameters, "$defs"), false);
+  assert.equal(parameters.properties.nodes.type, "array");
   assert.deepEqual(
-    definitions.terminalNode.properties.opcode.enum.sort(),
-    ["control_delete_this_clone", "control_stop"]
+    parameters.properties.nodes.items.properties.relation.enum,
+    ["root", "next", "condition", "substack", "substack2"]
   );
-  assert.equal(definitions.ifWithoutNext.properties.condition.$ref, "#/$defs/conditionNode");
-  assert.equal(definitions.conditionNode.properties.opcode.enum.includes("operator_equals"), true);
-  assert.equal(definitions.conditionNode.properties.opcode.enum.includes("operator_add"), false);
+  assert.equal(
+    parameters.properties.nodes.items.properties.opcode.enum.includes("control_forever"),
+    true
+  );
 });
 
 test("Strict endpoint appends beta exactly once", () => {
@@ -39,7 +54,47 @@ test("Strict endpoint appends beta exactly once", () => {
   );
 });
 
-test("extractDeepSeekStrictCandidate converts parameter entries to the internal protocol", () => {
+test("compileDeepSeekStrictNodes builds a legal forever substack", () => {
+  const root = compileDeepSeekStrictNodes([
+    node("loop", "control_forever", "", "root"),
+    node("move", "motion_movesteps", "loop", "substack", [
+      { name: "steps", value: "20" }
+    ])
+  ]);
+
+  assert.deepEqual(root, {
+    opcode: "control_forever",
+    category: "测试",
+    label: "control_forever",
+    reason: "验证 control_forever",
+    substack: {
+      opcode: "motion_movesteps",
+      category: "测试",
+      label: "motion_movesteps",
+      reason: "验证 motion_movesteps",
+      params: { steps: "20" }
+    }
+  });
+});
+
+test("compileDeepSeekStrictNodes rejects terminal next and invalid condition links", () => {
+  assert.throws(
+    () => compileDeepSeekStrictNodes([
+      node("loop", "control_forever", "", "root"),
+      node("move", "motion_movesteps", "loop", "next")
+    ]),
+    /不允许使用 next/
+  );
+  assert.throws(
+    () => compileDeepSeekStrictNodes([
+      node("if", "control_if", "", "root"),
+      node("move", "motion_movesteps", "if", "condition")
+    ]),
+    /不能放在 condition 位置/
+  );
+});
+
+test("extractDeepSeekStrictCandidate compiles flat tool arguments", () => {
   const candidate = extractDeepSeekStrictCandidate({
     choices: [{
       message: {
@@ -49,47 +104,21 @@ test("extractDeepSeekStrictCandidate converts parameter entries to the internal 
             name: DEEPSEEK_RECOMMENDATION_TOOL_NAME,
             arguments: JSON.stringify({
               summary: "让角色持续移动。",
-              recommendation: {
-                root: {
-                  opcode: "control_forever",
-                  category: "控制",
-                  label: "一直重复",
-                  reason: "持续执行。",
-                  params: [],
-                  substack: {
-                    opcode: "motion_movesteps",
-                    category: "运动",
-                    label: "移动 20 步",
-                    reason: "每次向前移动。",
-                    params: [{ name: "steps", value: "20" }]
-                  }
-                }
-              }
+              nodes: [
+                node("loop", "control_forever", "", "root"),
+                node("move", "motion_movesteps", "loop", "substack", [
+                  { name: "steps", value: "20" }
+                ])
+              ]
             })
           }
         }]
       }
     }]
   });
-
-  assert.deepEqual(candidate, {
-    summary: "让角色持续移动。",
-    recommendation: {
-      root: {
-        opcode: "control_forever",
-        category: "控制",
-        label: "一直重复",
-        reason: "持续执行。",
-        substack: {
-          opcode: "motion_movesteps",
-          category: "运动",
-          label: "移动 20 步",
-          reason: "每次向前移动。",
-          params: { steps: "20" }
-        }
-      }
-    }
-  });
+  assert.equal(candidate.summary, "让角色持续移动。");
+  assert.equal(candidate.recommendation.root.opcode, "control_forever");
+  assert.equal(candidate.recommendation.root.substack.params.steps, "20");
 });
 
 test("extractDeepSeekStrictCandidate rejects content-only JSON responses", () => {

@@ -371,24 +371,33 @@ function createReferenceSnapshot() {
   };
 }
 
-function convertNodeParamsToStrictTransport(node) {
-  if (!node || typeof node !== "object") {
-    return node;
-  }
+function flattenNodeToStrictTransport(root) {
+  const nodes = [];
+  let nextId = 1;
 
-  const converted = { ...node };
-  if (converted.params && !Array.isArray(converted.params)) {
-    converted.params = Object.entries(converted.params).map(([name, value]) => ({ name, value }));
-  } else if (!converted.params) {
-    converted.params = [];
-  }
-
-  for (const relation of ["next", "condition", "substack", "substack2"]) {
-    if (converted[relation]) {
-      converted[relation] = convertNodeParamsToStrictTransport(converted[relation]);
+  const visit = (node, parentId = "", relation = "root") => {
+    if (!node || typeof node !== "object") return;
+    const id = `node-${nextId++}`;
+    const params = node.params && !Array.isArray(node.params)
+      ? Object.entries(node.params).map(([name, value]) => ({ name, value }))
+      : [];
+    nodes.push({
+      id,
+      parentId,
+      relation,
+      opcode: node.opcode,
+      category: node.category,
+      label: node.label,
+      reason: node.reason || node.label || node.opcode,
+      params
+    });
+    for (const childRelation of ["condition", "substack", "substack2", "next"]) {
+      if (node[childRelation]) visit(node[childRelation], id, childRelation);
     }
-  }
-  return converted;
+  };
+
+  visit(root);
+  return nodes;
 }
 
 function createDeepSeekResponse(content) {
@@ -400,9 +409,7 @@ function createDeepSeekResponse(content) {
     if (candidate.recommendation && candidate.recommendation.root) {
       argumentsText = JSON.stringify({
         summary: candidate.summary,
-        recommendation: {
-          root: convertNodeParamsToStrictTransport(candidate.recommendation.root)
-        }
+        nodes: flattenNodeToStrictTransport(candidate.recommendation.root)
       });
     } else {
       toolName = "submit_completed_project";
@@ -1228,7 +1235,7 @@ test("CoachService drops unsupported recommended opcodes and does not remap", as
   assert.equal(result.coachResponse.recommendedBlocks.some((block) => block.opcode === "looks_sayforsecs"), false);
 });
 
-test("CoachService keeps valid structured recommendations after dropping invalid children", async () => {
+test("CoachService rejects Strict recommendations containing unknown or misplaced nodes", async () => {
   const service = new CoachService(async () =>
     createDeepSeekResponse(
       JSON.stringify({
@@ -1270,13 +1277,8 @@ test("CoachService keeps valid structured recommendations after dropping invalid
     aiConfig: createAiConfig()
   });
 
-  assert.equal(result.source, "deepseek");
-  assert.deepEqual(
-    result.coachResponse.recommendedBlocks.map((block) => block.opcode),
-    ["event_whenkeypressed"]
-  );
-  assert.equal(result.coachResponse.recommendation.root.next, undefined);
-  assert.equal(result.coachResponse.recommendation.root.substack, undefined);
+  assert.equal(result.source, "fallback");
+  assert.match(result.warning, /未知 opcode|不允许使用/);
 });
 
 test("CoachService keeps nested recommendations only on compatible parent blocks", async () => {
@@ -1409,7 +1411,7 @@ test("CoachService omits an already-used green-flag hat and keeps the new contin
   );
 });
 
-test("CoachService salvages a renderable continuation after omitting an already-used hat", async () => {
+test("CoachService rejects a reporter placed in a Strict next relation", async () => {
   const service = new CoachService(async () =>
     createDeepSeekResponse(
       JSON.stringify({
@@ -1447,12 +1449,8 @@ test("CoachService salvages a renderable continuation after omitting an already-
     aiConfig: createAiConfig()
   });
 
-  assert.equal(result.source, "deepseek");
-  assert.equal(result.coachResponse.recommendation?.root.opcode, "motion_ifonedgebounce");
-  assert.deepEqual(
-    result.coachResponse.recommendedBlocks.map((block) => block.opcode),
-    ["motion_ifonedgebounce"]
-  );
+  assert.equal(result.source, "fallback");
+  assert.match(result.warning, /不能放在 next 位置/);
 });
 
 test("CoachService filters unavailable recommended blocks from DeepSeek", async () => {
@@ -1507,7 +1505,7 @@ test("CoachService filters unavailable recommended blocks from DeepSeek", async 
   );
 });
 
-test("CoachService trims overlong DeepSeek structures to five blocks instead of falling back", async () => {
+test("CoachService rejects Strict recommendations longer than five nodes", async () => {
   const service = new CoachService(async () =>
     createDeepSeekResponse(
       JSON.stringify({
@@ -1569,12 +1567,8 @@ test("CoachService trims overlong DeepSeek structures to five blocks instead of 
     aiConfig: createAiConfig()
   });
 
-  assert.equal(result.source, "deepseek");
-  assert.deepEqual(
-    result.coachResponse.recommendedBlocks.map((block) => block.opcode),
-    ["motion_gotoxy", "control_forever", "motion_movesteps"]
-  );
-  assert.equal(result.coachResponse.recommendation.root.next?.next, undefined);
+  assert.equal(result.source, "fallback");
+  assert.match(result.warning, /最多只能包含 5 个节点/);
 });
 
 test("CoachService strips Scratch node metadata from DeepSeek structures", async () => {

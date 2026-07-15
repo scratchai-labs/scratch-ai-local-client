@@ -1,11 +1,17 @@
+import { MAX_RECOMMENDED_BLOCKS } from "../common/recommended-blocks";
 import {
-  getRecommendedOpcodesByShape,
-  type RecommendedBlockShape
+  canRenderRecommendedBlockAtPosition,
+  canUseRecommendedBlockRelation,
+  type RecommendedBlockRelation
 } from "../common/recommended-block-capabilities";
+import { SUPPORTED_RECOMMENDED_BLOCK_OPCODES } from "../common/scratch-block-xml";
+import type { RecommendedBlockNode, RecommendedBlockParams } from "../common/types";
 
 export const DEEPSEEK_COMPLETE_TOOL_NAME = "submit_completed_project";
 export const DEEPSEEK_RECOMMENDATION_TOOL_NAME = "submit_scratch_recommendation";
 
+const ROOT_RELATION = "root";
+const NODE_RELATIONS = ["next", "condition", "substack", "substack2"] as const;
 const PARAM_NAMES = [
   "variable",
   "value",
@@ -20,18 +26,8 @@ const PARAM_NAMES = [
   "degrees",
   "secs"
 ] as const;
-
-const CONTROL_CONTAINER_OPCODES = new Set([
-  "control_repeat",
-  "control_forever",
-  "control_if",
-  "control_if_else",
-  "control_repeat_until"
-]);
-
-function opcodesByShape(shape: RecommendedBlockShape) {
-  return getRecommendedOpcodesByShape(shape);
-}
+const PARAM_NAME_SET = new Set<string>(PARAM_NAMES);
+const SUPPORTED_OPCODE_SET = new Set<string>(SUPPORTED_RECOMMENDED_BLOCK_OPCODES);
 
 function objectSchema(properties: Record<string, unknown>) {
   return {
@@ -42,124 +38,22 @@ function objectSchema(properties: Record<string, unknown>) {
   };
 }
 
-const paramsSchema = {
-  type: "array",
-  items: objectSchema({
-    name: { type: "string", enum: [...PARAM_NAMES] },
-    value: { type: "string" }
-  })
-};
-
-function baseNodeProperties(opcodes: string[]) {
-  return {
-    opcode: { type: "string", enum: opcodes },
-    category: { type: "string" },
-    label: { type: "string" },
-    reason: { type: "string" },
-    params: paramsSchema
-  };
-}
-
-function nodeSchema(opcodes: string[], relations: Record<string, unknown> = {}) {
-  return objectSchema({
-    ...baseNodeProperties(opcodes),
-    ...relations
-  });
-}
-
-function createRecommendationParametersSchema() {
-  const normalStackOpcodes = opcodesByShape("stack").filter(
-    (opcode) => !CONTROL_CONTAINER_OPCODES.has(opcode)
-  );
-  const terminalOpcodes = opcodesByShape("terminal").filter(
-    (opcode) => opcode !== "control_forever"
-  );
-  const hatOpcodes = opcodesByShape("hat");
-  const booleanOpcodes = opcodesByShape("boolean");
-  const nextRef = { $ref: "#/$defs/statementNode" };
-
-  return {
-    type: "object",
-    properties: {
-      summary: { type: "string" },
-      recommendation: objectSchema({
-        root: { $ref: "#/$defs/rootNode" }
-      })
-    },
-    required: ["summary", "recommendation"],
-    additionalProperties: false,
-    $defs: {
-      conditionNode: nodeSchema(booleanOpcodes),
-      normalStackWithoutNext: nodeSchema(normalStackOpcodes),
-      normalStackWithNext: nodeSchema(normalStackOpcodes, { next: nextRef }),
-      terminalNode: nodeSchema(terminalOpcodes),
-      foreverNode: nodeSchema(["control_forever"], {
-        substack: { $ref: "#/$defs/statementNode" }
-      }),
-      repeatWithoutNext: nodeSchema(["control_repeat"], {
-        substack: { $ref: "#/$defs/statementNode" }
-      }),
-      repeatWithNext: nodeSchema(["control_repeat"], {
-        substack: { $ref: "#/$defs/statementNode" },
-        next: nextRef
-      }),
-      repeatUntilWithoutNext: nodeSchema(["control_repeat_until"], {
-        condition: { $ref: "#/$defs/conditionNode" },
-        substack: { $ref: "#/$defs/statementNode" }
-      }),
-      repeatUntilWithNext: nodeSchema(["control_repeat_until"], {
-        condition: { $ref: "#/$defs/conditionNode" },
-        substack: { $ref: "#/$defs/statementNode" },
-        next: nextRef
-      }),
-      ifWithoutNext: nodeSchema(["control_if"], {
-        condition: { $ref: "#/$defs/conditionNode" },
-        substack: { $ref: "#/$defs/statementNode" }
-      }),
-      ifWithNext: nodeSchema(["control_if"], {
-        condition: { $ref: "#/$defs/conditionNode" },
-        substack: { $ref: "#/$defs/statementNode" },
-        next: nextRef
-      }),
-      ifElseWithoutNext: nodeSchema(["control_if_else"], {
-        condition: { $ref: "#/$defs/conditionNode" },
-        substack: { $ref: "#/$defs/statementNode" },
-        substack2: { $ref: "#/$defs/statementNode" }
-      }),
-      ifElseWithNext: nodeSchema(["control_if_else"], {
-        condition: { $ref: "#/$defs/conditionNode" },
-        substack: { $ref: "#/$defs/statementNode" },
-        substack2: { $ref: "#/$defs/statementNode" },
-        next: nextRef
-      }),
-      statementNode: {
-        anyOf: [
-          { $ref: "#/$defs/normalStackWithoutNext" },
-          { $ref: "#/$defs/normalStackWithNext" },
-          { $ref: "#/$defs/terminalNode" },
-          { $ref: "#/$defs/foreverNode" },
-          { $ref: "#/$defs/repeatWithoutNext" },
-          { $ref: "#/$defs/repeatWithNext" },
-          { $ref: "#/$defs/repeatUntilWithoutNext" },
-          { $ref: "#/$defs/repeatUntilWithNext" },
-          { $ref: "#/$defs/ifWithoutNext" },
-          { $ref: "#/$defs/ifWithNext" },
-          { $ref: "#/$defs/ifElseWithoutNext" },
-          { $ref: "#/$defs/ifElseWithNext" }
-        ]
-      },
-      hatWithoutNext: nodeSchema(hatOpcodes),
-      hatWithNext: nodeSchema(hatOpcodes, { next: nextRef }),
-      rootNode: {
-        anyOf: [
-          { $ref: "#/$defs/hatWithoutNext" },
-          { $ref: "#/$defs/hatWithNext" },
-          { $ref: "#/$defs/statementNode" }
-        ]
-      }
-    }
-  };
-}
+const strictNodeSchema = objectSchema({
+  id: { type: "string" },
+  parentId: { type: "string" },
+  relation: { type: "string", enum: [ROOT_RELATION, ...NODE_RELATIONS] },
+  opcode: { type: "string", enum: [...SUPPORTED_RECOMMENDED_BLOCK_OPCODES] },
+  category: { type: "string" },
+  label: { type: "string" },
+  reason: { type: "string" },
+  params: {
+    type: "array",
+    items: objectSchema({
+      name: { type: "string", enum: [...PARAM_NAMES] },
+      value: { type: "string" }
+    })
+  }
+});
 
 export const DEEPSEEK_STRICT_TOOLS = Object.freeze([
   {
@@ -177,9 +71,15 @@ export const DEEPSEEK_STRICT_TOOLS = Object.freeze([
     type: "function",
     function: {
       name: DEEPSEEK_RECOMMENDATION_TOOL_NAME,
-      description: "作品仍需完善时，提交经过 Scratch 连接规则约束的下一步积木结构。",
+      description: "作品仍需完善时，提交最多五个带显式父节点和连接关系的 Scratch 推荐积木。",
       strict: true,
-      parameters: createRecommendationParametersSchema()
+      parameters: objectSchema({
+        summary: { type: "string" },
+        nodes: {
+          type: "array",
+          items: strictNodeSchema
+        }
+      })
     }
   }
 ]);
@@ -190,40 +90,151 @@ export function buildDeepSeekStrictChatUrl(baseUrl: string) {
   return `${betaBase}/chat/completions`;
 }
 
-function convertStrictParams(value: unknown) {
-  if (!Array.isArray(value)) {
-    return value;
-  }
-
-  const params: Record<string, string> = {};
-  for (const item of value) {
-    if (!item || typeof item !== "object") continue;
-    const { name, value: itemValue } = item as { name?: unknown; value?: unknown };
-    if (typeof name === "string" && typeof itemValue === "string") {
-      params[name] = itemValue;
-    }
-  }
-  return params;
+interface StrictRecommendationNodeRecord {
+  id: string;
+  parentId: string;
+  relation: typeof ROOT_RELATION | RecommendedBlockRelation;
+  opcode: string;
+  category: string;
+  label: string;
+  reason: string;
+  params?: RecommendedBlockParams;
 }
 
-function convertStrictNode(value: unknown): unknown {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return value;
+function parseRequiredString(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`DeepSeek 严格推荐节点缺少 ${key}。`);
+  }
+  return value.trim();
+}
+
+function parseStrictParams(value: unknown) {
+  if (!Array.isArray(value)) {
+    throw new Error("DeepSeek 严格推荐节点 params 必须是数组。");
   }
 
-  const node = { ...(value as Record<string, unknown>) };
-  const params = convertStrictParams(node.params);
-  if (params && typeof params === "object" && !Array.isArray(params) && Object.keys(params).length > 0) {
-    node.params = params;
-  } else {
-    delete node.params;
-  }
-  for (const relation of ["next", "condition", "substack", "substack2"]) {
-    if (node[relation] !== undefined) {
-      node[relation] = convertStrictNode(node[relation]);
+  const params: RecommendedBlockParams = {};
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new Error("DeepSeek 严格推荐参数格式无效。");
     }
+    const record = item as Record<string, unknown>;
+    const name = parseRequiredString(record, "name");
+    const paramValue = parseRequiredString(record, "value");
+    if (!PARAM_NAME_SET.has(name)) {
+      throw new Error(`DeepSeek 严格推荐包含未知参数 ${name}。`);
+    }
+    if (Object.hasOwn(params, name)) {
+      throw new Error(`DeepSeek 严格推荐重复提供参数 ${name}。`);
+    }
+    (params as Record<string, string>)[name] = paramValue;
   }
-  return node;
+  return Object.keys(params).length > 0 ? params : undefined;
+}
+
+function parseStrictNode(value: unknown): StrictRecommendationNodeRecord {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("DeepSeek 严格推荐节点格式无效。");
+  }
+  const record = value as Record<string, unknown>;
+  const relation = parseRequiredString(record, "relation");
+  if (relation !== ROOT_RELATION && !NODE_RELATIONS.includes(relation as RecommendedBlockRelation)) {
+    throw new Error(`DeepSeek 严格推荐包含未知连接关系 ${relation}。`);
+  }
+  const opcode = parseRequiredString(record, "opcode");
+  if (!SUPPORTED_OPCODE_SET.has(opcode)) {
+    throw new Error(`DeepSeek 严格推荐包含未知 opcode ${opcode}。`);
+  }
+
+  return {
+    id: parseRequiredString(record, "id"),
+    parentId: typeof record.parentId === "string" ? record.parentId.trim() : "",
+    relation: relation as StrictRecommendationNodeRecord["relation"],
+    opcode,
+    category: parseRequiredString(record, "category"),
+    label: parseRequiredString(record, "label"),
+    reason: parseRequiredString(record, "reason"),
+    params: parseStrictParams(record.params)
+  };
+}
+
+export function compileDeepSeekStrictNodes(rawNodes: unknown): RecommendedBlockNode {
+  if (!Array.isArray(rawNodes) || rawNodes.length === 0) {
+    throw new Error("DeepSeek 严格推荐没有返回积木节点。");
+  }
+  if (rawNodes.length > MAX_RECOMMENDED_BLOCKS) {
+    throw new Error(`DeepSeek 严格推荐最多只能包含 ${MAX_RECOMMENDED_BLOCKS} 个节点。`);
+  }
+
+  const nodes = rawNodes.map(parseStrictNode);
+  const nodeById = new Map<string, StrictRecommendationNodeRecord>();
+  for (const node of nodes) {
+    if (nodeById.has(node.id)) {
+      throw new Error(`DeepSeek 严格推荐节点 id 重复：${node.id}。`);
+    }
+    nodeById.set(node.id, node);
+  }
+
+  const roots = nodes.filter((node) => node.relation === ROOT_RELATION);
+  if (roots.length !== 1 || roots[0].parentId) {
+    throw new Error("DeepSeek 严格推荐必须有且只有一个无父节点 root。 ");
+  }
+  const root = roots[0];
+  if (!canRenderRecommendedBlockAtPosition(root.opcode, "root")) {
+    throw new Error(`DeepSeek 严格推荐 root 不能使用 ${root.opcode}。`);
+  }
+
+  const childrenByParent = new Map<string, Map<RecommendedBlockRelation, StrictRecommendationNodeRecord>>();
+  for (const node of nodes) {
+    if (node === root) continue;
+    if (!node.parentId || !nodeById.has(node.parentId)) {
+      throw new Error(`DeepSeek 严格推荐节点 ${node.id} 的父节点不存在。`);
+    }
+    const relation = node.relation as RecommendedBlockRelation;
+    const parent = nodeById.get(node.parentId)!;
+    if (!canUseRecommendedBlockRelation(parent.opcode, relation)) {
+      throw new Error(`${parent.opcode} 不允许使用 ${relation} 连接。`);
+    }
+    if (!canRenderRecommendedBlockAtPosition(node.opcode, relation)) {
+      throw new Error(`${node.opcode} 不能放在 ${relation} 位置。`);
+    }
+
+    const relationMap = childrenByParent.get(parent.id) ?? new Map();
+    if (relationMap.has(relation)) {
+      throw new Error(`DeepSeek 严格推荐父节点 ${parent.id} 重复使用 ${relation}。`);
+    }
+    relationMap.set(relation, node);
+    childrenByParent.set(parent.id, relationMap);
+  }
+
+  const visited = new Set<string>();
+  const buildNode = (node: StrictRecommendationNodeRecord, ancestors: Set<string>): RecommendedBlockNode => {
+    if (ancestors.has(node.id)) {
+      throw new Error(`DeepSeek 严格推荐存在循环连接：${node.id}。`);
+    }
+    visited.add(node.id);
+    const nextAncestors = new Set(ancestors).add(node.id);
+    const result: RecommendedBlockNode = {
+      opcode: node.opcode,
+      category: node.category,
+      label: node.label,
+      reason: node.reason,
+      ...(node.params ? { params: node.params } : {})
+    };
+    const relations = childrenByParent.get(node.id);
+    for (const relation of NODE_RELATIONS) {
+      const child = relations?.get(relation);
+      if (child) result[relation] = buildNode(child, nextAncestors);
+    }
+    return result;
+  };
+
+  const compiledRoot = buildNode(root, new Set());
+  if (visited.size !== nodes.length) {
+    throw new Error("DeepSeek 严格推荐包含未连接到 root 的节点。");
+  }
+  return compiledRoot;
 }
 
 export function extractDeepSeekStrictCandidate(rawPayload: unknown) {
@@ -253,20 +264,13 @@ export function extractDeepSeekStrictCandidate(rawPayload: unknown) {
 
   const parsed = JSON.parse(call.function.arguments) as Record<string, unknown>;
   if (call.function.name === DEEPSEEK_COMPLETE_TOOL_NAME) {
-    return {
-      summary: parsed.summary
-    };
+    return { summary: parseRequiredString(parsed, "summary") };
   }
 
-  const recommendation = parsed.recommendation;
-  if (!recommendation || typeof recommendation !== "object" || Array.isArray(recommendation)) {
-    throw new Error("DeepSeek 严格推荐缺少 recommendation。");
-  }
-  const root = (recommendation as Record<string, unknown>).root;
   return {
-    summary: parsed.summary,
+    summary: parseRequiredString(parsed, "summary"),
     recommendation: {
-      root: convertStrictNode(root)
+      root: compileDeepSeekStrictNodes(parsed.nodes)
     }
   };
 }
