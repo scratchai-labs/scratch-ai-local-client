@@ -436,6 +436,28 @@ test("buildRecommendedStructureXml uses protocol params for nested math formulas
   assert.match(xml, /<field name="VARIABLE"[^>]*>rabbits<\/field>[\s\S]*<field name="VARIABLE"[^>]*>rabbits<\/field>/);
 });
 
+test("buildRecommendedStructureXml renders variables from full-width math formulas", () => {
+  const xml = buildRecommendedStructureXml({
+    root: {
+      opcode: "data_setvariableto",
+      category: "变量",
+      label: "将变量设为",
+      reason: "用鸡兔同笼公式求兔子数量。",
+      params: {
+        variable: "rabbits",
+        value: "（feet - 2 × heads）÷ 2"
+      }
+    }
+  });
+
+  assert.match(xml, /<block type="operator_divide">/);
+  assert.match(xml, /<block type="operator_subtract">/);
+  assert.match(xml, /<block type="operator_multiply">/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>feet<\/field>/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>heads<\/field>/);
+  assert.doesNotMatch(xml, /<shadow type="text">[\s\S]*feet - 2/);
+});
+
 test("buildRecommendedStructureXml infers polygon repeat counts and turn degrees from drawing text", () => {
   const triangleXml = buildRecommendedStructureXml({
     root: {

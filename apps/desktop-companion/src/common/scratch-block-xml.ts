@@ -693,7 +693,15 @@ type FormulaExpressionNode =
   | { kind: "binary"; opcode: string; left: FormulaExpressionNode; right: FormulaExpressionNode };
 
 function tokenizeFormulaExpression(value: string) {
-  const normalized = value.replaceAll("×", "*").replaceAll("÷", "/");
+  const normalized = value
+    .replaceAll("（", "(")
+    .replaceAll("）", ")")
+    .replaceAll("＋", "+")
+    .replaceAll("－", "-")
+    .replaceAll("＊", "*")
+    .replaceAll("／", "/")
+    .replaceAll("×", "*")
+    .replaceAll("÷", "/");
   const tokens: string[] = [];
   let index = 0;
 
