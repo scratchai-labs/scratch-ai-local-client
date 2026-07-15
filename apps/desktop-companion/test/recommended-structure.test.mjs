@@ -59,3 +59,25 @@ test("sanitizeRecommendedStructure rejects reporter roots", () => {
 
   assert.equal(result, undefined);
 });
+
+test("sanitizeRecommendedStructure removes next from terminal Scratch blocks", () => {
+  for (const opcode of ["control_forever", "control_stop", "control_delete_this_clone"]) {
+    const result = sanitizeRecommendedStructure({
+      root: {
+        opcode,
+        category: "控制",
+        label: opcode,
+        reason: "这是不能继续向下连接的积木。",
+        next: {
+          opcode: "motion_movesteps",
+          category: "运动",
+          label: "移动 10 步",
+          reason: "这个 next 必须被拒绝。"
+        }
+      }
+    });
+
+    assert.equal(result?.root.opcode, opcode);
+    assert.equal(result?.root.next, undefined, `${opcode} must not keep a next relation`);
+  }
+});

@@ -1543,9 +1543,9 @@ test("CoachService trims overlong DeepSeek structures to five blocks instead of 
   assert.equal(result.source, "deepseek");
   assert.deepEqual(
     result.coachResponse.recommendedBlocks.map((block) => block.opcode),
-    ["motion_gotoxy", "control_forever", "motion_movesteps", "looks_sayforsecs", "data_setvariableto"]
+    ["motion_gotoxy", "control_forever", "motion_movesteps"]
   );
-  assert.equal(result.coachResponse.recommendation.root.next?.next?.next?.next, undefined);
+  assert.equal(result.coachResponse.recommendation.root.next?.next, undefined);
 });
 
 test("CoachService strips Scratch node metadata from DeepSeek structures", async () => {

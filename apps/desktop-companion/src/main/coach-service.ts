@@ -11,6 +11,7 @@ import {
   isSupportedRecommendedBlockOpcode
 } from "../common/scratch-block-xml";
 import { sanitizeRecommendedStructure } from "../common/recommended-structure";
+import { canUseRecommendedBlockRelation } from "../common/recommended-block-capabilities";
 import { MAX_RECOMMENDED_BLOCKS, MAX_SIMPLE_RECOMMENDED_BLOCKS } from "../common/recommended-blocks";
 
 import type { LoadedDeepSeekConfig } from "./deepseek-config";
@@ -1296,30 +1297,6 @@ function shouldAvoidAskForFixedSumGoal(
   return /\d+/.test(goalText) && /(求和|累加|1到|1\+)/.test(goalText);
 }
 
-function canUseRecommendationRelation(opcode: string, relation: "condition" | "substack" | "substack2") {
-  if (relation === "condition") {
-    return [
-      "control_if",
-      "control_if_else",
-      "control_repeat_until",
-      "control_wait_until"
-    ].includes(opcode);
-  }
-
-  if (relation === "substack") {
-    return [
-      "control_forever",
-      "control_if",
-      "control_if_else",
-      "control_repeat",
-      "control_repeat_until"
-    ].includes(opcode);
-  }
-
-  return opcode === "control_if_else";
-}
-
-
 function shouldOmitAlreadyUsedRootHat(
   node: RecommendedBlockNode,
   options: GenerateCoachHintOptions
@@ -1341,7 +1318,7 @@ function filterRecommendedNode(
       return promotedNext;
     }
     const promotedSubstack =
-      node.substack && canUseRecommendationRelation(node.opcode, "substack")
+      node.substack && canUseRecommendedBlockRelation(node.opcode, "substack")
         ? filterRecommendedNode(node.substack, options)
         : null;
     if (promotedSubstack) {
@@ -1360,15 +1337,15 @@ function filterRecommendedNode(
 
   const next = node.next ? filterRecommendedNode(node.next, options) : null;
   const condition =
-    node.condition && canUseRecommendationRelation(node.opcode, "condition")
+    node.condition && canUseRecommendedBlockRelation(node.opcode, "condition")
       ? filterRecommendedNode(node.condition, options)
       : null;
   const substack =
-    node.substack && canUseRecommendationRelation(node.opcode, "substack")
+    node.substack && canUseRecommendedBlockRelation(node.opcode, "substack")
       ? filterRecommendedNode(node.substack, options)
       : null;
   const substack2 =
-    node.substack2 && canUseRecommendationRelation(node.opcode, "substack2")
+    node.substack2 && canUseRecommendedBlockRelation(node.opcode, "substack2")
       ? filterRecommendedNode(node.substack2, options)
       : null;
 
