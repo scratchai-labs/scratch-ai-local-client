@@ -8,6 +8,7 @@
 
 ## 已完成
 
+- 2026-07-15：修复推荐积木仍出现空输入槽的问题。截图根因不是显示区域裁剪，而是 XML 生成层对 `data_setvariableto` 的 VALUE 输入使用了不适配的 `math_number` shadow，且 DeepSeek 返回 `sensing_askandwait -> data_setvariableto` 时可能漏掉 `params.value`，导致“存储头数/脚数”没有接上“回答” reporter。现变量赋值默认值改用 Scratch 原生 text shadow；顺序链路中“询问并等待”后紧接“将变量设为”会自动填入 `sensing_answer`；prompt 同步要求模型显式返回 `params.value="sensing_answer"`。补截图场景回归，`desktop-companion` 219 项测试通过。
 - 2026-07-15：泛化推荐变量命名策略；没有在客户端做 `heads/feet/rabbits` 到中文的本地映射，而是升级 DeepSeek 输出约束：`params.variable` / `messageVariable` / 公式变量 token 优先复用项目已有变量名；若是新建变量，则按本课目标和题目语言生成学生可读短变量名，并要求同一含义在公式和后续积木中完全一致。同步去掉推荐协议里的英文变量示例，避免模型默认模仿 `rabbits/feet/heads`；补 prompt 回归测试，`desktop-companion` 218 项测试通过。
 - 2026-07-15：继续修复鸡兔同笼推荐公式中文变量不渲染问题。补充发现：`头数` / `脚数` / `兔子数量` 这类中文变量虽已能被公式 parser 识别，但变量 id 都退化成 `variable--`，Blockly 可能因 id 冲突导致变量 reporter 显示异常；现改为对非 ASCII 变量名生成稳定码点 id，三类变量互不冲突，并补中文变量公式回归测试。`desktop-companion` 218 项测试通过。
 - 2026-07-15：修复鸡兔同笼推荐公式里的变量积木不渲染问题。根因为 DeepSeek 可能返回 `（feet - 2 × heads）÷ 2` 这类全角括号/数学符号公式，客户端公式 tokenizer 只归一化 `×/÷`，遇到全角括号会退回文本输入，导致 `feet/heads` 不显示为变量 reporter。现已归一化全角括号与全角四则运算符，并补回归测试；`desktop-companion` 217 项测试通过。

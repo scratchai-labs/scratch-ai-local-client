@@ -1098,6 +1098,9 @@ function inferRecommendedBinaryFormulaValueXml(block: RecommendedBlock, variable
 function inferRecommendedSetVariableValueXml(block: RecommendedBlock, variableName: string) {
   const paramValue = getRecommendedParam(block, "value");
   if (paramValue) {
+    if (/^-?\d+(?:\.\d+)?$/.test(paramValue)) {
+      return buildTextShadowValueXml("VALUE", paramValue);
+    }
     return buildFormulaExpressionValueXml("VALUE", paramValue) ?? buildTextShadowValueXml("VALUE", paramValue);
   }
 
@@ -1113,7 +1116,7 @@ function inferRecommendedSetVariableValueXml(block: RecommendedBlock, variableNa
     return buildVariableMathValueXml("VALUE", "operator_multiply", "number", "number");
   }
 
-  return buildNumberShadowValueXml("VALUE", inferRecommendedSetVariableValue(block, variableName));
+  return buildTextShadowValueXml("VALUE", inferRecommendedSetVariableValue(block, variableName));
 }
 
 function inferRecommendedChangeVariableValue(block: RecommendedBlock, variableName: string) {
@@ -1798,7 +1801,29 @@ function appendBlockChildren(blockXml: string, childrenXml: string) {
   return `${blockXml.slice(0, closingIndex)}${childrenXml}${blockXml.slice(closingIndex)}`;
 }
 
-function buildRecommendedStructureBody(node: RecommendedBlockNode): string {
+function applySequentialRecommendedInputDefaults(
+  node: RecommendedBlockNode,
+  previousNode?: RecommendedBlockNode
+): RecommendedBlockNode {
+  if (
+    previousNode?.opcode === "sensing_askandwait" &&
+    node.opcode === "data_setvariableto" &&
+    !normalizeString(node.params?.value)
+  ) {
+    return {
+      ...node,
+      params: {
+        ...node.params,
+        value: "sensing_answer"
+      }
+    };
+  }
+
+  return node;
+}
+
+function buildRecommendedStructureBody(rawNode: RecommendedBlockNode, previousNode?: RecommendedBlockNode): string {
+  const node = applySequentialRecommendedInputDefaults(rawNode, previousNode);
   const conditionXml = node.condition
     ? `<value name="CONDITION">${buildRecommendedStructureBody(node.condition)}</value>`
     : "";
@@ -1809,7 +1834,7 @@ function buildRecommendedStructureBody(node: RecommendedBlockNode): string {
     ? `<statement name="SUBSTACK2">${buildRecommendedStructureBody(node.substack2)}</statement>`
     : "";
   const nextXml = node.next
-    ? `<next>${buildRecommendedStructureBody(node.next)}</next>`
+    ? `<next>${buildRecommendedStructureBody(node.next, node)}</next>`
     : "";
 
   return appendBlockChildren(

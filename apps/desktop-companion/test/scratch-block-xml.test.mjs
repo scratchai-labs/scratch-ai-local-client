@@ -201,7 +201,8 @@ test("buildRecommendedBlockXml fills fields and values for effect, menu and vari
   assert.match(setVariableXml, /<block[^>]+type="data_setvariableto"/);
   assert.match(setVariableXml, /<field name="VARIABLE"[^>]*>分数<\/field>/);
   assert.match(setVariableXml, /<value name="VALUE">/);
-  assert.match(setVariableXml, /<field name="NUM">0<\/field>/);
+  assert.match(setVariableXml, /<shadow type="text">/);
+  assert.match(setVariableXml, /<field name="TEXT">0<\/field>/);
 });
 
 test("buildRecommendedBlockXml infers sum variable defaults from recommendation text", () => {
@@ -231,9 +232,11 @@ test("buildRecommendedBlockXml infers sum variable defaults from recommendation 
   });
 
   assert.match(sumXml, /<field name="VARIABLE"[^>]*>sum<\/field>/);
-  assert.match(sumXml, /<field name="NUM">0<\/field>/);
+  assert.match(sumXml, /<shadow type="text">/);
+  assert.match(sumXml, /<field name="TEXT">0<\/field>/);
   assert.match(counterXml, /<field name="VARIABLE"[^>]*>i<\/field>/);
-  assert.match(counterXml, /<field name="NUM">1<\/field>/);
+  assert.match(counterXml, /<shadow type="text">/);
+  assert.match(counterXml, /<field name="TEXT">1<\/field>/);
   assert.match(changeSumXml, /<field name="VARIABLE"[^>]*>sum<\/field>/);
   assert.match(changeSumXml, /<value name="VALUE">\s*<block type="data_variable">/);
   assert.match(changeSumXml, /<field name="VARIABLE"[^>]*>i<\/field>/);
@@ -484,6 +487,46 @@ test("buildRecommendedStructureXml renders Chinese formula variables with distin
   );
   assert.equal(new Set([idsByVariable.兔子数量, idsByVariable.脚数, idsByVariable.头数]).size, 3);
   assert.doesNotMatch(xml, /id="variable--"/);
+});
+
+test("buildRecommendedStructureXml stores ask answers instead of empty variable inputs", () => {
+  const xml = buildRecommendedStructureXml({
+    root: {
+      opcode: "sensing_askandwait",
+      category: "侦测",
+      label: "询问",
+      reason: "需要先获取头数。",
+      params: { question: "请输入总头数" },
+      next: {
+        opcode: "data_setvariableto",
+        category: "变量",
+        label: "存储头数",
+        reason: "存储头数。",
+        params: { variable: "头数" },
+        next: {
+          opcode: "sensing_askandwait",
+          category: "侦测",
+          label: "询问",
+          reason: "获取脚数。",
+          params: { question: "请输入总脚数" },
+          next: {
+            opcode: "data_setvariableto",
+            category: "变量",
+            label: "存储脚数",
+            reason: "存储脚数。",
+            params: { variable: "脚数" }
+          }
+        }
+      }
+    }
+  });
+
+  assert.match(xml, /<field name="TEXT">请输入总头数<\/field>/);
+  assert.match(xml, /<field name="TEXT">请输入总脚数<\/field>/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>头数<\/field>[\s\S]*<value name="VALUE">\s*<block type="sensing_answer">/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>脚数<\/field>[\s\S]*<value name="VALUE">\s*<block type="sensing_answer">/);
+  assert.doesNotMatch(xml, /<field name="VARIABLE"[^>]*>头数<\/field>[\s\S]*<shadow type="math_number">/);
+  assert.doesNotMatch(xml, /<field name="VARIABLE"[^>]*>脚数<\/field>[\s\S]*<shadow type="math_number">/);
 });
 
 test("buildRecommendedStructureXml infers polygon repeat counts and turn degrees from drawing text", () => {

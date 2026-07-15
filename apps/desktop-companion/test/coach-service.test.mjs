@@ -476,6 +476,7 @@ test("CoachService sends DeepSeek V4 chat completions requests in JSON non-think
   assert.equal(capturedRequest.body.messages[0].content.includes("substack2"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("params"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("messageVariable"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes('params.value="sensing_answer"'), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("优先复用项目里已经存在的变量名"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("新建变量时按本课目标和题目语言"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes('params.variable="rabbits"'), false);
