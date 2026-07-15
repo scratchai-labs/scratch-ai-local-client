@@ -8,6 +8,7 @@
 
 ## 已完成
 
+- 2026-07-15：按用户要求打开桌面伴随程序供人工查看最新 10 目标泛化修复效果；已正常源码联调启动，不带 mock 环境变量，运行日志 `/tmp/scratch-ai-companion-dev-20260715.log`，Electron 进程已启动并激活到前台。
 - 2026-07-15：完成 10 个不同本课目标真实截图验收与泛化修复，覆盖接苹果/躲避陨石小游戏、1 到 100 求和、鸡兔同笼、三个数平均数、5 的阶乘、输入数字平方、正方形/三角形/五边形绘制。首次 10 目标压测发现阶乘推荐里 `product = product * i` 被渲染成错误变量/默认值，且 fallback 会退回 `sum/n` 求和模板；现已泛化推荐积木 XML 推断，支持任意英文变量赋值、二元公式（加减乘除）、变量 reporter、图形循环次数与转角，并新增阶乘 product fallback、绘图任务 fallback/过滤，避免画图 follow 漂移到“碰到边缘就反弹”。最终真实验收产物 `multi-goal-10-verification-20260715-v3/`：10/10 目标 `good`，显示校验全 pass，求和运行输出 `5050`，平方输入 `7` 输出 `49`；根级 `npm run test` 通过（shared 12、verification 34、desktop-companion 208）。
 - 2026-07-15：完成计算题推荐显示泛化修复并重启源码版供查看。根因定位为推荐积木 XML 渲染层只用 opcode 默认模板补输入槽：`control_repeat` 固定 `10`，`data_changevariableby` 对“把 i 加到 sum 中”等等价说法无法解析，导致 DeepSeek/归一化文案里有 `100` 和 `i` 也会显示成默认值。现新增通用文本语义推断：识别 `重复执行 100 次`、`1 到 100`、`1+2+...+100`、`重复 n 次`，并识别 `sum 增加 i` / `i 加到 sum` 的目标变量和增量变量。已补回归测试，确认 XML 输出为 `重复执行 100 次` 且 `sum` 增加 `i` 变量 reporter；根级 `npm run test` 通过（shared 12、verification 34、desktop-companion 203）。
 - 2026-07-14：完成“按 DeepSeek 推荐编程后，点击绿旗运行结果是否正确”的修复与验收：推荐积木渲染会把“说出 sum/result”显示为变量 reporter，不再填文本“结果”；平方题会把 `result` 设为 `number * number`；平方程序完成后返回完成总结，不再漂移到求和。`verify-multi-goal-deepseek-coaching.mjs` 新增真实运行验算，点击绿旗读取角色气泡：`1+2+...+100` 输出 `5050`，输入 `7` 求平方输出 `49`。产物 `runtime-output-verification-20260714-v2/`，5 个目标均为 `good`，计算类运行输出均 pass。
