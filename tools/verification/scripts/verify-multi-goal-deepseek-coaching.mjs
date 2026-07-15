@@ -18,6 +18,7 @@
  * 用法：
  *   node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs
  *   node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs --packaged=false --follow-steps=1
+ *   node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs --case-ids=G4-chicken-rabbit,G7-square-number,G10-draw-pentagon
  */
 import {access, mkdir, readFile, rm, writeFile} from 'node:fs/promises';
 import path from 'node:path';
@@ -53,6 +54,12 @@ const companionDebugPort = Number(argv.get('--port') ?? '9407');
 const timeoutMs = Number(argv.get('--timeout-ms') ?? '150000');
 const maxFollowSteps = Number(argv.get('--follow-steps') ?? '1');
 const keepOpen = argv.get('--keep-open') === 'true';
+const requestedCaseIds = new Set(
+    (argv.get('--case-ids') ?? '')
+        .split(',')
+        .map(value => value.trim())
+        .filter(Boolean)
+);
 
 const artifactDir =
     argv.get('--artifact-dir') ??
@@ -1295,6 +1302,11 @@ const goalCases = [
     }
 ];
 
+const activeGoalCases = requestedCaseIds.size > 0
+    ? goalCases.filter(testCase => requestedCaseIds.has(testCase.id))
+    : goalCases;
+assert(activeGoalCases.length > 0, `没有找到 --case-ids 指定的目标：${[...requestedCaseIds].join(', ')}`);
+
 function escapeRegex(value) {
     return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -1436,7 +1448,7 @@ async function main() {
         userDataDir,
         hasApiKey: Boolean(config.customAiApiKey),
         aiHintTriggerMode: config.aiHintTriggerMode,
-        cases: goalCases.map(item => ({id: item.id, kind: item.kind, goal: item.goal}))
+        cases: activeGoalCases.map(item => ({id: item.id, kind: item.kind, goal: item.goal}))
     }, null, 2));
 
     const child = spawn(companionExe, [...companionArgs, `--remote-debugging-port=${companionDebugPort}`], {
@@ -1619,12 +1631,12 @@ async function main() {
         await refreshScratchTarget();
         await shot(mainTarget, scratchTarget, 'connected-blank');
 
-        for (const testCase of goalCases) {
+        for (const testCase of activeGoalCases) {
             console.log(`\n=== ${testCase.id} ${testCase.kind} ===`);
             await runGoalCase(mainTarget, testCase);
         }
 
-        const caseEvaluations = goalCases.map(testCase => evaluateCaseResult(
+        const caseEvaluations = activeGoalCases.map(testCase => evaluateCaseResult(
             testCase,
             timeline.filter(entry => entry.caseId === testCase.id)
         ));

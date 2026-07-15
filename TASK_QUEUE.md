@@ -8,6 +8,7 @@
 
 ## 已完成
 
+- 2026-07-16：完成 10 个真实目标“填写本课目标 → 按推荐编程 → 检查推荐积木渲染”验收，覆盖小游戏、算法、复杂数学、交互数学和图形绘制。首轮 `multi-goal-10-verification-20260716/` 生成 43 步、85 张教练/Scratch 截图并暴露 3 个真实问题：平方公式把 `operator_multiply` 当变量、五边形 fallback 的通用 15 度标签覆盖 72 度、鸡兔同笼 fallback 把 reporter 作为 next 导致公式积木被渲染器移除。已改为忽略运算 opcode 占位并从语义推断公式、优先使用 reason/example 中的目标角度、用 `params.value` 生成完整鸡兔公式；验证脚本新增 `--case-ids` 支持定向复测。修复后 `multi-goal-10-verification-20260716-postfix/FINAL_RENDER_AUDIT.md` 汇总 10/10 目标、29 个实质推荐状态全部生成非空 XML/Blockly 文本且关键参数通过；根级测试通过（shared 14、verification 34、desktop-companion 230），93 个推荐 opcode 与合法结构真实 Electron 渲染合同通过。
 - 2026-07-15：修复推荐积木仍出现空输入槽的问题。截图根因不是显示区域裁剪，而是 XML 生成层对 `data_setvariableto` 的 VALUE 输入使用了不适配的 `math_number` shadow，且 DeepSeek 返回 `sensing_askandwait -> data_setvariableto` 时可能漏掉 `params.value`，导致“存储头数/脚数”没有接上“回答” reporter。现变量赋值默认值改用 Scratch 原生 text shadow；顺序链路中“询问并等待”后紧接“将变量设为”会自动填入 `sensing_answer`；prompt 同步要求模型显式返回 `params.value="sensing_answer"`。补截图场景回归，`desktop-companion` 219 项测试通过。
 - 2026-07-15：泛化推荐变量命名策略；没有在客户端做 `heads/feet/rabbits` 到中文的本地映射，而是升级 DeepSeek 输出约束：`params.variable` / `messageVariable` / 公式变量 token 优先复用项目已有变量名；若是新建变量，则按本课目标和题目语言生成学生可读短变量名，并要求同一含义在公式和后续积木中完全一致。同步去掉推荐协议里的英文变量示例，避免模型默认模仿 `rabbits/feet/heads`；补 prompt 回归测试，`desktop-companion` 218 项测试通过。
 - 2026-07-15：继续修复鸡兔同笼推荐公式中文变量不渲染问题。补充发现：`头数` / `脚数` / `兔子数量` 这类中文变量虽已能被公式 parser 识别，但变量 id 都退化成 `variable--`，Blockly 可能因 id 冲突导致变量 reporter 显示异常；现改为对非 ASCII 变量名生成稳定码点 id，三类变量互不冲突，并补中文变量公式回归测试。`desktop-companion` 218 项测试通过。
