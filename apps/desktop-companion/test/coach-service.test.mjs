@@ -2263,6 +2263,68 @@ test("CoachService makes fixed sum output recommendations say the sum variable",
   assert.match(result.coachResponse.recommendedBlocks[0]?.reason ?? "", /sum/);
 });
 
+test("CoachService keeps custom accumulator variable name in fixed sum output recommendations", async () => {
+  const service = new CoachService(async () => {
+    return {
+      ok: true,
+      async json() {
+        return {
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  summary: "循环结束后输出结果。",
+                  recommendation: {
+                    root: {
+                      opcode: "looks_sayforsecs",
+                      category: "外观",
+                      label: "说 2 秒",
+                      reason: "输出结果"
+                    }
+                  }
+                })
+              }
+            }
+          ]
+        };
+      }
+    };
+  });
+
+  const snapshot = createSnapshot();
+  snapshot.programAreaModules = [
+    { id: "event", label: "事件", blockCount: 1 },
+    { id: "data", label: "变量", blockCount: 2 },
+    { id: "control", label: "控制", blockCount: 1 }
+  ];
+  snapshot.globalVariables = [
+    { id: "s", name: "s", value: 0, isCloud: false },
+    { id: "i", name: "i", value: 1, isCloud: false }
+  ];
+  snapshot.sprites[0].variables = snapshot.globalVariables;
+  snapshot.sprites[0].scripts[0] = {
+    spriteName: "Cat",
+    event: "when green flag clicked",
+    blockSequence: ["当绿旗被点击", "将 s 设为 0", "将 i 设为 1", "重复执行 100 次"],
+    blockOpcodes: ["event_whenflagclicked", "data_setvariableto", "data_setvariableto", "control_repeat"]
+  };
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["当绿旗被点击 -> 将 s 设为 0 -> 将 i 设为 1 -> 重复执行 100 次"],
+    programAreaModules: snapshot.programAreaModules,
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "1+2+3...+100 求和并说出结果",
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.equal(result.coachResponse.recommendedBlocks[0]?.opcode, "looks_sayforsecs");
+  assert.match(result.coachResponse.recommendedBlocks[0]?.reason ?? "", /s 变量/);
+  assert.doesNotMatch(result.coachResponse.recommendedBlocks[0]?.reason ?? "", /sum 变量/);
+});
+
 test("CoachService treats square-number goals as math and keeps result output concrete", async () => {
   const service = new CoachService(async () => {
     return {

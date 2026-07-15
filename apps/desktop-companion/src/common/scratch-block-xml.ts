@@ -724,12 +724,17 @@ function inferRecommendedAssignedVariableName(text: string) {
 
 function inferRecommendedChangeRelationship(text: string) {
   const sourceToTargetPatterns = [
-    new RegExp(`(?:把|将|让)?\\s*${VARIABLE_TOKEN_PATTERN}\\s*(?:加到|加入|加进|累加到)\\s*${VARIABLE_TOKEN_PATTERN}`, "i")
+    new RegExp(
+      `(?:把|将|让)?\\s*(?:当前)?\\s*${VARIABLE_TOKEN_PATTERN}\\s*(?:的值|当前值)?\\s*(?:加到|加入|加进|累加到|累加进|累加至)\\s*${VARIABLE_TOKEN_PATTERN}(?:中|里)?`,
+      "i"
+    )
   ];
-  const targetThenSourcePattern = new RegExp(
-    `${VARIABLE_TOKEN_PATTERN}\\s*(?:增加|加上|\\+=)\\s*${VARIABLE_TOKEN_PATTERN}`,
-    "i"
-  );
+  const targetToSourcePatterns = [
+    new RegExp(
+      `${VARIABLE_TOKEN_PATTERN}\\s*(?:增加|加上|\\+=)\\s*(?:当前)?\\s*${VARIABLE_TOKEN_PATTERN}\\s*(?:的值|当前值)?`,
+      "i"
+    )
+  ];
 
   for (const pattern of sourceToTargetPatterns) {
     const match = text.match(pattern);
@@ -741,12 +746,14 @@ function inferRecommendedChangeRelationship(text: string) {
     }
   }
 
-  const targetThenSource = text.match(targetThenSourcePattern);
-  if (targetThenSource?.[1] && targetThenSource?.[2]) {
-    return {
-      target: normalizeRecommendedVariableToken(targetThenSource[1]),
-      source: normalizeRecommendedVariableToken(targetThenSource[2])
-    };
+  for (const pattern of targetToSourcePatterns) {
+    const match = text.match(pattern);
+    if (match?.[1] && match?.[2]) {
+      return {
+        target: normalizeRecommendedVariableToken(match[1]),
+        source: normalizeRecommendedVariableToken(match[2])
+      };
+    }
   }
 
   return null;
@@ -934,6 +941,18 @@ function inferRecommendedChangeVariableValue(block: RecommendedBlock, variableNa
 
 function inferRecommendedOutputVariableName(block: RecommendedBlock) {
   const text = getRecommendedBlockText(block);
+  const explicitOutputPatterns = [
+    /(?:说出|输出|显示|读出|展示|说)\s*(?:变量|累加结果|计算结果|结果|答案)?\s*([a-z_][a-z0-9_]*)/i,
+    /(?:说话内容|内容)[\s\S]{0,12}(?:放入|使用|用)\s*([a-z_][a-z0-9_]*)\s*(?:变量)?/i
+  ];
+
+  for (const pattern of explicitOutputPatterns) {
+    const variableName = normalizeRecommendedVariableToken(text.match(pattern)?.[1]);
+    if (variableName) {
+      return variableName;
+    }
+  }
+
   if (/sum|累加和|总和|合计/.test(text)) {
     return "sum";
   }

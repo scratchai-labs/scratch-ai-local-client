@@ -1275,6 +1275,28 @@ function isSayOpcode(opcode: string) {
   return opcode === "looks_say" || opcode === "looks_sayforsecs";
 }
 
+function inferMathSumAccumulatorVariableName(options: GenerateCoachHintOptions) {
+  const variableNames = collectProjectVariableNames(options.snapshot);
+  const preferred = variableNames.find((name) => /^(sum|累加和|总和|合计|total)$/i.test(name));
+  if (preferred) {
+    return preferred;
+  }
+
+  const fallback = variableNames.find((name) => !/^(i|n|计数器|计数|上限|次数)$/i.test(name));
+  return fallback || "sum";
+}
+
+function reasonMentionsVariable(reasonText: string, variableName: string) {
+  const normalizedVariable = normalizeIntentText(variableName);
+  if (!normalizedVariable) {
+    return false;
+  }
+  if (/^(sum|累加和|总和|合计|total)$/.test(normalizedVariable)) {
+    return /sum|累加和|总和|合计|total/.test(reasonText);
+  }
+  return new RegExp(`(^|[^a-z0-9_])${normalizedVariable}([^a-z0-9_]|$)`, "i").test(reasonText);
+}
+
 function isSquareCalculationGoal(options: GenerateCoachHintOptions) {
   const text = normalizeIntentText(
     [
@@ -1329,8 +1351,14 @@ function enrichRecommendedNodeForMathIntent(
   const reasonText = normalizeIntentText(node.reason);
   const squareGoal = isSquareCalculationGoal(options);
 
-  if (intent.taskType === "math-sum" && isSayOpcode(node.opcode) && !/sum|累加和|总和|合计/.test(reasonText)) {
-    enrichedNode.reason = appendReasonDetail(node.reason, "说话内容要放入 sum 变量，不能只填“结果”。");
+  if (intent.taskType === "math-sum" && isSayOpcode(node.opcode)) {
+    const accumulatorVariable = inferMathSumAccumulatorVariableName(options);
+    if (!reasonMentionsVariable(reasonText, accumulatorVariable)) {
+      enrichedNode.reason = appendReasonDetail(
+        node.reason,
+        `说话内容要放入 ${accumulatorVariable} 变量，不能只填“结果”。`
+      );
+    }
   }
 
   if (squareGoal && node.opcode === "data_setvariableto" && !/result.*number|number.*result/.test(reasonText)) {

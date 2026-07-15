@@ -262,6 +262,29 @@ test("buildRecommendedBlockXml uses variable reporters for math output bubbles",
   assert.match(sayResultXml, /<field name="VARIABLE"[^>]*>result<\/field>/);
 });
 
+test("buildRecommendedBlockXml renders generic accumulator variable reporters from natural text", () => {
+  const changeXml = buildRecommendedBlockXml({
+    opcode: "data_changevariableby",
+    category: "变量",
+    label: "将变量增加",
+    reason: "每次循环将当前 i 的值累加到 s 中。"
+  });
+  const sayXml = buildRecommendedBlockXml({
+    opcode: "looks_sayforsecs",
+    category: "外观",
+    label: "说 2 秒",
+    reason: "循环结束后说出累加结果 s。"
+  });
+
+  assert.match(changeXml, /<field name="VARIABLE"[^>]*>s<\/field>/);
+  assert.match(changeXml, /<value name="VALUE">\s*<block type="data_variable">/);
+  assert.match(changeXml, /<field name="VARIABLE"[^>]*>i<\/field>/);
+  assert.doesNotMatch(changeXml, /<field name="NUM">1<\/field>/);
+  assert.match(sayXml, /<value name="MESSAGE">\s*<block type="data_variable">/);
+  assert.match(sayXml, /<field name="VARIABLE"[^>]*>s<\/field>/);
+  assert.doesNotMatch(sayXml, /<field name="TEXT">开始吧<\/field>/);
+});
+
 test("buildRecommendedBlockXml renders square calculation into result variable", () => {
   const xml = buildRecommendedBlockXml({
     opcode: "data_setvariableto",
