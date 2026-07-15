@@ -385,6 +385,23 @@ test("buildRecommendedBlockXml renders square calculation into result variable",
   assert.match(xml, /<field name="VARIABLE"[^>]*>number<\/field>[\s\S]*<field name="VARIABLE"[^>]*>number<\/field>/);
 });
 
+test("buildRecommendedBlockXml ignores operator opcode placeholders and infers the square formula", () => {
+  const xml = buildRecommendedBlockXml({
+    opcode: "data_setvariableto",
+    category: "变量",
+    label: "将 result 设为",
+    reason: "计算平方：用 number 乘以 number，把结果存入 result 变量。",
+    params: {
+      variable: "result",
+      value: "operator_multiply"
+    }
+  });
+
+  assert.match(xml, /<value name="VALUE">\s*<block type="operator_multiply">/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>number<\/field>[\s\S]*<field name="VARIABLE"[^>]*>number<\/field>/);
+  assert.doesNotMatch(xml, /<field name="VARIABLE"[^>]*>operator_multiply<\/field>/);
+});
+
 test("buildRecommendedBlockXml renders generic variable multiplication assignments", () => {
   const xml = buildRecommendedBlockXml({
     opcode: "data_setvariableto",
@@ -565,6 +582,18 @@ test("buildRecommendedStructureXml stores ask answers instead of empty variable 
   assert.match(xml, /<field name="VARIABLE"[^>]*>脚数<\/field>[\s\S]*<value name="VALUE">\s*<block type="sensing_answer">/);
   assert.doesNotMatch(xml, /<field name="VARIABLE"[^>]*>头数<\/field>[\s\S]*<shadow type="math_number">/);
   assert.doesNotMatch(xml, /<field name="VARIABLE"[^>]*>脚数<\/field>[\s\S]*<shadow type="math_number">/);
+});
+
+test("buildRecommendedBlockXml prefers the goal-specific turn angle in the reason over a generic label", () => {
+  const xml = buildRecommendedBlockXml({
+    opcode: "motion_turnright",
+    category: "运动",
+    label: "右转 15 度",
+    reason: "每条边后右转 72 度，才能画出五边形。"
+  });
+
+  assert.match(xml, /<value name="DEGREES">[\s\S]*<field name="NUM">72<\/field>/);
+  assert.doesNotMatch(xml, /<field name="NUM">15<\/field>/);
 });
 
 test("buildRecommendedStructureXml infers polygon repeat counts and turn degrees from drawing text", () => {

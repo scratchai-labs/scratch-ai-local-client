@@ -1111,7 +1111,8 @@ function inferRecommendedBinaryFormulaValueXml(block: RecommendedBlock, variable
 
 function inferRecommendedSetVariableValueXml(block: RecommendedBlock, variableName: string) {
   const paramValue = getRecommendedParam(block, "value");
-  if (paramValue) {
+  const isOperatorOpcodePlaceholder = /^operator_(?:add|subtract|multiply|divide|mod)$/.test(paramValue);
+  if (paramValue && !isOperatorOpcodePlaceholder) {
     if (/^-?\d+(?:\.\d+)?$/.test(paramValue)) {
       return buildTextShadowValueXml("VALUE", paramValue);
     }
@@ -1269,22 +1270,29 @@ function inferRecommendedTurnDegrees(block: RecommendedBlock) {
     return paramDegrees;
   }
 
-  const text = getRecommendedBlockText(block);
-  const explicitDegrees = text.match(/(?:右转|左转|转|角度|外角)[^\d-]{0,12}(-?\d+(?:\.\d+)?)/)?.[1];
-  if (explicitDegrees) {
-    return explicitDegrees;
-  }
-  if (/三角形/.test(text)) {
-    return "120";
-  }
-  if (/正方形|四边形/.test(text)) {
-    return "90";
-  }
-  if (/五边形/.test(text)) {
-    return "72";
-  }
-  if (/五角星/.test(text)) {
-    return "144";
+  const preferredText = [block.reason, block.example]
+    .map((value) => normalizeString(value))
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const labelText = normalizeString(block.label).toLowerCase();
+  for (const text of [preferredText, labelText]) {
+    const explicitDegrees = text.match(/(?:右转|左转|转|角度|外角)[^\d-]{0,12}(-?\d+(?:\.\d+)?)/)?.[1];
+    if (explicitDegrees) {
+      return explicitDegrees;
+    }
+    if (/三角形/.test(text)) {
+      return "120";
+    }
+    if (/正方形|四边形/.test(text)) {
+      return "90";
+    }
+    if (/五边形/.test(text)) {
+      return "72";
+    }
+    if (/五角星/.test(text)) {
+      return "144";
+    }
   }
   return "15";
 }
