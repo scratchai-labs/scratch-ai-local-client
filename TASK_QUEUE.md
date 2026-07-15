@@ -235,3 +235,12 @@
 - 结论：继续坚持 DeepSeek 只返回受约束 JSON，客户端按 Scratch 官方 block definition 生成 Blockly XML；已对照 `scratch-blocks/src/blocks/{looks,control,motion}.ts` 确认秒数输入名分别为 `SECS` / `DURATION`。
 - 修复：推荐区主结构 XML 渲染失败时，自动重试根积木 fallback XML，避免整张推荐卡退成纯文字；补齐 `params.secs` 协议、schema、类型、提示词和 XML 生成，秒数只写入可解析数字。
 - 验证：先补失败用例复现 schema/XML 缺口；随后 `npm run test` 通过（shared 14、verification 34、desktop 221）。
+
+## 2026-07-15 DeepSeek Strict 推荐协议与渲染闭环
+- 状态：进行中
+- 需求：将推荐积木从 JSON Mode 升级为 Strict Tool Calls，确保 DeepSeek 返回的 Scratch 连接结构在进入 XML/Renderer 前合法；Strict 不可用时直接使用本地推荐。
+- 实施范围：
+  1. 建立统一的积木形状/关系能力定义，禁止 terminal/cap block 携带 `next`。
+  2. 使用 DeepSeek Beta Strict Function Calling，强制解析 `tool_calls[].function.arguments`，不回退普通 JSON 推荐。
+  3. 增加结构编译诊断与真实 `scratch-blocks` 渲染合同测试，覆盖当前 93 个 opcode 和非法关系。
+- 状态说明：先按 TDD 补充失败用例，再分阶段实现并提交。
