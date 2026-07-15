@@ -1,7 +1,7 @@
 # Scratch AI 教练桌面工具
 
 这是主工程里的 Windows + macOS `Scratch AI 教练桌面工具`。  
-当前主线已经收敛为 **本地基础版**，且只保留 Windows / macOS 版本：连接本机 `Scratch Desktop`，读取当前角色和项目数据，把 `当前角色程序 / 推荐积木` 以 Scratch 原版 `scratch-blocks` 只读方式渲染出来，再基于学生当前作品生成 AI 下一步提示。推荐积木现在额外受官方 opcode 白名单和结构关系校验约束；如果 AI 给出未支持、编造或关系不合法的积木节点，会在进入渲染前被过滤或净化，而不是直接把右侧推荐区打回文字版。
+当前主线已经收敛为 **本地基础版**，且只保留 Windows / macOS 版本：连接本机 `Scratch Desktop`，读取当前角色和项目数据，把 `当前角色程序 / 推荐积木` 以 Scratch 原版 `scratch-blocks` 只读方式渲染出来，再基于学生当前作品生成 AI 下一步提示。推荐积木现在通过 DeepSeek Strict Tool Calls 返回显式节点连接，并受官方 opcode 白名单和本地结构编译器约束；如果 AI 给出未支持、编造或关系不合法的节点，整轮 DeepSeek 推荐会在进入渲染前被拒绝并切换到本地结构化提示。
 
 ## 当前产品流程
 
@@ -61,11 +61,11 @@
 - 通过 Chrome DevTools Protocol 向 Scratch renderer 注入只读桥接脚本
 - 桌面端基于 `projectData` 推导 `currentTargetPrograms`
 - 桌面端基于 `projectData` 生成 `currentTargetScriptXmlList`
-- 桌面端把 `projectData` 转成项目快照后，直接调用 DeepSeek Chat Completions API
+- 桌面端把 `projectData` 转成项目快照后，通过 DeepSeek Beta Strict Tool Calls 请求提示
 - 如果没有配置 DeepSeek Key 或上游失败，自动回退到本地 heuristic 提示
 - 连接阶段内置重试注入，降低首次启动时的偶发连接失败
 - 关闭主窗口后继续驻留系统托盘
-- 推荐积木会在主进程与 renderer 双端执行结构净化，跳过非法 `root / next / condition / substack` 关系
+- DeepSeek 返回扁平 `id / parentId / relation` 节点，主进程编译并校验唯一根节点、父子连接、terminal、条件位置、节点数量和环路；renderer 再做防御性净化
 
 ## Scratch 原版积木渲染
 
@@ -91,14 +91,14 @@
 - 只读 workspace 统一走本地 `scratch-blocks/media` 资源，不再依赖外部默认地址
 - 只读 workspace 的 `ScratchMsgs` 会按当前文档语言初始化，不再硬编码简体中文；如果 Scratch 内切到繁体、韩语等语言，推荐积木渲染会跟随当前语言状态
 - 只读积木缩放已继续下调，当前固定比例为 `0.64`，主窗口里会比初版更紧凑
-- 推荐积木如果遇到未支持 opcode，会先在 `coach-service` 里直接丢弃；如果结构关系不合法，则会在主进程和 renderer 两端分别净化，优先保住仍可渲染的那部分结构
+- Strict 节点包含未知 opcode、非法父子关系、terminal `next`、错误条件位置、重复关系或环路时，`coach-service` 会拒绝整轮 DeepSeek 推荐并使用本地结构化提示；renderer 的净化与根积木兜底仅处理防御性异常
 
 这意味着像 `重复执行` 包裹 `移动 10 步`、`一直重复`、`如果` 这类结构，现在显示的是实际嵌套积木，而不是字符串或近似卡片。
 
 ## DeepSeek 配置
 
 当前这版不依赖 `apps/server`，而是直接由桌面端请求 DeepSeek。  
-调用方式对齐官方文档：`POST https://api.deepseek.com/chat/completions`。
+推荐积木使用 Beta Strict Function Calling：`POST https://api.deepseek.com/beta/chat/completions`；普通 `response_format: json_object` 不再作为推荐协议。
 
 打包前可在：
 
@@ -122,15 +122,16 @@
 - 程序提供独立的 `DeepSeek 设置` 窗口，允许在本机保存 `DeepSeek API Key`，选择 `deepseek-v4-flash / deepseek-v4-pro`，并切换“自动刷新 / 手动点击”两种提示触发方式。
 - `DeepSeek API Key`、模型选择和提示触发方式都只保存在当前电脑本地。
 - 运行时只认设置窗口里保存的本机 Key，不再回退 `DEEPSEEK_API_KEY` 或 `deepseek.config.json` 里的 `apiKey`。
-- `deepseek.config.json` 现在只保留 `baseUrl`、`timeoutMs` 和默认 `model` 这类非敏感默认项。
+- `deepseek.config.json` 中的 `apiKey` 只保留占位符，运行时不会读取；真实 Key 仅来自本机设置。该文件其余内容用于提供 `baseUrl`、`timeoutMs` 和默认 `model` 等非敏感默认项。
 - 如果不填 key，自动或手动提示仍可用，但会自动走本地 fallback 提示，而不是线上 DeepSeek。
-- 桌面端当前显式使用 JSON Output，并把 `thinking` 设为 `disabled`，这样更适合 Scratch 教练提示这种低延迟、稳定 JSON 返回的场景。
-- 桌面端当前还会在系统提示里显式限制 `recommendedBlocks.opcode` 只能从官方白名单中选择，减少模型返回坏积木的概率。
-- 即使模型返回了关系不合法的结构化推荐，客户端也会在渲染前删掉非法关系，避免复杂推荐重新退回文字版。
+- 桌面端强制模型调用“作品已完成”或“推荐积木”Strict 工具之一，并把 `thinking` 设为 `disabled`。
+- 推荐工具返回最多五个扁平节点；每个节点显式携带 `id / parentId / relation / opcode / params`，客户端再编译成 `next / condition / substack / substack2`。
+- 当前协议不依赖递归或 `$ref` 型 Strict Schema：真实 V4 模型对这类 Schema 的兼容性不稳定，因此由无引用的扁平工具 Schema 保证字段形状，再由本地编译器承担最终 Scratch 连接合法性。
+- Strict 不可用、工具参数非法或编译失败时，不回退普通 JSON 推荐，直接使用本地 heuristic 结构化提示。
 - 主窗口与设置窗口都提供鼠标右键菜单；设置页输入框支持复制、粘贴、全选。
 - DeepSeek 官方文档入口：<https://api-docs.deepseek.com/zh-cn/>
 
-## 2026-07-12 已验证结果
+## 2026-07-16 已验证结果
 
 当前已验证结果同时覆盖 Windows 和 macOS。
 
@@ -185,7 +186,7 @@ npm run package:mac:dmg
 当前仓库里和桌面端交付物相关的 workflow 有两条：
 
 - `CI`
-  只做 `build + test`，当前不会上传可下载产物。
+  执行 `build + test`；Ubuntu runner 额外通过 `xvfb-run` 运行 93 opcode 的真实 Electron / scratch-blocks 推荐渲染合同，当前不会上传可下载产物。
 - `Desktop Release Artifacts`
   在 Windows 和 macOS runner 上实际出包，并把 `installers/**` 上传为 GitHub Actions artifact。
 
@@ -228,6 +229,21 @@ node tools/verification/scripts/verify-desktop-companion-ui.mjs
 node tools/verification/scripts/verify-desktop-companion-ui.mjs --packaged-app --electron-exe="./installers/ScratchDesktopCompanion-mac.app/Contents/MacOS/ScratchDesktopCompanion"
 node tools/verification/scripts/verify-desktop-companion-real-e2e.mjs --project-file="/absolute/path/to/project.sb3"
 ```
+
+## 推荐协议专项验证
+
+从仓库根目录执行：
+
+```bash
+# 不需要 DeepSeek Key：真实 Electron + scratch-blocks 验证 93 个 opcode 和结构关系
+npm run test:recommendation-render-contract
+
+# 需要设置窗口中已保存的 DeepSeek Key：验证 Beta Strict、节点编译和 XML 生成
+npm run verify:deepseek-strict
+npm run verify:deepseek-strict -- --model=deepseek-v4-pro
+```
+
+Strict 兼容性探针只输出模型名、opcode 和 XML 长度，不输出 API Key、完整项目或模型原始响应。
 
 ## 自动化测试覆盖
 

@@ -102,8 +102,8 @@
 - `desktop-companion` 内部分层变化
 - `packages/shared` 职责变化
 - `tools/verification` 目录或定位变化
-- AI 调用链路变化
-- 推荐积木结构校验、净化或渲染兜底规则变化
+- AI 调用链路、Strict 工具或模型兼容性变化
+- 推荐积木结构校验、节点编译、净化或渲染兜底规则变化
 
 ### `apps/desktop-companion/*.md`
 
@@ -116,7 +116,7 @@
 - 真机验证入口变化
 - 打包命令变化
 - `src/main` / `src/renderer` / `src/common` 结构变化
-- 推荐积木白名单、结构净化、渲染失败兜底文案变化
+- 推荐积木白名单、Strict 节点协议、结构编译、净化或渲染失败兜底文案变化
 
 ### `tools/verification/*.md`
 
@@ -140,5 +140,7 @@
 - 文档里的路径与真实目录一致
 - 文档里的 artifact 名称、workflow 名称与当前配置一致
 - 验证脚本示例是否已经带上 `tools/verification/scripts/`
+- 推荐协议变化后是否运行 `npm run verify:deepseek-strict`
+- opcode、XML 或 renderer 变化后是否运行 `npm run test:recommendation-render-contract`
 - 文档是否还提到 `apps/server`、`Windows-Test` 这类已退出主线的路径
 - `npm run clean:dry-run` 的描述是否和脚本输出一致
