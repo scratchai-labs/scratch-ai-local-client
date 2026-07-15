@@ -592,6 +592,116 @@ test("CoachService preserves recommendation params from DeepSeek structured outp
   ]);
 });
 
+test("CoachService normalizes DeepSeek recommendation params objects and numbers", async () => {
+  const service = new CoachService(async () =>
+    createDeepSeekResponse(
+      JSON.stringify({
+        summary: "先把公式和循环参数填进推荐积木。",
+        recommendation: {
+          root: {
+            opcode: "data_setvariableto",
+            category: "变量",
+            label: "将变量设为",
+            reason: "用 heads 和 feet 求 rabbits。",
+            params: {
+              variable: "rabbits",
+              value: {
+                opcode: "operator_divide",
+                params: {
+                  left: {
+                    opcode: "operator_subtract",
+                    params: {
+                      left: {
+                        opcode: "data_variable",
+                        params: { variable: "feet" }
+                      },
+                      right: {
+                        opcode: "operator_multiply",
+                        params: {
+                          left: 2,
+                          right: {
+                            opcode: "data_variable",
+                            params: { variable: "heads" }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  right: 2
+                }
+              }
+            },
+            next: {
+              opcode: "control_repeat",
+              category: "控制",
+              label: "重复执行",
+              reason: "重复 100 次累加。",
+              params: {
+                repeatTimes: 100
+              },
+              substack: {
+                opcode: "data_changevariableby",
+                category: "变量",
+                label: "将变量增加",
+                reason: "让 i 增加 1。",
+                params: {
+                  variable: "i",
+                  changeBy: 1
+                }
+              }
+            }
+          }
+        }
+      })
+    )
+  );
+
+  const snapshot = createSnapshot();
+  snapshot.toolboxCategories = ["事件", "变量", "运算", "控制"];
+  snapshot.programAreaModules = [
+    { id: "event", label: "事件", blockCount: 1 },
+    { id: "data", label: "变量", blockCount: 4 },
+    { id: "operator", label: "运算", blockCount: 3 },
+    { id: "control", label: "控制", blockCount: 1 }
+  ];
+  snapshot.globalVariables = [
+    { id: "heads", name: "heads", value: 35, isCloud: false },
+    { id: "feet", name: "feet", value: 94, isCloud: false },
+    { id: "rabbits", name: "rabbits", value: 0, isCloud: false },
+    { id: "i", name: "i", value: 1, isCloud: false }
+  ];
+  snapshot.sprites[0].variables = snapshot.globalVariables;
+  snapshot.sprites[0].scripts[0] = {
+    spriteName: "Cat",
+    event: "when green flag clicked",
+    blockSequence: ["当绿旗被点击", "将 heads 设为 35", "将 feet 设为 94"],
+    blockOpcodes: ["event_whenflagclicked", "data_setvariableto", "data_setvariableto"]
+  };
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["event_whenflagclicked -> data_setvariableto -> data_setvariableto"],
+    programAreaModules: snapshot.programAreaModules,
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "测试推荐 params 对象和数字能否被客户端正常接收",
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.deepEqual(result.coachResponse.recommendation.root.params, {
+    variable: "rabbits",
+    value: "((feet - (2 * heads)) / 2)"
+  });
+  assert.deepEqual(result.coachResponse.recommendation.root.next.params, {
+    repeatTimes: "100"
+  });
+  assert.deepEqual(result.coachResponse.recommendation.root.next.substack.params, {
+    variable: "i",
+    changeBy: "1"
+  });
+});
+
 test("CoachService accepts a complete-project usage summary without recommended blocks", async () => {
   const service = new CoachService(async () => ({
     ok: true,

@@ -8,6 +8,7 @@
 
 ## 已完成
 
+- 2026-07-15：完成推荐积木 `params` 协议真实效果专项测试。先用真实 DeepSeek 验证发现模型已理解 params，但会把 `params.value/messageVariable` 返回为嵌套积木对象、把 `repeatTimes/changeBy` 返回为数字，导致严格 schema 降级 fallback；现已强化 prompt 的字符串要求，并在服务层对真实 AST-ish params 做受控归一化（公式对象转字符串、数字转字符串、非变量 messageVariable 转 message），保持外部协议仍为 string-only。新增真实验证脚本 `tools/verification/scripts/verify-recommendation-params-protocol.mjs` 与回归用例；最终产物 `protocol-params-verification-20260715-v2/`：鸡兔同笼与 1 到 100 求和均走 DeepSeek，overall pass=true，params adoption=2/2，Scratch XML 含公式 reporter / `100` / `sum` / `i`；根级 `npm test` 通过（shared 14、verification 34、desktop-companion 213）。
 - 2026-07-15：调研是否应把推荐积木结构告知 DeepSeek：结论是不应塞完整 Scratch 原始 schema，也不应继续让客户端从中文 reason 推断字段；应升级为“小型推荐参数 DSL”，在 prompt 中提供当前项目变量、脚本证据和常用 opcode 的 fields/inputs 填槽指南，让 DeepSeek 返回受控 typed params，客户端按白名单校验后生成 Blockly XML，并保留旧 reason 推断作为兼容 fallback。
 - 2026-07-15：调研多轮推荐积木错位的责任边界：核对协议/schema、真实 DeepSeek timeline、XML 渲染链路和最新回归保护，结论为模型按当前协议只返回 opcode/category/label/reason，字段/输入值不能由模型直接携带；多数错位来自客户端 `scratch-block-xml.ts` 对自然语言到 Scratch 字段/输入的泛化推断遗漏，少数来自 DeepSeek 语义不够精确，需要服务层过滤/补充。
 - 2026-07-15：修复截图反馈的推荐积木空内容问题：`s 增加` 现在能显示 `i` reporter，`说` 积木能显示真实累加变量 reporter，且主进程会按学生现有变量（如 `s`）补充“说话内容要放入 s 变量”，不再硬写 `sum`；已补自然语言关系/输出变量泛化回归，根级 `npm run test` 通过（shared 12、verification 34、desktop-companion 210）。

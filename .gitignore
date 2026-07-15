@@ -77,5 +77,6 @@ multi-goal-10-verification-*/
 multi-goal-recording-*/
 multi-goal-split-recording-*/
 runtime-output-verification-*/
+protocol-params-verification-*/
 multi-goal-deepseek-run.log
 tools/verification/tmp-multi-goal-deepseek-userdata/
