@@ -8,6 +8,7 @@
 
 ## 已完成
 
+- 2026-07-15：调研多轮推荐积木错位的责任边界：核对协议/schema、真实 DeepSeek timeline、XML 渲染链路和最新回归保护，结论为模型按当前协议只返回 opcode/category/label/reason，字段/输入值不能由模型直接携带；多数错位来自客户端 `scratch-block-xml.ts` 对自然语言到 Scratch 字段/输入的泛化推断遗漏，少数来自 DeepSeek 语义不够精确，需要服务层过滤/补充。
 - 2026-07-15：修复截图反馈的推荐积木空内容问题：`s 增加` 现在能显示 `i` reporter，`说` 积木能显示真实累加变量 reporter，且主进程会按学生现有变量（如 `s`）补充“说话内容要放入 s 变量”，不再硬写 `sum`；已补自然语言关系/输出变量泛化回归，根级 `npm run test` 通过（shared 12、verification 34、desktop-companion 210）。
 - 2026-07-15：按用户要求打开桌面伴随程序供人工查看最新 10 目标泛化修复效果；已正常源码联调启动，不带 mock 环境变量，运行日志 `/tmp/scratch-ai-companion-dev-20260715.log`，Electron 进程已启动并激活到前台。
 - 2026-07-15：完成 10 个不同本课目标真实截图验收与泛化修复，覆盖接苹果/躲避陨石小游戏、1 到 100 求和、鸡兔同笼、三个数平均数、5 的阶乘、输入数字平方、正方形/三角形/五边形绘制。首次 10 目标压测发现阶乘推荐里 `product = product * i` 被渲染成错误变量/默认值，且 fallback 会退回 `sum/n` 求和模板；现已泛化推荐积木 XML 推断，支持任意英文变量赋值、二元公式（加减乘除）、变量 reporter、图形循环次数与转角，并新增阶乘 product fallback、绘图任务 fallback/过滤，避免画图 follow 漂移到“碰到边缘就反弹”。最终真实验收产物 `multi-goal-10-verification-20260715-v3/`：10/10 目标 `good`，显示校验全 pass，求和运行输出 `5050`，平方输入 `7` 输出 `49`；根级 `npm run test` 通过（shared 12、verification 34、desktop-companion 208）。
