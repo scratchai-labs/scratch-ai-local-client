@@ -702,6 +702,74 @@ test("CoachService normalizes DeepSeek recommendation params objects and numbers
   });
 });
 
+test("CoachService fills missing nested recommendation reasons from labels", async () => {
+  const service = new CoachService(async () =>
+    createDeepSeekResponse(
+      JSON.stringify({
+        summary: "下一步先判断 guess 是否等于 secretNumber。",
+        recommendation: {
+          root: {
+            opcode: "control_if",
+            category: "控制",
+            label: "如果...那么",
+            reason: "判断是否猜中。",
+            condition: {
+              opcode: "operator_equals",
+              category: "运算",
+              label: "guess = secretNumber",
+              params: {
+                left: "guess",
+                right: "secretNumber"
+              }
+            },
+            substack: {
+              opcode: "looks_sayforsecs",
+              category: "外观",
+              label: "说 2 秒",
+              reason: "猜对时给反馈。",
+              params: {
+                message: "猜对了"
+              }
+            }
+          }
+        }
+      })
+    )
+  );
+
+  const snapshot = createSnapshot();
+  snapshot.toolboxCategories = ["事件", "变量", "运算", "控制", "外观"];
+  snapshot.programAreaModules = [
+    { id: "event", label: "事件", blockCount: 1 },
+    { id: "data", label: "变量", blockCount: 2 },
+    { id: "operator", label: "运算", blockCount: 1 },
+    { id: "control", label: "控制", blockCount: 1 },
+    { id: "looks", label: "外观", blockCount: 1 }
+  ];
+  snapshot.globalVariables = [
+    { id: "guess", name: "guess", value: 0, isCloud: false },
+    { id: "secretNumber", name: "secretNumber", value: 7, isCloud: false }
+  ];
+  snapshot.sprites[0].variables = snapshot.globalVariables;
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["event_whenflagclicked -> data_setvariableto"],
+    programAreaModules: snapshot.programAreaModules,
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "猜数字小游戏，判断 guess 是否等于 secretNumber",
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.equal(result.coachResponse.recommendation.root.condition.reason, "guess = secretNumber");
+  assert.deepEqual(result.coachResponse.recommendation.root.condition.params, {
+    left: "guess",
+    right: "secretNumber"
+  });
+});
+
 test("CoachService accepts a complete-project usage summary without recommended blocks", async () => {
   const service = new CoachService(async () => ({
     ok: true,

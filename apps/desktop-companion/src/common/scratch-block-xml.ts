@@ -668,6 +668,10 @@ function buildVariableReporterBlockXml(variableName: string) {
   return buildElementXml("block", "data_variable", buildRecommendedVariableFieldXml(variableName));
 }
 
+function buildAnswerReporterBlockXml() {
+  return buildElementXml("block", "sensing_answer", "");
+}
+
 function buildVariableReporterValueXml(inputName: string, variableName: string) {
   return buildValueElementXml(inputName, buildVariableReporterBlockXml(variableName));
 }
@@ -818,6 +822,9 @@ function buildFormulaExpressionElementXml(expression: FormulaExpressionNode): st
   }
 
   if (expression.kind === "variable") {
+    if (expression.value === "answer" || expression.value === "sensing_answer") {
+      return buildAnswerReporterBlockXml();
+    }
     return buildVariableReporterBlockXml(expression.value);
   }
 
@@ -1262,6 +1269,20 @@ function buildMenuShadowValueXml(
   );
 }
 
+function inferRecommendedTouchingObjectName(block: RecommendedBlock) {
+  const paramTarget = normalizeString(getRecommendedParam(block, "variable")) || normalizeString(getRecommendedParam(block, "value"));
+  if (paramTarget) {
+    return paramTarget;
+  }
+
+  const text = [block.label, block.reason, block.example]
+    .map((value) => normalizeString(value))
+    .filter(Boolean)
+    .join(" ");
+  const explicitTarget = text.match(/碰到\s*([A-Za-z0-9_\u4e00-\u9fff -]+?)(?:[？?，,。.\s]|$)/)?.[1]?.trim();
+  return explicitTarget || "边缘";
+}
+
 function buildMoveStepsStatementXml() {
   return `<statement name="SUBSTACK">${buildElementXml(
     "block",
@@ -1544,7 +1565,7 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
           "TOUCHINGOBJECTMENU",
           "sensing_touchingobjectmenu",
           "TOUCHINGOBJECTMENU",
-          "边缘"
+          inferRecommendedTouchingObjectName(block)
         )
       );
     case "sensing_keypressed":

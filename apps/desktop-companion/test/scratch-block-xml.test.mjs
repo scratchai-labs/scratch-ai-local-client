@@ -262,6 +262,34 @@ test("buildRecommendedBlockXml uses variable reporters for math output bubbles",
   assert.match(sayResultXml, /<field name="VARIABLE"[^>]*>result<\/field>/);
 });
 
+test("buildRecommendedBlockXml renders answer reporter and touching target params", () => {
+  const setGuessXml = buildRecommendedBlockXml({
+    opcode: "data_setvariableto",
+    category: "变量",
+    label: "将变量设为",
+    reason: "把玩家回答保存到 guess。",
+    params: {
+      variable: "guess",
+      value: "sensing_answer"
+    }
+  });
+  const touchingAppleXml = buildRecommendedBlockXml({
+    opcode: "sensing_touchingobject",
+    category: "侦测",
+    label: "碰到 Apple？",
+    reason: "检测 Cat 是否碰到 Apple。",
+    params: {
+      variable: "Apple"
+    }
+  });
+
+  assert.match(setGuessXml, /<field name="VARIABLE"[^>]*>guess<\/field>/);
+  assert.match(setGuessXml, /<value name="VALUE">\s*<block type="sensing_answer">/);
+  assert.doesNotMatch(setGuessXml, /<field name="VARIABLE"[^>]*>sensing_answer<\/field>/);
+  assert.match(touchingAppleXml, /<field name="TOUCHINGOBJECTMENU">Apple<\/field>/);
+  assert.doesNotMatch(touchingAppleXml, /<field name="TOUCHINGOBJECTMENU">边缘<\/field>/);
+});
+
 test("buildRecommendedBlockXml renders generic accumulator variable reporters from natural text", () => {
   const changeXml = buildRecommendedBlockXml({
     opcode: "data_changevariableby",
