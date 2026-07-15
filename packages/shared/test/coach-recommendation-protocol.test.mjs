@@ -33,6 +33,29 @@ test("parses one connected recommendation structure with at most three blocks", 
   assert.equal(response.recommendation.root.substack.opcode, "looks_sayforsecs");
 });
 
+test("accepts constrained recommendation params for display defaults", () => {
+  const response = coachRecommendationResponseSchema.parse({
+    summary: "先把兔子数量算出来。",
+    recommendation: {
+      root: {
+        opcode: "data_setvariableto",
+        category: "变量",
+        label: "将变量设为",
+        reason: "用公式求兔子数量。",
+        params: {
+          variable: "rabbits",
+          value: "(feet - 2 * heads) / 2"
+        }
+      }
+    }
+  });
+
+  assert.deepEqual(response.recommendation.root.params, {
+    variable: "rabbits",
+    value: "(feet - 2 * heads) / 2"
+  });
+});
+
 
 test("accepts a completed-project summary without forcing recommended blocks", () => {
   const response = coachRecommendationResponseSchema.parse({
@@ -105,6 +128,25 @@ test("rejects extra fields and model-provided XML", () => {
 
   assert.equal(withExtraField.success, false);
   assert.equal(withRawXml.success, false);
+});
+
+test("rejects unknown recommendation params", () => {
+  const result = coachRecommendationResponseSchema.safeParse({
+    summary: "让角色移动。",
+    recommendation: {
+      root: {
+        opcode: "motion_movesteps",
+        category: "运动",
+        label: "移动 10 步",
+        reason: "先让角色动起来。",
+        params: {
+          script: "<block />"
+        }
+      }
+    }
+  });
+
+  assert.equal(result.success, false);
 });
 
 test("desktop companion mock state accepts coach responses without detected issues", () => {

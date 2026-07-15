@@ -474,6 +474,8 @@ test("CoachService sends DeepSeek V4 chat completions requests in JSON non-think
   assert.equal(capturedRequest.body.messages[0].content.includes("condition"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("substack"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("substack2"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("params"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("messageVariable"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("最多 3 个"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("按顺序"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("不要把积木顺序一次性全部告诉学生"), false);
@@ -509,6 +511,85 @@ test("CoachService sends DeepSeek V4 chat completions requests in JSON non-think
     blocks: ["当绿旗被点击", "移动 10 步"],
     opcodes: ["event_whenflagclicked", "motion_movesteps"]
   });
+});
+
+test("CoachService preserves recommendation params from DeepSeek structured output", async () => {
+  const service = new CoachService(async () =>
+    createDeepSeekResponse(
+      JSON.stringify({
+        summary: "先按公式算兔子数量。",
+        recommendation: {
+          root: {
+            opcode: "data_setvariableto",
+            category: "变量",
+            label: "将变量设为",
+            reason: "用 heads 和 feet 求 rabbits。",
+            params: {
+              variable: "rabbits",
+              value: "(feet - 2 * heads) / 2"
+            },
+            next: {
+              opcode: "looks_sayforsecs",
+              category: "外观",
+              label: "说 2 秒",
+              reason: "说出兔子数量。",
+              params: {
+                messageVariable: "rabbits"
+              }
+            }
+          }
+        }
+      })
+    )
+  );
+
+  const snapshot = createSnapshot();
+  snapshot.toolboxCategories = ["事件", "变量", "运算", "外观"];
+  snapshot.programAreaModules = [
+    { id: "event", label: "事件", blockCount: 1 },
+    { id: "data", label: "变量", blockCount: 4 },
+    { id: "operator", label: "运算", blockCount: 3 }
+  ];
+  snapshot.globalVariables = [
+    { id: "heads", name: "heads", value: 35, isCloud: false },
+    { id: "feet", name: "feet", value: 94, isCloud: false },
+    { id: "rabbits", name: "rabbits", value: 0, isCloud: false }
+  ];
+  snapshot.sprites[0].variables = snapshot.globalVariables;
+  snapshot.sprites[0].scripts[0] = {
+    spriteName: "Cat",
+    event: "when green flag clicked",
+    blockSequence: ["当绿旗被点击", "将 heads 设为 35", "将 feet 设为 94"],
+    blockOpcodes: ["event_whenflagclicked", "data_setvariableto", "data_setvariableto"]
+  };
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["event_whenflagclicked -> data_setvariableto -> data_setvariableto"],
+    programAreaModules: snapshot.programAreaModules,
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "鸡兔同笼，已知 heads 和 feet，求 rabbits",
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.deepEqual(result.coachResponse.recommendation.root.params, {
+    variable: "rabbits",
+    value: "(feet - 2 * heads) / 2"
+  });
+  assert.deepEqual(result.coachResponse.recommendation.root.next.params, {
+    messageVariable: "rabbits"
+  });
+  assert.deepEqual(result.coachResponse.recommendedBlocks.map((block) => block.params), [
+    {
+      variable: "rabbits",
+      value: "(feet - 2 * heads) / 2"
+    },
+    {
+      messageVariable: "rabbits"
+    }
+  ]);
 });
 
 test("CoachService accepts a complete-project usage summary without recommended blocks", async () => {

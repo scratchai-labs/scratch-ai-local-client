@@ -635,6 +635,10 @@ function buildNumberShadowValueXml(inputName: string, value: string) {
   return buildValueShadowXml(inputName, "math_number", "NUM", value);
 }
 
+function getRecommendedParam(block: RecommendedBlock, name: keyof NonNullable<RecommendedBlock["params"]>) {
+  return normalizeString(block.params?.[name]);
+}
+
 function getRecommendedBlockText(block: RecommendedBlock) {
   return [block.label, block.reason, block.example]
     .map((value) => normalizeString(value))
@@ -677,6 +681,159 @@ function buildVariableMathValueXml(inputName: string, opcode: string, leftVariab
       `${buildVariableReporterValueXml("NUM1", leftVariable)}${buildVariableReporterValueXml("NUM2", rightVariable)}`
     )
   );
+}
+
+type FormulaExpressionNode =
+  | { kind: "number"; value: string }
+  | { kind: "variable"; value: string }
+  | { kind: "binary"; opcode: string; left: FormulaExpressionNode; right: FormulaExpressionNode };
+
+function tokenizeFormulaExpression(value: string) {
+  const normalized = value.replaceAll("×", "*").replaceAll("÷", "/");
+  const tokens: string[] = [];
+  let index = 0;
+
+  while (index < normalized.length) {
+    const char = normalized[index];
+    if (/\s/.test(char)) {
+      index += 1;
+      continue;
+    }
+
+    const previous = tokens[tokens.length - 1];
+    const canStartSignedNumber = !previous || ["(", "+", "-", "*", "/"].includes(previous);
+    const numberMatch = normalized
+      .slice(index)
+      .match(canStartSignedNumber ? /^-?\d+(?:\.\d+)?/ : /^\d+(?:\.\d+)?/);
+    if (numberMatch) {
+      tokens.push(numberMatch[0]);
+      index += numberMatch[0].length;
+      continue;
+    }
+
+    const identifierMatch = normalized
+      .slice(index)
+      .match(/^[A-Za-z_\u4e00-\u9fff][A-Za-z0-9_\u4e00-\u9fff]*/);
+    if (identifierMatch) {
+      tokens.push(identifierMatch[0]);
+      index += identifierMatch[0].length;
+      continue;
+    }
+
+    if ("()+-*/".includes(char)) {
+      tokens.push(char);
+      index += 1;
+      continue;
+    }
+
+    return [];
+  }
+
+  return tokens;
+}
+
+function operatorTokenToOpcode(operator: string) {
+  switch (operator) {
+    case "+":
+      return "operator_add";
+    case "-":
+      return "operator_subtract";
+    case "*":
+      return "operator_multiply";
+    case "/":
+      return "operator_divide";
+    default:
+      return null;
+  }
+}
+
+function parseFormulaExpression(value: string): FormulaExpressionNode | null {
+  const tokens = tokenizeFormulaExpression(value);
+  let index = 0;
+
+  const parsePrimary = (): FormulaExpressionNode | null => {
+    const token = tokens[index];
+    if (!token) {
+      return null;
+    }
+
+    if (token === "(") {
+      index += 1;
+      const expression = parseAdditive();
+      if (tokens[index] !== ")") {
+        return null;
+      }
+      index += 1;
+      return expression;
+    }
+
+    if (/^-?\d+(?:\.\d+)?$/.test(token)) {
+      index += 1;
+      return { kind: "number", value: token };
+    }
+
+    if (/^[A-Za-z_\u4e00-\u9fff][A-Za-z0-9_\u4e00-\u9fff]*$/.test(token)) {
+      index += 1;
+      return { kind: "variable", value: normalizeRecommendedVariableToken(token) ?? token };
+    }
+
+    return null;
+  };
+
+  const parseMultiplicative = (): FormulaExpressionNode | null => {
+    let node = parsePrimary();
+    while (node && (tokens[index] === "*" || tokens[index] === "/")) {
+      const opcode = operatorTokenToOpcode(tokens[index]);
+      index += 1;
+      const right = parsePrimary();
+      if (!opcode || !right) {
+        return null;
+      }
+      node = { kind: "binary", opcode, left: node, right };
+    }
+    return node;
+  };
+
+  const parseAdditive = (): FormulaExpressionNode | null => {
+    let node = parseMultiplicative();
+    while (node && (tokens[index] === "+" || tokens[index] === "-")) {
+      const opcode = operatorTokenToOpcode(tokens[index]);
+      index += 1;
+      const right = parseMultiplicative();
+      if (!opcode || !right) {
+        return null;
+      }
+      node = { kind: "binary", opcode, left: node, right };
+    }
+    return node;
+  };
+
+  const expression = parseAdditive();
+  return expression && index === tokens.length ? expression : null;
+}
+
+function buildFormulaExpressionElementXml(expression: FormulaExpressionNode): string {
+  if (expression.kind === "number") {
+    return buildShadowFieldBlockXml("math_number", "NUM", expression.value);
+  }
+
+  if (expression.kind === "variable") {
+    return buildVariableReporterBlockXml(expression.value);
+  }
+
+  return buildElementXml(
+    "block",
+    expression.opcode,
+    `${buildValueElementXml("NUM1", buildFormulaExpressionElementXml(expression.left))}${buildValueElementXml(
+      "NUM2",
+      buildFormulaExpressionElementXml(expression.right)
+    )}`
+  );
+}
+
+function buildFormulaExpressionValueXml(inputName: string, value: string) {
+  const expression = parseFormulaExpression(value);
+  return expression ? buildValueElementXml(inputName, buildFormulaExpressionElementXml(expression)) : null;
 }
 
 function normalizeRecommendedVariableToken(token: string | undefined) {
@@ -760,6 +917,11 @@ function inferRecommendedChangeRelationship(text: string) {
 }
 
 function inferRecommendedVariableName(block: RecommendedBlock) {
+  const paramVariable = normalizeString(getRecommendedParam(block, "variable"));
+  if (paramVariable) {
+    return paramVariable;
+  }
+
   const text = getRecommendedBlockText(block);
   const mentionsSum = /sum|累加和|总和|合计/.test(text);
   const mentionsResult = hasStandaloneToken(text, "result") || /结果变量|计算结果|存入结果/.test(text);
@@ -907,6 +1069,11 @@ function inferRecommendedBinaryFormulaValueXml(block: RecommendedBlock, variable
 }
 
 function inferRecommendedSetVariableValueXml(block: RecommendedBlock, variableName: string) {
+  const paramValue = getRecommendedParam(block, "value");
+  if (paramValue) {
+    return buildFormulaExpressionValueXml("VALUE", paramValue) ?? buildTextShadowValueXml("VALUE", paramValue);
+  }
+
   const text = getRecommendedBlockText(block);
   const binaryFormulaValueXml = inferRecommendedBinaryFormulaValueXml(block, variableName);
   if (binaryFormulaValueXml) {
@@ -923,6 +1090,11 @@ function inferRecommendedSetVariableValueXml(block: RecommendedBlock, variableNa
 }
 
 function inferRecommendedChangeVariableValue(block: RecommendedBlock, variableName: string) {
+  const paramChangeBy = getRecommendedParam(block, "changeBy");
+  if (paramChangeBy) {
+    return buildFormulaExpressionValueXml("VALUE", paramChangeBy) ?? buildNumberShadowValueXml("VALUE", "1");
+  }
+
   const text = getRecommendedBlockText(block);
   const relationship = inferRecommendedChangeRelationship(text);
   if (relationship?.target === variableName && relationship.source) {
@@ -940,6 +1112,11 @@ function inferRecommendedChangeVariableValue(block: RecommendedBlock, variableNa
 }
 
 function inferRecommendedOutputVariableName(block: RecommendedBlock) {
+  const paramMessageVariable = normalizeString(getRecommendedParam(block, "messageVariable"));
+  if (paramMessageVariable) {
+    return paramMessageVariable;
+  }
+
   const text = getRecommendedBlockText(block);
   const explicitOutputPatterns = [
     /(?:说出|输出|显示|读出|展示|说)\s*(?:变量|累加结果|计算结果|结果|答案)?\s*([a-z_][a-z0-9_]*)/i,
@@ -966,6 +1143,11 @@ function inferRecommendedOutputVariableName(block: RecommendedBlock) {
 }
 
 function buildRecommendedMessageValueXml(block: RecommendedBlock, fallbackText: string) {
+  const paramMessage = getRecommendedParam(block, "message");
+  if (paramMessage) {
+    return buildTextShadowValueXml("MESSAGE", paramMessage);
+  }
+
   const outputVariable = inferRecommendedOutputVariableName(block);
   return outputVariable
     ? buildVariableReporterValueXml("MESSAGE", outputVariable)
@@ -1007,6 +1189,17 @@ function inferRecommendedRepeatCount(block: RecommendedBlock) {
 }
 
 function buildRecommendedRepeatTimesValueXml(block: RecommendedBlock) {
+  const paramRepeatTimes = getRecommendedParam(block, "repeatTimes");
+  if (paramRepeatTimes) {
+    if (/^\d+(?:\.\d+)?$/.test(paramRepeatTimes)) {
+      return buildWholeNumberShadowValueXml("TIMES", paramRepeatTimes);
+    }
+    const repeatTimesXml = buildFormulaExpressionValueXml("TIMES", paramRepeatTimes);
+    if (repeatTimesXml) {
+      return repeatTimesXml;
+    }
+  }
+
   const repeatCount = inferRecommendedRepeatCount(block);
   if (repeatCount) {
     return buildWholeNumberShadowValueXml("TIMES", repeatCount);
@@ -1027,6 +1220,11 @@ function buildAngleShadowValueXml(inputName: string, value: string) {
 }
 
 function inferRecommendedTurnDegrees(block: RecommendedBlock) {
+  const paramDegrees = getRecommendedParam(block, "degrees");
+  if (paramDegrees) {
+    return paramDegrees;
+  }
+
   const text = getRecommendedBlockText(block);
   const explicitDegrees = text.match(/(?:右转|左转|转|角度|外角)[^\d-]{0,12}(-?\d+(?:\.\d+)?)/)?.[1];
   if (explicitDegrees) {
@@ -1084,11 +1282,19 @@ function buildMouseDownConditionValueXml() {
   return buildValueElementXml("CONDITION", buildElementXml("block", "sensing_mousedown", ""));
 }
 
+function buildFormulaOrTextValueXml(inputName: string, value: string) {
+  return buildFormulaExpressionValueXml(inputName, value) ?? buildTextShadowValueXml(inputName, value);
+}
+
+function buildFormulaOrNumberValueXml(inputName: string, value: string, fallback: string) {
+  return buildFormulaExpressionValueXml(inputName, value) ?? buildNumberShadowValueXml(inputName, fallback);
+}
+
 function buildOperatorComparisonXml(opcode: string, left: string, right: string) {
   return buildElementXml(
     "block",
     opcode,
-    `${buildTextShadowValueXml("OPERAND1", left)}${buildTextShadowValueXml("OPERAND2", right)}`
+    `${buildFormulaOrTextValueXml("OPERAND1", left)}${buildFormulaOrTextValueXml("OPERAND2", right)}`
   );
 }
 
@@ -1096,7 +1302,7 @@ function buildOperatorMathXml(opcode: string, left: string, right: string) {
   return buildElementXml(
     "block",
     opcode,
-    `${buildNumberShadowValueXml("NUM1", left)}${buildNumberShadowValueXml("NUM2", right)}`
+    `${buildFormulaOrNumberValueXml("NUM1", left, "1")}${buildFormulaOrNumberValueXml("NUM2", right, "2")}`
   );
 }
 
@@ -1134,7 +1340,11 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
         )
       );
     case "motion_movesteps":
-      return buildElementXml("block", block.opcode, buildNumberShadowValueXml("STEPS", "10"));
+      return buildElementXml(
+        "block",
+        block.opcode,
+        buildNumberShadowValueXml("STEPS", getRecommendedParam(block, "steps") || "10")
+      );
     case "motion_turnright":
     case "motion_turnleft":
       return buildElementXml("block", block.opcode, buildAngleShadowValueXml("DEGREES", inferRecommendedTurnDegrees(block)));
@@ -1347,7 +1557,7 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
       return buildElementXml(
         "block",
         block.opcode,
-        buildTextShadowValueXml("QUESTION", "准备好了吗？")
+        buildTextShadowValueXml("QUESTION", getRecommendedParam(block, "question") || "准备好了吗？")
       );
     case "sensing_distanceto":
       return buildElementXml(
@@ -1363,12 +1573,20 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
     case "operator_equals":
     case "operator_lt":
     case "operator_gt":
-      return buildOperatorComparisonXml(block.opcode, "1", "2");
+      return buildOperatorComparisonXml(
+        block.opcode,
+        getRecommendedParam(block, "left") || "1",
+        getRecommendedParam(block, "right") || "2"
+      );
     case "operator_add":
     case "operator_subtract":
     case "operator_multiply":
     case "operator_divide":
-      return buildOperatorMathXml(block.opcode, "1", "2");
+      return buildOperatorMathXml(
+        block.opcode,
+        getRecommendedParam(block, "left") || "1",
+        getRecommendedParam(block, "right") || "2"
+      );
     case "operator_join":
       return buildElementXml(
         "block",

@@ -34,7 +34,22 @@ export interface RecommendedBlock {
   category: string;
   label: string;
   reason: string;
+  params?: RecommendedBlockParams;
   example?: string;
+}
+
+export interface RecommendedBlockParams {
+  variable?: string;
+  value?: string;
+  changeBy?: string;
+  message?: string;
+  messageVariable?: string;
+  repeatTimes?: string;
+  question?: string;
+  left?: string;
+  right?: string;
+  steps?: string;
+  degrees?: string;
 }
 
 export interface RecommendedBlockNode {
@@ -42,6 +57,7 @@ export interface RecommendedBlockNode {
   category: string;
   label: string;
   reason: string;
+  params?: RecommendedBlockParams;
   next?: RecommendedBlockNode;
   condition?: RecommendedBlockNode;
   substack?: RecommendedBlockNode;

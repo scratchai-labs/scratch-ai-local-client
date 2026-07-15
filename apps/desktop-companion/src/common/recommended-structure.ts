@@ -92,7 +92,8 @@ function sanitizeRecommendedNode(
     opcode: node.opcode,
     category: node.category,
     label: node.label,
-    reason: node.reason
+    reason: node.reason,
+    ...(node.params ? { params: node.params } : {})
   };
 
   if (node.next && !isReporterOpcode(node.opcode)) {

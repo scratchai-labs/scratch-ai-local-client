@@ -404,7 +404,8 @@ function buildRecommendedStructureFromBlocks(blocks: RecommendedBlock[]): Recomm
     opcode: block.opcode,
     category: block.category,
     label: block.label,
-    reason: block.reason
+    reason: block.reason,
+    ...(block.params ? { params: block.params } : {})
   }));
 
   if (nodes.length === 0) {

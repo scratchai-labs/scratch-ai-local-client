@@ -18,6 +18,7 @@
 
 - 已完成：共享协议新增 `summary + recommendation.root`，可表达 `next`、条件槽、`SUBSTACK` 和 `SUBSTACK2`
 - 已完成：协议限制递归结构总节点数最多 3 个，并拒绝额外字段和模型原始 XML
+- 已完成：推荐节点新增受约束 `params`，用于表达变量名、公式、说话变量、循环次数等显示默认值；客户端仍自行生成 XML
 - 已完成：学生端渲染层已直接消费结构化 `recommendation`
 - 已完成：旧 `recommendedBlocks` 扁平字段仍作为兼容输出保留，但学生端不再按独立卡片暴露
 

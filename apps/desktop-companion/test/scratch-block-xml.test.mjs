@@ -357,6 +357,40 @@ test("buildRecommendedStructureXml infers math loop counts and accumulator input
   assert.doesNotMatch(xml, /<field name="NUM">10<\/field>[\s\S]*<statement name="SUBSTACK">/);
 });
 
+test("buildRecommendedStructureXml uses protocol params for nested math formulas", () => {
+  const xml = buildRecommendedStructureXml({
+    root: {
+      opcode: "data_setvariableto",
+      category: "变量",
+      label: "将变量设为",
+      reason: "用鸡兔同笼公式求兔子数量。",
+      params: {
+        variable: "rabbits",
+        value: "(feet - 2 * heads) / 2"
+      },
+      next: {
+        opcode: "looks_sayforsecs",
+        category: "外观",
+        label: "说 2 秒",
+        reason: "说出兔子数量。",
+        params: {
+          messageVariable: "rabbits"
+        }
+      }
+    }
+  });
+
+  assert.match(xml, /<field name="VARIABLE"[^>]*>rabbits<\/field>/);
+  assert.match(xml, /<block type="operator_divide">/);
+  assert.match(xml, /<block type="operator_subtract">/);
+  assert.match(xml, /<block type="operator_multiply">/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>feet<\/field>/);
+  assert.match(xml, /<field name="NUM">2<\/field>/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>heads<\/field>/);
+  assert.match(xml, /<value name="MESSAGE">\s*<block type="data_variable">/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>rabbits<\/field>[\s\S]*<field name="VARIABLE"[^>]*>rabbits<\/field>/);
+});
+
 test("buildRecommendedStructureXml infers polygon repeat counts and turn degrees from drawing text", () => {
   const triangleXml = buildRecommendedStructureXml({
     root: {

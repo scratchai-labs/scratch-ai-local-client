@@ -2,11 +2,28 @@ import { z } from "zod";
 
 const hintLevelSchema = z.enum(["light", "guided", "show-example"]);
 
+const recommendedBlockParamsSchema = z
+  .object({
+    variable: z.string().max(80).optional(),
+    value: z.string().max(160).optional(),
+    changeBy: z.string().max(160).optional(),
+    message: z.string().max(120).optional(),
+    messageVariable: z.string().max(80).optional(),
+    repeatTimes: z.string().max(80).optional(),
+    question: z.string().max(120).optional(),
+    left: z.string().max(80).optional(),
+    right: z.string().max(80).optional(),
+    steps: z.string().max(80).optional(),
+    degrees: z.string().max(80).optional()
+  })
+  .strict();
+
 const recommendedBlockSchema = z.object({
   opcode: z.string(),
   category: z.string(),
   label: z.string(),
   reason: z.string(),
+  params: recommendedBlockParamsSchema.optional(),
   example: z.string().optional()
 });
 
@@ -17,6 +34,7 @@ const recommendedBlockNodeSchema = z.lazy(() =>
       category: z.string(),
       label: z.string(),
       reason: z.string(),
+      params: recommendedBlockParamsSchema.optional(),
       next: recommendedBlockNodeSchema.nullable().optional(),
       condition: recommendedBlockNodeSchema.nullable().optional(),
       substack: recommendedBlockNodeSchema.nullable().optional(),
