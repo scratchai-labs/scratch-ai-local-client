@@ -19,6 +19,7 @@
   "scripts": {
     "build": "npm run build --workspace=@scratch-ai/shared && npm run build --workspace=@scratch-ai/verification && npm run build --workspace=@scratch-ai/desktop-companion",
     "test": "npm run test --workspace=@scratch-ai/shared && npm run test --workspace=@scratch-ai/verification && npm run test --workspace=@scratch-ai/desktop-companion",
+    "test:recommendation-render-contract": "npm run desktop:build && node tools/verification/scripts/verify-recommendation-render-contract.mjs",
     "verify": "npm run test",
     "clean": "node scripts/cleanup-workspace.mjs",
     "clean:dry-run": "node scripts/cleanup-workspace.mjs --dry-run",

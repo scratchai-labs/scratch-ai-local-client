@@ -31,3 +31,7 @@ jobs:
       - run: npm run build
 
       - run: npm run test
+
+      - name: Recommendation render contract (Ubuntu)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run test:recommendation-render-contract
