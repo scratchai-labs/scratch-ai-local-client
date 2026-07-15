@@ -3,34 +3,55 @@ import assert from "node:assert/strict";
 
 import { coachRecommendationResponseSchema, desktopCompanionStateSchema } from "../src/index.js";
 
-test("parses one connected recommendation structure with at most three blocks", () => {
+test("parses one connected recommendation structure with exactly five blocks", () => {
   const response = coachRecommendationResponseSchema.parse({
-    summary: "让角色碰到目标时给出反馈。",
+    summary: "先问答案、保存答案，再判断是否猜对。",
     recommendation: {
       root: {
-        opcode: "control_if",
-        category: "控制",
-        label: "如果...那么",
-        reason: "先让角色会判断。",
-        condition: {
-          opcode: "sensing_touchingobject",
-          category: "侦测",
-          label: "碰到...？",
-          reason: "检查角色是否碰到目标。"
+        opcode: "sensing_askandwait",
+        category: "侦测",
+        label: "询问并等待",
+        reason: "先让玩家输入猜测。",
+        params: {
+          question: "你猜的数字是多少？"
         },
-        substack: {
-          opcode: "looks_sayforsecs",
-          category: "外观",
-          label: "说 2 秒",
-          reason: "让判断结果容易看见。"
+        next: {
+          opcode: "data_setvariableto",
+          category: "变量",
+          label: "将变量设为",
+          reason: "把回答保存到猜测变量。",
+          params: {
+            variable: "guess",
+            value: "answer"
+          },
+          next: {
+            opcode: "control_if",
+            category: "控制",
+            label: "如果...那么",
+            reason: "判断猜测是否等于秘密数字。",
+            condition: {
+              opcode: "operator_equals",
+              category: "运算",
+              label: "等于",
+              reason: "比较猜测和秘密数字。"
+            },
+            substack: {
+              opcode: "looks_sayforsecs",
+              category: "外观",
+              label: "说 2 秒",
+              reason: "猜对后给出反馈。"
+            }
+          }
         }
       }
     }
   });
 
-  assert.equal(response.recommendation.root.opcode, "control_if");
-  assert.equal(response.recommendation.root.condition.opcode, "sensing_touchingobject");
-  assert.equal(response.recommendation.root.substack.opcode, "looks_sayforsecs");
+  assert.equal(response.recommendation.root.opcode, "sensing_askandwait");
+  assert.equal(response.recommendation.root.next.opcode, "data_setvariableto");
+  assert.equal(response.recommendation.root.next.next.opcode, "control_if");
+  assert.equal(response.recommendation.root.next.next.condition.opcode, "operator_equals");
+  assert.equal(response.recommendation.root.next.next.substack.opcode, "looks_sayforsecs");
 });
 
 test("accepts constrained recommendation params for display defaults", () => {
@@ -56,7 +77,6 @@ test("accepts constrained recommendation params for display defaults", () => {
   });
 });
 
-
 test("accepts a completed-project summary without forcing recommended blocks", () => {
   const response = coachRecommendationResponseSchema.parse({
     summary: "你的作品已经完整，可以点击绿旗后用方向键控制 Cat 2。"
@@ -66,9 +86,9 @@ test("accepts a completed-project summary without forcing recommended blocks", (
   assert.equal(Object.hasOwn(response, "recommendation"), false);
 });
 
-test("rejects recommendation structures containing more than three blocks", () => {
+test("rejects recommendation structures containing more than five blocks", () => {
   const result = coachRecommendationResponseSchema.safeParse({
-    summary: "让角色先启动，再移动、判断并反馈。",
+    summary: "让角色先启动，再连续补很多动作。",
     recommendation: {
       root: {
         opcode: "event_whenflagclicked",
@@ -79,17 +99,29 @@ test("rejects recommendation structures containing more than three blocks", () =
           opcode: "motion_movesteps",
           category: "运动",
           label: "移动 10 步",
-          reason: "先让角色动起来。",
+          reason: "2",
           next: {
-            opcode: "control_if",
-            category: "控制",
-            label: "如果...那么",
-            reason: "让角色会判断。",
-            substack: {
-              opcode: "looks_sayforsecs",
-              category: "外观",
-              label: "说 2 秒",
-              reason: "给出可见反馈。"
+            opcode: "motion_turnright",
+            category: "运动",
+            label: "右转 15 度",
+            reason: "3",
+            next: {
+              opcode: "control_repeat",
+              category: "控制",
+              label: "重复执行",
+              reason: "4",
+              next: {
+                opcode: "looks_sayforsecs",
+                category: "外观",
+                label: "说 2 秒",
+                reason: "5",
+                next: {
+                  opcode: "data_setvariableto",
+                  category: "变量",
+                  label: "将变量设为",
+                  reason: "6"
+                }
+              }
             }
           }
         }

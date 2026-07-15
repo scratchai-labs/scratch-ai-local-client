@@ -1,1 +1,2 @@
-export const MAX_RECOMMENDED_BLOCKS = 3;
+export const MAX_RECOMMENDED_BLOCKS = 5;
+export const MAX_SIMPLE_RECOMMENDED_BLOCKS = 3;

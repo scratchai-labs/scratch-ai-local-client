@@ -476,7 +476,7 @@ test("CoachService sends DeepSeek V4 chat completions requests in JSON non-think
   assert.equal(capturedRequest.body.messages[0].content.includes("substack2"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("params"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("messageVariable"), true);
-  assert.equal(capturedRequest.body.messages[0].content.includes("最多 3 个"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("最多 5 个"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("按顺序"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("不要把积木顺序一次性全部告诉学生"), false);
   assert.equal(capturedRequest.body.messages[0].content.includes("最接近"), false);
@@ -1405,7 +1405,7 @@ test("CoachService salvages a renderable continuation after omitting an already-
   );
 });
 
-test("CoachService keeps at most three recommended blocks from DeepSeek", async () => {
+test("CoachService filters unavailable recommended blocks from DeepSeek", async () => {
   const service = new CoachService(async () =>
     createDeepSeekResponse(
       JSON.stringify({
@@ -1457,32 +1457,44 @@ test("CoachService keeps at most three recommended blocks from DeepSeek", async 
   );
 });
 
-test("CoachService trims overlong DeepSeek structures instead of falling back", async () => {
+test("CoachService trims overlong DeepSeek structures to five blocks instead of falling back", async () => {
   const service = new CoachService(async () =>
     createDeepSeekResponse(
       JSON.stringify({
-        summary: "先补最关键的三步，后面再慢慢加。",
+        summary: "复杂推荐只保留最关键的五步。",
         recommendation: {
           root: {
-            opcode: "event_whenflagclicked",
-            category: "事件",
-            label: "当绿旗被点击",
+            opcode: "motion_gotoxy",
+            category: "运动",
+            label: "移到 x: y:",
             reason: "1",
             next: {
-              opcode: "motion_gotoxy",
-              category: "运动",
-              label: "移到 x: y:",
+              opcode: "control_forever",
+              category: "控制",
+              label: "一直重复",
               reason: "2",
+              substack: {
+                opcode: "motion_movesteps",
+                category: "运动",
+                label: "移动 10 步",
+                reason: "3"
+              },
               next: {
-                opcode: "control_forever",
-                category: "控制",
-                label: "一直重复",
-                reason: "3",
-                substack: {
-                  opcode: "motion_movesteps",
-                  category: "运动",
-                  label: "移动 10 步",
-                  reason: "4"
+                opcode: "looks_sayforsecs",
+                category: "外观",
+                label: "说 2 秒",
+                reason: "4",
+                next: {
+                  opcode: "data_setvariableto",
+                  category: "变量",
+                  label: "将变量设为",
+                  reason: "5",
+                  next: {
+                    opcode: "data_changevariableby",
+                    category: "变量",
+                    label: "将变量增加",
+                    reason: "6"
+                  }
                 }
               }
             }
@@ -1496,22 +1508,23 @@ test("CoachService trims overlong DeepSeek structures instead of falling back", 
     snapshot: createSnapshot(),
     currentTargetPrograms: ["event_whenflagclicked -> motion_movesteps"],
     programAreaModules: [
-      { id: "event", label: "事件", blockCount: 1 },
       { id: "motion", label: "运动", blockCount: 2 },
-      { id: "control", label: "控制", blockCount: 1 }
+      { id: "control", label: "控制", blockCount: 1 },
+      { id: "looks", label: "外观", blockCount: 1 },
+      { id: "data", label: "变量", blockCount: 2 }
     ],
     usedExtensions: [],
     loadedExtensions: [],
-    goal: "继续做移动",
+    goal: "继续做复杂移动",
     aiConfig: createAiConfig()
   });
 
   assert.equal(result.source, "deepseek");
   assert.deepEqual(
     result.coachResponse.recommendedBlocks.map((block) => block.opcode),
-    ["motion_gotoxy", "control_forever"]
+    ["motion_gotoxy", "control_forever", "motion_movesteps", "looks_sayforsecs", "data_setvariableto"]
   );
-  assert.equal(result.coachResponse.recommendation.root.next?.substack, undefined);
+  assert.equal(result.coachResponse.recommendation.root.next?.next?.next?.next, undefined);
 });
 
 test("CoachService strips Scratch node metadata from DeepSeek structures", async () => {
@@ -1577,7 +1590,7 @@ test("CoachService strips Scratch node metadata from DeepSeek structures", async
   assert.equal("inputs" in result.coachResponse.recommendation.root.condition, false);
 });
 
-test("CoachService keeps fewer than three recommendations without padding", async () => {
+test("CoachService keeps fewer recommendations without padding", async () => {
   const service = new CoachService(async () =>
     createDeepSeekResponse(
       JSON.stringify({
@@ -1676,7 +1689,7 @@ test("CoachService accepts explicit null tails from DeepSeek recommendation stru
   assert.equal(result.coachResponse.recommendation.root.next, undefined);
 });
 
-test("CoachService fallback gives a local basic hint without forcing three blocks", async () => {
+test("CoachService fallback gives a local basic hint without forcing a fixed block count", async () => {
   const service = new CoachService();
   const snapshot = createSnapshot();
   snapshot.sprites[0].blockCount = 0;

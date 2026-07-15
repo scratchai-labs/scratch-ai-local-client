@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+const MAX_RECOMMENDED_BLOCK_NODES = 5;
 const hintLevelSchema = z.enum(["light", "guided", "show-example"]);
 
 const recommendedBlockParamsSchema = z
@@ -65,11 +66,11 @@ const coachRecommendationResponseSchema = z
   })
   .strict()
   .superRefine((response, context) => {
-    if (response.recommendation && countRecommendedBlockNodes(response.recommendation.root) > 3) {
+    if (response.recommendation && countRecommendedBlockNodes(response.recommendation.root) > MAX_RECOMMENDED_BLOCK_NODES) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["recommendation", "root"],
-        message: "推荐积木结构最多包含 3 个积木。"
+        message: `推荐积木结构最多包含 ${MAX_RECOMMENDED_BLOCK_NODES} 个积木。`
       });
     }
   });

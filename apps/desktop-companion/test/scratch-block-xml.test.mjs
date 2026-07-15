@@ -290,6 +290,23 @@ test("buildRecommendedBlockXml renders answer reporter and touching target param
   assert.doesNotMatch(touchingAppleXml, /<field name="TOUCHINGOBJECTMENU">边缘<\/field>/);
 });
 
+test("buildRecommendedBlockXml preserves camelCase variable params in comparisons", () => {
+  const comparisonXml = buildRecommendedBlockXml({
+    opcode: "operator_equals",
+    category: "运算",
+    label: "guess = secretNumber",
+    reason: "比较玩家猜测和秘密数字。",
+    params: {
+      left: "guess",
+      right: "secretNumber"
+    }
+  });
+
+  assert.match(comparisonXml, /<field name="VARIABLE"[^>]*>guess<\/field>/);
+  assert.match(comparisonXml, /<field name="VARIABLE"[^>]*>secretNumber<\/field>/);
+  assert.doesNotMatch(comparisonXml, /<field name="VARIABLE"[^>]*>secretnumber<\/field>/);
+});
+
 test("buildRecommendedBlockXml renders generic accumulator variable reporters from natural text", () => {
   const changeXml = buildRecommendedBlockXml({
     opcode: "data_changevariableby",

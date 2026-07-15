@@ -90,7 +90,7 @@ test("formats recommended blocks without exposing English opcodes", () => {
   );
 });
 
-test("formats recommended blocks with at most three items", () => {
+test("formats recommended blocks with at most five items", () => {
   assert.deepEqual(
     formatRecommendedBlocks({
       aiCoachResponse: {
@@ -131,7 +131,9 @@ test("formats recommended blocks with at most three items", () => {
     [
       "1",
       "2",
-      "3"
+      "3",
+      "4",
+      "5"
     ]
   );
 });

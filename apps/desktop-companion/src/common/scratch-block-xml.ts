@@ -844,7 +844,8 @@ function buildFormulaExpressionValueXml(inputName: string, value: string) {
 }
 
 function normalizeRecommendedVariableToken(token: string | undefined) {
-  const normalized = normalizeString(token).toLowerCase();
+  const rawToken = normalizeString(token);
+  const normalized = rawToken.toLowerCase();
   if (!normalized) {
     return null;
   }
@@ -863,7 +864,7 @@ function normalizeRecommendedVariableToken(token: string | undefined) {
   if (/^(number|数字|输入的数)$/.test(normalized)) {
     return "number";
   }
-  return /^[a-z_][a-z0-9_]*$/i.test(normalized) ? normalized : null;
+  return /^[a-z_][a-z0-9_]*$/i.test(rawToken) ? rawToken : null;
 }
 
 const VARIABLE_TOKEN_PATTERN = "([a-z_][a-z0-9_]*|累加和|总和|合计|计数器|计数|结果变量|计算结果|结果|输入的数|数字)";
