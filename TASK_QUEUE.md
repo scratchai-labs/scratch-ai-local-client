@@ -8,6 +8,7 @@
 
 ## 已完成
 
+- 2026-07-15：调研是否应把推荐积木结构告知 DeepSeek：结论是不应塞完整 Scratch 原始 schema，也不应继续让客户端从中文 reason 推断字段；应升级为“小型推荐参数 DSL”，在 prompt 中提供当前项目变量、脚本证据和常用 opcode 的 fields/inputs 填槽指南，让 DeepSeek 返回受控 typed params，客户端按白名单校验后生成 Blockly XML，并保留旧 reason 推断作为兼容 fallback。
 - 2026-07-15：调研多轮推荐积木错位的责任边界：核对协议/schema、真实 DeepSeek timeline、XML 渲染链路和最新回归保护，结论为模型按当前协议只返回 opcode/category/label/reason，字段/输入值不能由模型直接携带；多数错位来自客户端 `scratch-block-xml.ts` 对自然语言到 Scratch 字段/输入的泛化推断遗漏，少数来自 DeepSeek 语义不够精确，需要服务层过滤/补充。
 - 2026-07-15：修复截图反馈的推荐积木空内容问题：`s 增加` 现在能显示 `i` reporter，`说` 积木能显示真实累加变量 reporter，且主进程会按学生现有变量（如 `s`）补充“说话内容要放入 s 变量”，不再硬写 `sum`；已补自然语言关系/输出变量泛化回归，根级 `npm run test` 通过（shared 12、verification 34、desktop-companion 210）。
 - 2026-07-15：按用户要求打开桌面伴随程序供人工查看最新 10 目标泛化修复效果；已正常源码联调启动，不带 mock 环境变量，运行日志 `/tmp/scratch-ai-companion-dev-20260715.log`，Electron 进程已启动并激活到前台。
