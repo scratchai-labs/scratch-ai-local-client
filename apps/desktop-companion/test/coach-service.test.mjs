@@ -371,13 +371,62 @@ function createReferenceSnapshot() {
   };
 }
 
+function convertNodeParamsToStrictTransport(node) {
+  if (!node || typeof node !== "object") {
+    return node;
+  }
+
+  const converted = { ...node };
+  if (converted.params && !Array.isArray(converted.params)) {
+    converted.params = Object.entries(converted.params).map(([name, value]) => ({ name, value }));
+  } else if (!converted.params) {
+    converted.params = [];
+  }
+
+  for (const relation of ["next", "condition", "substack", "substack2"]) {
+    if (converted[relation]) {
+      converted[relation] = convertNodeParamsToStrictTransport(converted[relation]);
+    }
+  }
+  return converted;
+}
+
 function createDeepSeekResponse(content) {
+  let toolName = "submit_scratch_recommendation";
+  let argumentsText = content;
+
+  try {
+    const candidate = JSON.parse(content);
+    if (candidate.recommendation && candidate.recommendation.root) {
+      argumentsText = JSON.stringify({
+        summary: candidate.summary,
+        recommendation: {
+          root: convertNodeParamsToStrictTransport(candidate.recommendation.root)
+        }
+      });
+    } else {
+      toolName = "submit_completed_project";
+      argumentsText = JSON.stringify({ summary: candidate.summary });
+    }
+  } catch {
+    // Keep malformed arguments so the production parser can prove it fails closed.
+  }
+
   return new Response(
     JSON.stringify({
       choices: [
         {
           message: {
-            content
+            content: "",
+            tool_calls: [
+              {
+                type: "function",
+                function: {
+                  name: toolName,
+                  arguments: argumentsText
+                }
+              }
+            ]
           }
         }
       ]
@@ -391,7 +440,7 @@ function createDeepSeekResponse(content) {
   );
 }
 
-test("CoachService sends DeepSeek V4 chat completions requests in JSON non-thinking mode", async () => {
+test("CoachService sends DeepSeek Strict tool requests in non-thinking mode", async () => {
   let capturedRequest;
 
   const service = new CoachService(async (url, init) => {
@@ -454,7 +503,7 @@ test("CoachService sends DeepSeek V4 chat completions requests in JSON non-think
     }
   ]);
   assert.equal(Object.hasOwn(result.coachResponse, "followUpQuestion"), false);
-  assert.equal(capturedRequest.url, "https://api.deepseek.com/chat/completions");
+  assert.equal(capturedRequest.url, "https://api.deepseek.com/beta/chat/completions");
   assert.equal(capturedRequest.init.method, "POST");
   assert.equal(capturedRequest.init.headers["Content-Type"], "application/json");
   assert.equal(capturedRequest.init.headers.Authorization, "Bearer sk-test-demo");
@@ -462,7 +511,16 @@ test("CoachService sends DeepSeek V4 chat completions requests in JSON non-think
   assert.deepEqual(capturedRequest.body.thinking, { type: "disabled" });
   assert.equal(capturedRequest.body.temperature, 0.3);
   assert.equal(capturedRequest.body.max_tokens, 2048);
-  assert.deepEqual(capturedRequest.body.response_format, { type: "json_object" });
+  assert.equal(Object.hasOwn(capturedRequest.body, "response_format"), false);
+  assert.equal(capturedRequest.body.tool_choice, "required");
+  assert.deepEqual(
+    capturedRequest.body.tools.map((tool) => [tool.function.name, tool.function.strict]),
+    [
+      ["submit_completed_project", true],
+      ["submit_scratch_recommendation", true]
+    ]
+  );
+  assert.equal(capturedRequest.body.tools[1].function.parameters.additionalProperties, false);
   assert.equal(capturedRequest.body.messages.length, 2);
   assert.equal(capturedRequest.body.messages[0].content.includes("不要直接给完整答案"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("直接对学生说“你”"), true);
@@ -476,13 +534,13 @@ test("CoachService sends DeepSeek V4 chat completions requests in JSON non-think
   assert.equal(capturedRequest.body.messages[0].content.includes("substack2"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("params"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("messageVariable"), true);
-  assert.equal(capturedRequest.body.messages[0].content.includes('params.secs="3"'), true);
-  assert.equal(capturedRequest.body.messages[0].content.includes('params.value="sensing_answer"'), true);
-  assert.equal(capturedRequest.body.messages[0].content.includes("优先复用项目里已经存在的变量名"), true);
-  assert.equal(capturedRequest.body.messages[0].content.includes("新建变量时按本课目标和题目语言"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("name 只允许"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("sensing_answer"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("变量名优先复用项目已有名称"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("新建变量时使用符合题目语言"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes('params.variable="rabbits"'), false);
   assert.equal(capturedRequest.body.messages[0].content.includes('params.value="(feet - 2 * heads) / 2"'), false);
-  assert.equal(capturedRequest.body.messages[0].content.includes("最多 5 个"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("最多包含 5 个"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("按顺序"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("不要把积木顺序一次性全部告诉学生"), false);
   assert.equal(capturedRequest.body.messages[0].content.includes("最接近"), false);
@@ -598,7 +656,7 @@ test("CoachService preserves recommendation params from DeepSeek structured outp
   ]);
 });
 
-test("CoachService normalizes DeepSeek recommendation params objects and numbers", async () => {
+test("CoachService preserves Strict string recommendation params", async () => {
   const service = new CoachService(async () =>
     createDeepSeekResponse(
       JSON.stringify({
@@ -611,31 +669,7 @@ test("CoachService normalizes DeepSeek recommendation params objects and numbers
             reason: "用 heads 和 feet 求 rabbits。",
             params: {
               variable: "rabbits",
-              value: {
-                opcode: "operator_divide",
-                params: {
-                  left: {
-                    opcode: "operator_subtract",
-                    params: {
-                      left: {
-                        opcode: "data_variable",
-                        params: { variable: "feet" }
-                      },
-                      right: {
-                        opcode: "operator_multiply",
-                        params: {
-                          left: 2,
-                          right: {
-                            opcode: "data_variable",
-                            params: { variable: "heads" }
-                          }
-                        }
-                      }
-                    }
-                  },
-                  right: 2
-                }
-              }
+              value: "((feet - (2 * heads)) / 2)"
             },
             next: {
               opcode: "control_repeat",
@@ -643,7 +677,7 @@ test("CoachService normalizes DeepSeek recommendation params objects and numbers
               label: "重复执行",
               reason: "重复 100 次累加。",
               params: {
-                repeatTimes: 100
+                repeatTimes: "100"
               },
               substack: {
                 opcode: "data_changevariableby",
@@ -652,7 +686,7 @@ test("CoachService normalizes DeepSeek recommendation params objects and numbers
                 reason: "让 i 增加 1。",
                 params: {
                   variable: "i",
-                  changeBy: 1
+                  changeBy: "1"
                 }
               },
               next: {
@@ -662,7 +696,7 @@ test("CoachService normalizes DeepSeek recommendation params objects and numbers
                 reason: "把结果说 3 秒。",
                 params: {
                   message: "算好了",
-                  secs: 3
+                  secs: "3"
                 }
               }
             }
@@ -792,18 +826,13 @@ test("CoachService fills missing nested recommendation reasons from labels", asy
 });
 
 test("CoachService accepts a complete-project usage summary without recommended blocks", async () => {
-  const service = new CoachService(async () => ({
-    ok: true,
-    json: async () => ({
-      choices: [{
-        message: {
-          content: JSON.stringify({
-            summary: "你的作品已经完整。点击绿旗后，用方向键控制 Cat 2 躲避障碍即可。"
-          })
-        }
-      }]
-    })
-  }));
+  const service = new CoachService(async () =>
+    createDeepSeekResponse(
+      JSON.stringify({
+        summary: "你的作品已经完整。点击绿旗后，用方向键控制 Cat 2 躲避障碍即可。"
+      })
+    )
+  );
   const snapshot = createCompleteSnapshot();
 
   const result = await service.generateHint({
@@ -1111,7 +1140,7 @@ test("CoachService uses the saved custom teacher prompt while keeping JSON outpu
     capturedRequest.messages[0].content.includes("请优先提醒碰撞、得分和变量变化，每次只给一个教学步骤。"),
     true
   );
-  assert.equal(capturedRequest.messages[0].content.includes("输出必须是一个 JSON 对象"), true);
+  assert.equal(capturedRequest.messages[0].content.includes("必须调用且只调用一个严格工具"), true);
 });
 
 test("CoachService does not expose student-facing diagnostic fields for structured hints", async () => {
@@ -2207,14 +2236,7 @@ test("CoachService prompt context includes math task guidance for chicken-rabbit
       init,
       body: JSON.parse(init.body)
     };
-    return {
-      ok: true,
-      async json() {
-        return {
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
+    return createDeepSeekResponse(JSON.stringify({
                   summary: "先求兔子数量。",
                   recommendation: {
                     root: {
@@ -2224,13 +2246,7 @@ test("CoachService prompt context includes math task guidance for chicken-rabbit
                       reason: "保存兔子数量"
                     }
                   }
-                })
-              }
-            }
-          ]
-        };
-      }
-    };
+                }));
   });
 
   const snapshot = createSnapshot();
@@ -2272,14 +2288,7 @@ test("CoachService prompt context includes math task guidance for chicken-rabbit
 
 test("CoachService filters motion recommendations for math chicken-rabbit DeepSeek responses", async () => {
   const service = new CoachService(async () => {
-    return {
-      ok: true,
-      async json() {
-        return {
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
+    return createDeepSeekResponse(JSON.stringify({
                   summary: "让角色继续动起来并碰到边缘反弹。",
                   recommendation: {
                     root: {
@@ -2301,13 +2310,7 @@ test("CoachService filters motion recommendations for math chicken-rabbit DeepSe
                       }
                     }
                   }
-                })
-              }
-            }
-          ]
-        };
-      }
-    };
+                }));
   });
 
   const snapshot = createSnapshot();
@@ -2346,14 +2349,7 @@ test("CoachService filters motion recommendations for math chicken-rabbit DeepSe
 
 test("CoachService filters edge-bounce recommendations for drawing DeepSeek responses", async () => {
   const service = new CoachService(async () => {
-    return {
-      ok: true,
-      async json() {
-        return {
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
+    return createDeepSeekResponse(JSON.stringify({
                   summary: "继续画正方形，不要跑出舞台。",
                   recommendation: {
                     root: {
@@ -2369,13 +2365,7 @@ test("CoachService filters edge-bounce recommendations for drawing DeepSeek resp
                       }
                     }
                   }
-                })
-              }
-            }
-          ]
-        };
-      }
-    };
+                }));
   });
 
   const snapshot = createSnapshot();
@@ -2420,14 +2410,7 @@ test("CoachService filters edge-bounce recommendations for drawing DeepSeek resp
 
 test("CoachService filters ask recommendations for fixed upper-bound sum goals", async () => {
   const service = new CoachService(async () => {
-    return {
-      ok: true,
-      async json() {
-        return {
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
+    return createDeepSeekResponse(JSON.stringify({
                   summary: "先询问 n，再循环求和。",
                   recommendation: {
                     root: {
@@ -2449,13 +2432,7 @@ test("CoachService filters ask recommendations for fixed upper-bound sum goals",
                       }
                     }
                   }
-                })
-              }
-            }
-          ]
-        };
-      }
-    };
+                }));
   });
 
   const snapshot = createSnapshot();
@@ -2497,14 +2474,7 @@ test("CoachService filters ask recommendations for fixed upper-bound sum goals",
 
 test("CoachService makes fixed sum output recommendations say the sum variable", async () => {
   const service = new CoachService(async () => {
-    return {
-      ok: true,
-      async json() {
-        return {
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
+    return createDeepSeekResponse(JSON.stringify({
                   summary: "循环结束后输出结果。",
                   recommendation: {
                     root: {
@@ -2514,13 +2484,7 @@ test("CoachService makes fixed sum output recommendations say the sum variable",
                       reason: "输出结果"
                     }
                   }
-                })
-              }
-            }
-          ]
-        };
-      }
-    };
+                }));
   });
 
   const snapshot = createSnapshot();
@@ -2558,14 +2522,7 @@ test("CoachService makes fixed sum output recommendations say the sum variable",
 
 test("CoachService keeps custom accumulator variable name in fixed sum output recommendations", async () => {
   const service = new CoachService(async () => {
-    return {
-      ok: true,
-      async json() {
-        return {
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
+    return createDeepSeekResponse(JSON.stringify({
                   summary: "循环结束后输出结果。",
                   recommendation: {
                     root: {
@@ -2575,13 +2532,7 @@ test("CoachService keeps custom accumulator variable name in fixed sum output re
                       reason: "输出结果"
                     }
                   }
-                })
-              }
-            }
-          ]
-        };
-      }
-    };
+                }));
   });
 
   const snapshot = createSnapshot();
@@ -2620,14 +2571,7 @@ test("CoachService keeps custom accumulator variable name in fixed sum output re
 
 test("CoachService treats square-number goals as math and keeps result output concrete", async () => {
   const service = new CoachService(async () => {
-    return {
-      ok: true,
-      async json() {
-        return {
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
+    return createDeepSeekResponse(JSON.stringify({
                   summary: "计算并输出结果。",
                   recommendation: {
                     root: {
@@ -2643,13 +2587,7 @@ test("CoachService treats square-number goals as math and keeps result output co
                       }
                     }
                   }
-                })
-              }
-            }
-          ]
-        };
-      }
-    };
+                }));
   });
 
   const snapshot = createSnapshot();
@@ -2689,14 +2627,7 @@ test("CoachService treats square-number goals as math and keeps result output co
 
 test("CoachService returns completed summary after square-number program can say the computed result", async () => {
   const service = new CoachService(async () => {
-    return {
-      ok: true,
-      async json() {
-        return {
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
+    return createDeepSeekResponse(JSON.stringify({
                   summary: "先准备累加结果变量 sum。",
                   recommendation: {
                     root: {
@@ -2706,13 +2637,7 @@ test("CoachService returns completed summary after square-number program can say
                       reason: "把 sum 设为 0"
                     }
                   }
-                })
-              }
-            }
-          ]
-        };
-      }
-    };
+                }));
   });
 
   const snapshot = createSnapshot();

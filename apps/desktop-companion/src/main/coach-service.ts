@@ -14,6 +14,11 @@ import { sanitizeRecommendedStructure } from "../common/recommended-structure";
 import { canUseRecommendedBlockRelation } from "../common/recommended-block-capabilities";
 import { MAX_RECOMMENDED_BLOCKS, MAX_SIMPLE_RECOMMENDED_BLOCKS } from "../common/recommended-blocks";
 
+import {
+  DEEPSEEK_STRICT_TOOLS,
+  buildDeepSeekStrictChatUrl,
+  extractDeepSeekStrictCandidate
+} from "./deepseek-strict-tools";
 import type { LoadedDeepSeekConfig } from "./deepseek-config";
 import { buildProjectScriptEvidence } from "./project-script-evidence";
 import { redactSensitiveText } from "./sensitive-redaction";
@@ -32,7 +37,7 @@ const DEFAULT_DEEPSEEK_MAX_TOKENS = 2048;
 export const DEFAULT_HINT_ONLY_SYSTEM_PROMPT =
   "你是 Scratch 小学编程助教。请完整阅读舞台和全部角色的全部脚本，从整个项目而不是只从当前角色判断作品是否完整。完整性判断只能依据本次最新项目快照中实际存在的脚本和积木；不得根据角色名称、造型主题或常见游戏玩法推测项目具有快照中没有的控制、得分、升级、胜利、失败或结束功能。请逐个核对舞台和每个角色的实际脚本，并从绿旗开始检查实际可达路径：追踪事件入口、条件、循环、变量和广播的发送与接收，确认核心流程不会因为等待尚未发生的广播或条件而无法启动。如果没有按键、角色点击、鼠标位置、鼠标按下等真实输入积木，就不能声称学生可以控制角色；如果碰撞条件指向的是另一个角色，也不能改写成学生控制的角色发生碰撞。只有启动方式、操作方式、核心规则、反馈和结束条件等你在 summary 中声称存在的功能，都能在当前脚本中找到证据并且实际可达时，才能判断作品完整。若作品仍需完善，给出具体、可执行、面向小学生的中文提示，但不要直接给完整答案，不要写完整脚本，并给出当前最适合尝试的 1 到 5 个按顺序连接的关键积木；简单下一步优先 1 到 3 个，只有输入、保存、条件和反馈等复杂步骤确实需要时才使用 4 到 5 个。若作品已经形成完整、可运行、目标清楚的程序，可以不返回 recommendation，只用 summary 简短告诉学生作品已完成以及如何启动、操作或体验。所有展示给学生的自然语言都必须直接对学生说“你”，不要用“学生”“老师”“用户”等第三人称称呼。所有自然语言必须使用中文，不要出现英文 opcode、英文积木名、英文字段解释，避免中英混杂。recommendation.root 里的 opcode 必须使用 Scratch 官方积木 opcode，不要编造不存在的 opcode。";
 const HINT_ONLY_OUTPUT_REQUIREMENTS =
-  "输出必须是一个 JSON 对象，字段只能包含 summary、recommendation。summary 是一句直接给学生看的简短中文提示，必须使用“你”来称呼学生。作品仍需完善时，recommendation.root 是按顺序连接的具体积木结构，最多 5 个积木节点，简单下一步优先不超过 3 个；每个节点必须包含 opcode、category、label、reason，嵌套的 condition、substack、substack2 节点也必须包含 reason。使用 next 表示下一个顺序积木，使用 condition 表示条件输入，使用 substack 表示内部执行分支，使用 substack2 表示否则分支。节点可选 params 只用于显示默认值，允许键仅有 variable、value、changeBy、message、messageVariable、repeatTimes、question、left、right、steps、degrees、secs；所有 params 的值都必须是字符串，不要把 params.value、left、right、changeBy、messageVariable 写成嵌套对象或数字；如果 sensing_askandwait 后紧接 data_setvariableto 保存刚才输入，必须写 params.value=\"sensing_answer\"，不要留空。变量命名规则：params 中的 variable、messageVariable 和公式里的变量 token 不会被客户端翻译，优先复用项目里已经存在的变量名；新建变量时按本课目标和题目语言提炼学生能看懂的短变量名，同一含义在所有公式和后续积木中必须完全一致，不要默认使用英文占位名。参数示例：将变量设为可用 params.variable=\"结果\" 和 params.value=\"(总数 - 已知数) / 2\"，重复执行可用 params.repeatTimes=\"100\"，说话秒数可用 params.secs=\"3\"，说话内容可用 params.messageVariable=\"总和\"，碰到 Apple 可用 params.variable=\"Apple\"。作品已经完整时，可以不返回 recommendation，只返回 summary，说明如何启动、操作或体验。不要输出 Markdown，不要输出额外解释，不要输出追问、诊断、示例或 XML。";
+  "必须调用且只调用一个严格工具：作品已经完整时调用 submit_completed_project；作品仍需完善时调用 submit_scratch_recommendation。不要在 message.content 输出 JSON、Markdown、解释、追问或 XML。推荐工具中的 recommendation.root 最多包含 5 个节点；每个节点必须填写 opcode、category、label、reason 和 params，params 是由 {name,value} 组成的数组，没有参数时使用空数组。关系只能按工具 Schema 使用：next 表示合法的后续顺序积木，condition 只能放布尔积木，substack/substack2 只能放入 Schema 允许的控制积木；一直重复、停止全部、删除本克隆体后禁止 next。参数 name 只允许 variable、value、changeBy、message、messageVariable、repeatTimes、question、left、right、steps、degrees、secs，value 必须是字符串。如果 sensing_askandwait 后紧接 data_setvariableto 保存回答，使用 {name=value,value=sensing_answer}。变量名优先复用项目已有名称；新建变量时使用符合题目语言的短名称，同一含义必须保持一致。";
 const RECOMMENDED_OPCODE_WHITELIST_REQUIREMENTS =
   `recommendation 里的 opcode 只允许从以下 Scratch 官方 opcode 白名单中选择：${SUPPORTED_RECOMMENDED_BLOCK_OPCODES.join("、")}。如果不确定具体 opcode，就不要返回那一块，不要替换成其他积木。`;
 const HINT_ONLY_USER_PROMPT =
@@ -910,47 +915,6 @@ function buildPromptContext(options: GenerateCoachHintOptions) {
   };
 }
 
-function extractMessageContent(rawPayload: unknown) {
-  if (!rawPayload || typeof rawPayload !== "object") {
-    return "";
-  }
-
-  const payload = rawPayload as {
-    choices?: Array<{
-      message?: {
-        content?: string | Array<{ type?: string; text?: string }>;
-      };
-    }>;
-  };
-
-  const content = payload.choices?.[0]?.message?.content;
-  if (typeof content === "string") {
-    return content;
-  }
-
-  if (Array.isArray(content)) {
-    return content
-      .map((item) => (item && typeof item.text === "string" ? item.text : ""))
-      .join("")
-      .trim();
-  }
-
-  return "";
-}
-
-function parseJsonObject(text: string) {
-  const trimmed = text.trim();
-  if (!trimmed) {
-    throw new Error("DeepSeek 返回了空内容。");
-  }
-
-  const withoutFence = trimmed.startsWith("```")
-    ? trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "")
-    : trimmed;
-
-  return JSON.parse(withoutFence);
-}
-
 function normalizeTextValue(value: unknown) {
   if (typeof value === "string") {
     const trimmed = value.trim();
@@ -1669,7 +1633,7 @@ export class CoachService {
       const promptContext = buildPromptContext(options);
       const systemPrompt = buildSystemPrompt(options.customSystemPrompt);
       const userPrompt = `${HINT_ONLY_USER_PROMPT}\n\n${JSON.stringify(promptContext, null, 2)}`;
-      const response = await this.fetchImpl(`${options.aiConfig.baseUrl}/chat/completions`, {
+      const response = await this.fetchImpl(buildDeepSeekStrictChatUrl(options.aiConfig.baseUrl), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1682,9 +1646,8 @@ export class CoachService {
           },
           temperature: 0.3,
           max_tokens: DEFAULT_DEEPSEEK_MAX_TOKENS,
-          response_format: {
-            type: "json_object"
-          },
+          tools: DEEPSEEK_STRICT_TOOLS,
+          tool_choice: "required",
           [Symbol.for("legacyMessages")]: [
             {
               role: "system",
@@ -1715,9 +1678,8 @@ export class CoachService {
       }
 
       const rawPayload = await response.json();
-      const messageContent = extractMessageContent(rawPayload);
-      const parsedJson = parseJsonObject(messageContent);
-      const normalizedJson = normalizeCoachResponse(parsedJson, options);
+      const strictCandidate = extractDeepSeekStrictCandidate(rawPayload);
+      const normalizedJson = normalizeCoachResponse(strictCandidate, options);
       return coachResponseSchema.parse(normalizedJson) as CoachResponse;
     } finally {
       clearTimeout(timer);
