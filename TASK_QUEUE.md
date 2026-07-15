@@ -8,6 +8,7 @@
 
 ## 已完成
 
+- 2026-07-15：泛化推荐变量命名策略；没有在客户端做 `heads/feet/rabbits` 到中文的本地映射，而是升级 DeepSeek 输出约束：`params.variable` / `messageVariable` / 公式变量 token 优先复用项目已有变量名；若是新建变量，则按本课目标和题目语言生成学生可读短变量名，并要求同一含义在公式和后续积木中完全一致。同步去掉推荐协议里的英文变量示例，避免模型默认模仿 `rabbits/feet/heads`；补 prompt 回归测试，`desktop-companion` 218 项测试通过。
 - 2026-07-15：继续修复鸡兔同笼推荐公式中文变量不渲染问题。补充发现：`头数` / `脚数` / `兔子数量` 这类中文变量虽已能被公式 parser 识别，但变量 id 都退化成 `variable--`，Blockly 可能因 id 冲突导致变量 reporter 显示异常；现改为对非 ASCII 变量名生成稳定码点 id，三类变量互不冲突，并补中文变量公式回归测试。`desktop-companion` 218 项测试通过。
 - 2026-07-15：修复鸡兔同笼推荐公式里的变量积木不渲染问题。根因为 DeepSeek 可能返回 `（feet - 2 × heads）÷ 2` 这类全角括号/数学符号公式，客户端公式 tokenizer 只归一化 `×/÷`，遇到全角括号会退回文本输入，导致 `feet/heads` 不显示为变量 reporter。现已归一化全角括号与全角四则运算符，并补回归测试；`desktop-companion` 217 项测试通过。
 - 2026-07-15：按用户要求杀掉当前运行的 AI 教练和 Scratch，并重新打开 AI 教练供人工测试；正常源码联调启动，不带 mock 环境变量，运行日志 `/tmp/scratch-ai-companion-dev-20260715-retest.log`。

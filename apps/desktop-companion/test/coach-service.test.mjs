@@ -476,6 +476,10 @@ test("CoachService sends DeepSeek V4 chat completions requests in JSON non-think
   assert.equal(capturedRequest.body.messages[0].content.includes("substack2"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("params"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("messageVariable"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("优先复用项目里已经存在的变量名"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes("新建变量时按本课目标和题目语言"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes('params.variable="rabbits"'), false);
+  assert.equal(capturedRequest.body.messages[0].content.includes('params.value="(feet - 2 * heads) / 2"'), false);
   assert.equal(capturedRequest.body.messages[0].content.includes("最多 5 个"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("按顺序"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("不要把积木顺序一次性全部告诉学生"), false);
