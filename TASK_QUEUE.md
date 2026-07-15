@@ -8,6 +8,7 @@
 
 ## 已完成
 
+- 2026-07-15：完成计算题推荐显示泛化修复并重启源码版供查看。根因定位为推荐积木 XML 渲染层只用 opcode 默认模板补输入槽：`control_repeat` 固定 `10`，`data_changevariableby` 对“把 i 加到 sum 中”等等价说法无法解析，导致 DeepSeek/归一化文案里有 `100` 和 `i` 也会显示成默认值。现新增通用文本语义推断：识别 `重复执行 100 次`、`1 到 100`、`1+2+...+100`、`重复 n 次`，并识别 `sum 增加 i` / `i 加到 sum` 的目标变量和增量变量。已补回归测试，确认 XML 输出为 `重复执行 100 次` 且 `sum` 增加 `i` 变量 reporter；根级 `npm run test` 通过（shared 12、verification 34、desktop-companion 203）。
 - 2026-07-14：完成“按 DeepSeek 推荐编程后，点击绿旗运行结果是否正确”的修复与验收：推荐积木渲染会把“说出 sum/result”显示为变量 reporter，不再填文本“结果”；平方题会把 `result` 设为 `number * number`；平方程序完成后返回完成总结，不再漂移到求和。`verify-multi-goal-deepseek-coaching.mjs` 新增真实运行验算，点击绿旗读取角色气泡：`1+2+...+100` 输出 `5050`，输入 `7` 求平方输出 `49`。产物 `runtime-output-verification-20260714-v2/`，5 个目标均为 `good`，计算类运行输出均 pass。
 - 2026-07-14：完成多目标真实输入/点击分屏重录：上一版录屏中 Scratch 覆盖 AI 助教窗口，本轮录制时用窗口整理器每秒保持 Scratch 左侧、AI 助教右侧，同屏可见。产物 `multi-goal-split-recording-20260714-234145/`：分屏原始 4K 录屏 `split-screen-recording.mov`（3:31，561MB）、压缩版 `split-screen-recording-1080p.mp4`（3:31，3.7MB）、预览帧、43 张截图与 REPORT。抽帧已确认左右分屏有效；5 个目标均评级 `good`，`1+100` 目标 DeepSeek 3 次、fallback 0、无漂移。
 - 2026-07-14：完成多目标真实输入与点击录屏验证：用源码版伴随程序真实打开 Scratch、输入 5 个本课目标并各跟做 1 步推荐，目标覆盖接苹果小游戏、`1+100` 重复执行求和、画正方形、自我介绍动画、输入数字求平方。产物 `multi-goal-recording-20260714-232354/`：原始 4K 录屏 `live-screen-recording.mov`（3:09，563MB）、压缩版 `live-screen-recording-1080p.mp4`（3:09，2.7MB）、预览帧、43 张截图、summary/timeline/REPORT。5 个 case 均评级 `good`；`1+100` 目标 3 次均走 DeepSeek、fallback 0、无漂移，推荐积木截图确认显示 `sum` 和 `i` 而不是“分数”。已清理自动化 user-data 缓存，并把 `multi-goal-recording-*` 加入 `.gitignore` 避免误提交大视频。

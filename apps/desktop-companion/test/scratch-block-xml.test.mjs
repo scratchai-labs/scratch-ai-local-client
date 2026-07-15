@@ -295,6 +295,30 @@ test("buildRecommendedStructureXml keeps distinct inferred sum variables in conn
   assert.match(xml, /<field name="VARIABLE"[^>]*>sum<\/field>[\s\S]*<field name="VARIABLE"[^>]*>i<\/field>/);
 });
 
+test("buildRecommendedStructureXml infers math loop counts and accumulator inputs from recommendation text", () => {
+  const xml = buildRecommendedStructureXml({
+    root: {
+      opcode: "control_repeat",
+      category: "控制",
+      label: "重复执行",
+      reason: "重复执行 100 次，把 1 到 100 的数字都累加起来。",
+      substack: {
+        opcode: "data_changevariableby",
+        category: "变量",
+        label: "将变量增加",
+        reason: "把 i 加到 sum 中。"
+      }
+    }
+  });
+
+  assert.match(xml, /<block[^>]+type="control_repeat"/);
+  assert.match(xml, /<value name="TIMES">[\s\S]*<field name="NUM">100<\/field>/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>sum<\/field>/);
+  assert.match(xml, /<value name="VALUE">\s*<block type="data_variable">/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>i<\/field>/);
+  assert.doesNotMatch(xml, /<field name="NUM">10<\/field>[\s\S]*<statement name="SUBSTACK">/);
+});
+
 test("buildRecommendedBlockXml does not leave common input blocks as empty shells", () => {
   const opcodes = [
     "event_whenkeypressed",

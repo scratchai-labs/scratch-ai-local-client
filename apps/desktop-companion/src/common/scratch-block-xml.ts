@@ -679,6 +679,61 @@ function buildVariableMathValueXml(inputName: string, opcode: string, leftVariab
   );
 }
 
+function normalizeRecommendedVariableToken(token: string | undefined) {
+  const normalized = normalizeString(token).toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+  if (/^(sum|累加和|总和|合计|和)$/.test(normalized)) {
+    return "sum";
+  }
+  if (/^(i|计数器|计数)$/.test(normalized)) {
+    return "i";
+  }
+  if (/^(n|上限|次数)$/.test(normalized)) {
+    return "n";
+  }
+  if (/^(result|结果|结果变量|计算结果)$/.test(normalized)) {
+    return "result";
+  }
+  if (/^(number|数字|输入的数)$/.test(normalized)) {
+    return "number";
+  }
+  return /^[a-z_][a-z0-9_]*$/i.test(normalized) ? normalized : null;
+}
+
+const VARIABLE_TOKEN_PATTERN = "(sum|i|n|result|number|累加和|总和|合计|计数器|计数|结果变量|计算结果|结果|输入的数|数字)";
+
+function inferRecommendedChangeRelationship(text: string) {
+  const sourceToTargetPatterns = [
+    new RegExp(`(?:把|将|让)?\\s*${VARIABLE_TOKEN_PATTERN}\\s*(?:加到|加入|加进|累加到)\\s*${VARIABLE_TOKEN_PATTERN}`, "i")
+  ];
+  const targetThenSourcePattern = new RegExp(
+    `${VARIABLE_TOKEN_PATTERN}\\s*(?:增加|加上|\\+=)\\s*${VARIABLE_TOKEN_PATTERN}`,
+    "i"
+  );
+
+  for (const pattern of sourceToTargetPatterns) {
+    const match = text.match(pattern);
+    if (match?.[1] && match?.[2]) {
+      return {
+        source: normalizeRecommendedVariableToken(match[1]),
+        target: normalizeRecommendedVariableToken(match[2])
+      };
+    }
+  }
+
+  const targetThenSource = text.match(targetThenSourcePattern);
+  if (targetThenSource?.[1] && targetThenSource?.[2]) {
+    return {
+      target: normalizeRecommendedVariableToken(targetThenSource[1]),
+      source: normalizeRecommendedVariableToken(targetThenSource[2])
+    };
+  }
+
+  return null;
+}
+
 function inferRecommendedVariableName(block: RecommendedBlock) {
   const text = getRecommendedBlockText(block);
   const mentionsSum = /sum|累加和|总和|合计/.test(text);
@@ -688,6 +743,10 @@ function inferRecommendedVariableName(block: RecommendedBlock) {
   const mentionsN = /上限|次数/.test(text) || hasStandaloneToken(text, "n");
 
   if (block.opcode === "data_changevariableby") {
+    const relationship = inferRecommendedChangeRelationship(text);
+    if (relationship?.target) {
+      return relationship.target;
+    }
     if (/sum\s*(?:增加|加|\+=)|(?:累加和|总和|合计).*(?:增加|加)/.test(text)) {
       return "sum";
     }
@@ -771,7 +830,11 @@ function inferRecommendedSetVariableValueXml(block: RecommendedBlock, variableNa
 
 function inferRecommendedChangeVariableValue(block: RecommendedBlock, variableName: string) {
   const text = getRecommendedBlockText(block);
-  if (variableName === "sum" && /(?:增加|加上|\+=)\s*i/.test(text)) {
+  const relationship = inferRecommendedChangeRelationship(text);
+  if (relationship?.target === variableName && relationship.source) {
+    return buildVariableReporterValueXml("VALUE", relationship.source);
+  }
+  if (variableName === "sum" && /(?:增加|加上|\+=)\s*i|(?:把|将)?\s*i\s*(?:加到|加入|加进|累加到)\s*sum/.test(text)) {
     return buildVariableReporterValueXml("VALUE", "i");
   }
 
@@ -805,6 +868,38 @@ function buildRecommendedMessageValueXml(block: RecommendedBlock, fallbackText: 
 
 function buildWholeNumberShadowValueXml(inputName: string, value: string) {
   return buildValueShadowXml(inputName, "math_whole_number", "NUM", value);
+}
+
+function inferRecommendedRepeatCount(block: RecommendedBlock) {
+  const text = getRecommendedBlockText(block);
+  const patterns = [
+    /(?:重复执行|重复|循环)[^\d-]{0,12}(\d+)/,
+    /(\d+)\s*次/,
+    /1\s*(?:到|至|~|-)\s*(\d+)/,
+    /1\s*\+\s*2(?:\s*\+\s*3)?\s*(?:\.\.\.|…)\s*\+?\s*(\d+)/,
+    /(?:求和|累加|重复|循环)[\s\S]{0,24}1\s*\+\s*(\d+)/
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  return null;
+}
+
+function buildRecommendedRepeatTimesValueXml(block: RecommendedBlock) {
+  const repeatCount = inferRecommendedRepeatCount(block);
+  if (repeatCount) {
+    return buildWholeNumberShadowValueXml("TIMES", repeatCount);
+  }
+  const text = getRecommendedBlockText(block);
+  if (hasStandaloneToken(text, "n") || /上限|次数/.test(text)) {
+    return buildVariableReporterValueXml("TIMES", "n");
+  }
+  return buildWholeNumberShadowValueXml("TIMES", "10");
 }
 
 function buildPositiveNumberShadowValueXml(inputName: string, value: string) {
@@ -1047,7 +1142,7 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildWholeNumberShadowValueXml("TIMES", "10")}${
+        `${buildRecommendedRepeatTimesValueXml(block)}${
           includeStructuralPlaceholders ? buildMoveStepsStatementXml() : ""
         }`
       );
