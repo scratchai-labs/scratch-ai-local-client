@@ -1,14 +1,19 @@
 /**
  * 多目标 DeepSeek 真实辅导测试：
- * 真实打开教练程序 -> 真实点击打开 Scratch -> 输入 5 种本课目标 ->
+ * 真实打开教练程序 -> 真实点击打开 Scratch -> 输入 10 种本课目标 ->
  * 按 DeepSeek 提示跟做一轮，并截图/记录效果。
  *
  * 覆盖：
  * 1) 小游戏：接苹果小游戏
- * 2) 算法：1+100 用重复执行求和
- * 3) 绘制图形：画正方形
- * 4) 动画故事：自我介绍动画
- * 5) 交互数学：输入数字算平方
+ * 2) 小游戏：躲避陨石
+ * 3) 算法：1+100 用重复执行求和
+ * 4) 复杂数学：鸡兔同笼
+ * 5) 复杂数学：三个数求平均数
+ * 6) 复杂数学：5 的阶乘
+ * 7) 交互数学：输入数字算平方
+ * 8) 绘制图形：正方形
+ * 9) 绘制图形：三角形
+ * 10) 绘制图形：五边形
  *
  * 用法：
  *   node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs
@@ -423,6 +428,27 @@ async function readLayoutMetrics(target) {
     return result.ok ? result.value : {error: result.error};
 }
 
+async function readRenderedRecommendationState(target) {
+    const result = await evaluateExpressionInTarget(target, `
+(() => {
+  const container = document.querySelector('#ai-recommended-blocks');
+  const hosts = Array.from(container?.querySelectorAll('.scratch-workspace-host') || []);
+  return {
+    itemCount: container ? container.children.length : 0,
+    xmlList: hosts.map(host => host.dataset?.xml || ''),
+    blockTextList: hosts.map(host =>
+      Array.from(host.querySelectorAll('.blocklyText'))
+        .map(node => (node.textContent || '').trim())
+        .filter(Boolean)
+    ),
+    fallbackTextList: hosts.map(host => host.dataset?.fallbackText || ''),
+    visibleText: container ? (container.textContent || '').trim() : ''
+  };
+})()
+    `.trim());
+    return result.ok ? result.value : {error: result.error};
+}
+
 function findVmHelpersSource() {
     return `
   function isVmLike(value) {
@@ -544,6 +570,15 @@ ${findVmHelpersSource()}
       [flagId]: { opcode: "event_whenflagclicked", next: setScoreId, parent: null, inputs: {}, fields: {}, shadow: false, topLevel: true, x: 70, y: 70 },
       [setScoreId]: { opcode: "data_setvariableto", next: null, parent: flagId, inputs: { VALUE: [1, [10, "0"]] }, fields: { VARIABLE: varField("score", ids) }, shadow: false, topLevel: false }
     };
+  } else if (seedName === "avoid-meteor") {
+    const { ids } = ensureStageVariables(project, ["score", "time"]);
+    const setScoreId = makeId("set-score");
+    const setTimeId = makeId("set-time");
+    sprite.blocks = {
+      [flagId]: { opcode: "event_whenflagclicked", next: setScoreId, parent: null, inputs: {}, fields: {}, shadow: false, topLevel: true, x: 70, y: 70 },
+      [setScoreId]: { opcode: "data_setvariableto", next: setTimeId, parent: flagId, inputs: { VALUE: [1, [10, "0"]] }, fields: { VARIABLE: varField("score", ids) }, shadow: false, topLevel: false },
+      [setTimeId]: { opcode: "data_setvariableto", next: null, parent: setScoreId, inputs: { VALUE: [1, [10, "0"]] }, fields: { VARIABLE: varField("time", ids) }, shadow: false, topLevel: false }
+    };
   } else if (seedName === "sum-100") {
     const { ids } = ensureStageVariables(project, ["sum", "i"]);
     const setSumId = makeId("set-sum");
@@ -555,7 +590,42 @@ ${findVmHelpersSource()}
       [setIId]: { opcode: "data_setvariableto", next: repeatId, parent: setSumId, inputs: { VALUE: [1, [10, "1"]] }, fields: { VARIABLE: varField("i", ids) }, shadow: false, topLevel: false },
       [repeatId]: { opcode: "control_repeat", next: null, parent: setIId, inputs: { TIMES: [1, [6, "100"]], SUBSTACK: [1, null] }, fields: {}, shadow: false, topLevel: false }
     };
-  } else if (seedName === "draw-square") {
+  } else if (seedName === "chicken-rabbit") {
+    const { ids } = ensureStageVariables(project, ["heads", "feet", "rabbits", "chickens"]);
+    const setHeadsId = makeId("set-heads");
+    const setFeetId = makeId("set-feet");
+    const setRabbitsId = makeId("set-rabbits");
+    sprite.blocks = {
+      [flagId]: { opcode: "event_whenflagclicked", next: setHeadsId, parent: null, inputs: {}, fields: {}, shadow: false, topLevel: true, x: 70, y: 70 },
+      [setHeadsId]: { opcode: "data_setvariableto", next: setFeetId, parent: flagId, inputs: { VALUE: [1, [10, "35"]] }, fields: { VARIABLE: varField("heads", ids) }, shadow: false, topLevel: false },
+      [setFeetId]: { opcode: "data_setvariableto", next: setRabbitsId, parent: setHeadsId, inputs: { VALUE: [1, [10, "94"]] }, fields: { VARIABLE: varField("feet", ids) }, shadow: false, topLevel: false },
+      [setRabbitsId]: { opcode: "data_setvariableto", next: null, parent: setFeetId, inputs: { VALUE: [1, [10, "0"]] }, fields: { VARIABLE: varField("rabbits", ids) }, shadow: false, topLevel: false }
+    };
+  } else if (seedName === "average-three") {
+    const { ids } = ensureStageVariables(project, ["a", "b", "c", "total", "average"]);
+    const askAId = makeId("ask-a");
+    const setAId = makeId("set-a");
+    const answerId = makeId("answer");
+    const setTotalId = makeId("set-total");
+    sprite.blocks = {
+      [flagId]: { opcode: "event_whenflagclicked", next: askAId, parent: null, inputs: {}, fields: {}, shadow: false, topLevel: true, x: 70, y: 70 },
+      [askAId]: { opcode: "sensing_askandwait", next: setAId, parent: flagId, inputs: { QUESTION: [1, [10, "请输入第一个数"]] }, fields: {}, shadow: false, topLevel: false },
+      [setAId]: { opcode: "data_setvariableto", next: setTotalId, parent: askAId, inputs: { VALUE: [3, answerId, [10, "0"]] }, fields: { VARIABLE: varField("a", ids) }, shadow: false, topLevel: false },
+      [answerId]: { opcode: "sensing_answer", next: null, parent: setAId, inputs: {}, fields: {}, shadow: false, topLevel: false },
+      [setTotalId]: { opcode: "data_setvariableto", next: null, parent: setAId, inputs: { VALUE: [1, [10, "0"]] }, fields: { VARIABLE: varField("total", ids) }, shadow: false, topLevel: false }
+    };
+  } else if (seedName === "factorial-5") {
+    const { ids } = ensureStageVariables(project, ["product", "i"]);
+    const setProductId = makeId("set-product");
+    const setIId = makeId("set-i");
+    const repeatId = makeId("repeat");
+    sprite.blocks = {
+      [flagId]: { opcode: "event_whenflagclicked", next: setProductId, parent: null, inputs: {}, fields: {}, shadow: false, topLevel: true, x: 70, y: 70 },
+      [setProductId]: { opcode: "data_setvariableto", next: setIId, parent: flagId, inputs: { VALUE: [1, [10, "1"]] }, fields: { VARIABLE: varField("product", ids) }, shadow: false, topLevel: false },
+      [setIId]: { opcode: "data_setvariableto", next: repeatId, parent: setProductId, inputs: { VALUE: [1, [10, "1"]] }, fields: { VARIABLE: varField("i", ids) }, shadow: false, topLevel: false },
+      [repeatId]: { opcode: "control_repeat", next: null, parent: setIId, inputs: { TIMES: [1, [6, "5"]], SUBSTACK: [1, null] }, fields: {}, shadow: false, topLevel: false }
+    };
+  } else if (seedName === "draw-square" || seedName === "draw-triangle" || seedName === "draw-pentagon") {
     if (!project.extensions.includes("pen")) project.extensions.push("pen");
     const clearId = makeId("pen-clear");
     const downId = makeId("pen-down");
@@ -1108,7 +1178,17 @@ const goalCases = [
         driftKeywords: ['鸡兔', '平方', '求和']
     },
     {
-        id: 'G2-sum',
+        id: 'G2-avoid-meteor',
+        kind: '小游戏',
+        seed: 'avoid-meteor',
+        goal: '做一个躲避陨石小游戏：左右键控制角色，碰到陨石就结束，存活时间加分',
+        expectedOpcodes: ['event_whenkeypressed', 'motion_changexby', 'sensing_touchingobject', 'control_if', 'control_forever', 'data_changevariableby', 'control_stop'],
+        expectedKeywords: ['陨石', '左右', '碰到', '结束', '存活', '加分'],
+        disallowedOpcodes: ['operator_divide', 'pen_clear'],
+        driftKeywords: ['鸡兔', '平方', '求和']
+    },
+    {
+        id: 'G3-sum',
         kind: '算法',
         seed: 'sum-100',
         goal: '1+100 用重复执行求和，并说出结果',
@@ -1116,30 +1196,48 @@ const goalCases = [
         expectedKeywords: ['100', '重复', '求和', 'sum', '累加', '说出'],
         disallowedOpcodes: ['motion_movesteps', 'motion_turnright', 'motion_ifonedgebounce', 'looks_nextcostume', 'sensing_askandwait'],
         driftKeywords: ['苹果', '鸡兔', '反弹', '移动'],
+        displayChecks: [
+            { type: 'repeat-count', value: '100', label: '重复执行 100 次' },
+            { type: 'change-variable-by-variable', target: 'sum', source: 'i', label: 'sum 增加 i' },
+            { type: 'say-variable', variable: 'sum', label: '说出 sum 变量' }
+        ],
         runtimeCheck: { expectedText: '5050' }
     },
     {
-        id: 'G3-draw',
-        kind: '绘制图形',
-        seed: 'draw-square',
-        goal: '用画笔和重复执行画一个正方形',
-        expectedOpcodes: ['pen_clear', 'pen_penDown', 'control_repeat', 'motion_movesteps', 'motion_turnright', 'pen_penUp'],
-        expectedKeywords: ['画笔', '正方形', '重复', '移动', '转'],
-        disallowedOpcodes: ['operator_multiply', 'sensing_askandwait', 'data_changevariableby'],
-        driftKeywords: ['鸡兔', '平方', '苹果']
+        id: 'G4-chicken-rabbit',
+        kind: '复杂数学',
+        seed: 'chicken-rabbit',
+        goal: '鸡兔同笼：一共有 35 个头、94 条腿，计算鸡和兔各有多少并说出来',
+        expectedOpcodes: ['data_setvariableto', 'operator_subtract', 'operator_multiply', 'operator_divide', 'looks_say', 'looks_sayforsecs'],
+        expectedKeywords: ['鸡', '兔', '35', '94', 'heads', 'feet', 'rabbits', 'chickens', '公式', '说'],
+        disallowedOpcodes: ['motion_movesteps', 'motion_turnright', 'motion_ifonedgebounce', 'looks_nextcostume', 'pen_clear'],
+        driftKeywords: ['苹果', '反弹', '动画']
     },
     {
-        id: 'G4-story',
-        kind: '动画故事',
-        seed: 'story-intro',
-        goal: '做一个角色自我介绍动画：点击绿旗后说话、移动、切换造型',
-        expectedOpcodes: ['looks_say', 'looks_sayforsecs', 'motion_movesteps', 'looks_nextcostume', 'control_wait'],
-        expectedKeywords: ['自我介绍', '说', '移动', '造型', '动画'],
-        disallowedOpcodes: ['operator_multiply', 'operator_divide', 'pen_clear'],
-        driftKeywords: ['鸡兔', '求和', '平方']
+        id: 'G5-average-three',
+        kind: '复杂数学',
+        seed: 'average-three',
+        goal: '输入三个数，计算这三个数的平均数并说出来',
+        expectedOpcodes: ['sensing_askandwait', 'sensing_answer', 'data_setvariableto', 'operator_add', 'operator_divide', 'looks_say', 'looks_sayforsecs'],
+        expectedKeywords: ['三个数', '平均', '输入', '相加', '除以', 'average', '说'],
+        disallowedOpcodes: ['motion_movesteps', 'motion_turnright', 'pen_clear'],
+        driftKeywords: ['苹果', '鸡兔', '反弹', '正方形']
     },
     {
-        id: 'G5-square-number',
+        id: 'G6-factorial',
+        kind: '复杂数学',
+        seed: 'factorial-5',
+        goal: '用重复执行计算 5 的阶乘，也就是 1×2×3×4×5，并说出结果',
+        expectedOpcodes: ['control_repeat', 'data_setvariableto', 'data_changevariableby', 'operator_multiply', 'looks_say', 'looks_sayforsecs'],
+        expectedKeywords: ['5', '阶乘', '重复', 'product', 'i', '乘', '说'],
+        disallowedOpcodes: ['motion_movesteps', 'motion_turnright', 'pen_clear'],
+        driftKeywords: ['苹果', '鸡兔', '正方形'],
+        displayChecks: [
+            { type: 'repeat-count', value: '5', label: '重复执行 5 次' }
+        ]
+    },
+    {
+        id: 'G7-square-number',
         kind: '交互数学',
         seed: 'square-number',
         goal: '输入一个数，计算它的平方并说出来',
@@ -1147,9 +1245,131 @@ const goalCases = [
         expectedKeywords: ['输入', '平方', '乘', '结果', '说'],
         disallowedOpcodes: ['motion_movesteps', 'motion_turnright', 'motion_ifonedgebounce', 'looks_nextcostume', 'pen_clear'],
         driftKeywords: ['苹果', '鸡兔', '反弹', '求和', '累加', 'sum'],
+        displayChecks: [
+            { type: 'square-result', label: 'result = number * number' },
+            { type: 'say-variable', variable: 'result', label: '说出 result 变量' }
+        ],
         runtimeCheck: { answer: '7', expectedText: '49' }
+    },
+    {
+        id: 'G8-draw-square',
+        kind: '绘制图形',
+        seed: 'draw-square',
+        goal: '用画笔和重复执行画一个正方形',
+        expectedOpcodes: ['pen_clear', 'pen_penDown', 'control_repeat', 'motion_movesteps', 'motion_turnright', 'pen_penUp'],
+        expectedKeywords: ['画笔', '正方形', '重复', '移动', '转', '90'],
+        disallowedOpcodes: ['operator_multiply', 'sensing_askandwait', 'data_changevariableby'],
+        driftKeywords: ['鸡兔', '平方', '苹果'],
+        displayChecks: [
+            { type: 'repeat-count', value: '4', label: '重复执行 4 次' },
+            { type: 'turn-degrees', value: '90', label: '右转 90 度' }
+        ]
+    },
+    {
+        id: 'G9-draw-triangle',
+        kind: '绘制图形',
+        seed: 'draw-triangle',
+        goal: '用画笔和重复执行画一个等边三角形',
+        expectedOpcodes: ['pen_clear', 'pen_penDown', 'control_repeat', 'motion_movesteps', 'motion_turnright', 'pen_penUp'],
+        expectedKeywords: ['画笔', '三角形', '重复', '移动', '转', '120'],
+        disallowedOpcodes: ['operator_multiply', 'sensing_askandwait', 'data_changevariableby'],
+        driftKeywords: ['鸡兔', '平方', '苹果'],
+        displayChecks: [
+            { type: 'repeat-count', value: '3', label: '重复执行 3 次' },
+            { type: 'turn-degrees', value: '120', label: '右转 120 度' }
+        ]
+    },
+    {
+        id: 'G10-draw-pentagon',
+        kind: '绘制图形',
+        seed: 'draw-pentagon',
+        goal: '用画笔和重复执行画一个五边形',
+        expectedOpcodes: ['pen_clear', 'pen_penDown', 'control_repeat', 'motion_movesteps', 'motion_turnright', 'pen_penUp'],
+        expectedKeywords: ['画笔', '五边形', '重复', '移动', '转', '72'],
+        disallowedOpcodes: ['operator_multiply', 'sensing_askandwait', 'data_changevariableby'],
+        driftKeywords: ['鸡兔', '平方', '苹果'],
+        displayChecks: [
+            { type: 'repeat-count', value: '5', label: '重复执行 5 次' },
+            { type: 'turn-degrees', value: '72', label: '右转 72 度' }
+        ]
     }
 ];
+
+function escapeRegex(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+function getEntryRecommendationXmlList(entry) {
+    return Array.isArray(entry.renderedRecommendation?.xmlList)
+        ? entry.renderedRecommendation.xmlList.filter(xml => typeof xml === 'string' && xml.length > 0)
+        : [];
+}
+function getRenderedXmlList(entries) {
+    return entries
+        .filter(entry => !String(entry.tag).endsWith('goal-typed'))
+        .flatMap(entry => getEntryRecommendationXmlList(entry));
+}
+function hasFieldValue(xml, value) {
+    return new RegExp(`<field name="NUM">${escapeRegex(value)}<\\/field>`).test(xml);
+}
+function hasInputFieldValue(xml, inputName, value) {
+    return new RegExp(
+        `<value name="${escapeRegex(inputName)}">[\\s\\S]*?<field name="NUM">${escapeRegex(value)}<\\/field>`
+    ).test(xml);
+}
+function hasVariableReporter(xml, variableName) {
+    return new RegExp(
+        `<block type="data_variable">[\\s\\S]*?<field name="VARIABLE"[^>]*>${escapeRegex(variableName)}<\\/field>`
+    ).test(xml);
+}
+function analyzeDisplayChecks(testCase, entries) {
+    const issues = [];
+    const xmlList = getRenderedXmlList(entries);
+    const combinedXml = xmlList.join('\n');
+    for (const check of testCase.displayChecks ?? []) {
+        if (check.type === 'repeat-count') {
+            const repeatXmlList = xmlList.filter(xml => xml.includes('type="control_repeat"'));
+            if (
+                repeatXmlList.length > 0 &&
+                !repeatXmlList.some(xml => hasInputFieldValue(xml, 'TIMES', check.value))
+            ) {
+                issues.push(`${check.label}: 推荐区重复次数显示不匹配`);
+            }
+        } else if (check.type === 'turn-degrees') {
+            const turnXmlList = xmlList.filter(xml => xml.includes('type="motion_turnright"') || xml.includes('type="motion_turnleft"'));
+            if (
+                turnXmlList.length > 0 &&
+                !turnXmlList.some(xml => hasInputFieldValue(xml, 'DEGREES', check.value))
+            ) {
+                issues.push(`${check.label}: 推荐区转角显示不匹配`);
+            }
+        } else if (check.type === 'change-variable-by-variable') {
+            const pattern = new RegExp(
+                `<field name="VARIABLE"[^>]*>${escapeRegex(check.target)}<\\/field>[\\s\\S]*?<value name="VALUE">\\s*<block type="data_variable">[\\s\\S]*?<field name="VARIABLE"[^>]*>${escapeRegex(check.source)}<\\/field>`
+            );
+            const changeXmlList = xmlList.filter(xml => xml.includes('type="data_changevariableby"'));
+            if (changeXmlList.length > 0 && !changeXmlList.some(xml => pattern.test(xml))) {
+                issues.push(`${check.label}: 推荐区变量增量 reporter 显示不匹配`);
+            }
+        } else if (check.type === 'say-variable') {
+            const sayXmlList = xmlList.filter(xml => xml.includes('type="looks_say"') || xml.includes('type="looks_sayforsecs"'));
+            if (
+                sayXmlList.length > 0 &&
+                !sayXmlList.some(xml => hasVariableReporter(xml, check.variable))
+            ) {
+                issues.push(`${check.label}: 推荐区说话内容不是变量 reporter`);
+            }
+        } else if (check.type === 'square-result') {
+            if (
+                combinedXml.includes('type="data_setvariableto"') &&
+                combinedXml.includes('>result</field>') &&
+                !combinedXml.includes('type="operator_multiply"')
+            ) {
+                issues.push(`${check.label}: 推荐区平方公式未显示为乘法积木`);
+            }
+        }
+    }
+    return issues;
+}
 
 function evaluateCaseResult(testCase, entries) {
     const coachEntries = entries
@@ -1173,10 +1393,12 @@ function evaluateCaseResult(testCase, entries) {
     const runtimeEntry = entries.find(entry => entry.runtimeCheck);
     const runtimeCheck = runtimeEntry?.runtimeCheck ?? null;
     const runtimeOk = testCase.runtimeCheck ? Boolean(runtimeCheck?.ok) : true;
+    const displayIssues = analyzeDisplayChecks(testCase, entries);
+    const displayOk = displayIssues.length === 0;
     const rating =
-        goalMatched && hasRecommendedBlocks && !drift && runtimeOk
+        goalMatched && hasRecommendedBlocks && !drift && runtimeOk && displayOk
             ? 'good'
-            : (goalMatched && !drift && runtimeOk ? 'ok' : 'weak');
+            : (goalMatched && !drift && runtimeOk && displayOk ? 'ok' : 'weak');
     return {
         id: testCase.id,
         kind: testCase.kind,
@@ -1192,6 +1414,8 @@ function evaluateCaseResult(testCase, entries) {
         drift,
         runtimeCheck,
         runtimeOk,
+        displayIssues,
+        displayOk,
         rating
     };
 }
@@ -1236,6 +1460,9 @@ async function main() {
         if (scratchTargetLocal) await captureScreenshot(scratchTargetLocal, scratchPath);
         const state = await readMainState(mainTarget).catch(() => null);
         const layout = await readLayoutMetrics(mainTarget).catch(() => null);
+        const renderedRecommendation = await readRenderedRecommendationState(mainTarget).catch(error => ({
+            error: error instanceof Error ? error.message : String(error)
+        }));
         const entry = {
             step: stepCounter,
             tag,
@@ -1243,6 +1470,7 @@ async function main() {
             scratchScreenshot: scratchTargetLocal ? scratchPath : null,
             coach: state ? summarizeCoach(state) : null,
             layout,
+            renderedRecommendation,
             ...extra
         };
         timeline.push(entry);
@@ -1436,14 +1664,15 @@ async function main() {
             `- hasApiKey: ${summary.hasApiKey}`,
             '',
             '## Case Evaluation',
-            '| 目标 | 类型 | 评价 | DeepSeek | Fallback | 运行输出 | 命中积木 | 命中关键词 | 漂移 |',
-            '| --- | --- | --- | ---: | ---: | --- | --- | --- | --- |'
+            '| 目标 | 类型 | 评价 | DeepSeek | Fallback | 运行输出 | 显示校验 | 命中积木 | 命中关键词 | 漂移 |',
+            '| --- | --- | --- | ---: | ---: | --- | --- | --- | --- | --- |'
         ];
         for (const item of caseEvaluations) {
             const runtimeText = item.runtimeCheck
                 ? `${item.runtimeCheck.ok ? 'pass' : 'fail'}: expected ${item.runtimeCheck.expectedText}, got ${item.runtimeCheck.bubbleText || '(empty)'}`
                 : '-';
-            lines.push(`| ${item.id} | ${item.kind} | ${item.rating} | ${item.deepseekCount} | ${item.fallbackCount} | ${runtimeText} | ${item.expectedOpcodeHits.join(', ') || '-'} | ${item.keywordHits.join(', ') || '-'} | ${[...item.disallowedHits, ...item.driftHits].join(', ') || '-'} |`);
+            const displayText = item.displayOk ? 'pass' : item.displayIssues.join('; ');
+            lines.push(`| ${item.id} | ${item.kind} | ${item.rating} | ${item.deepseekCount} | ${item.fallbackCount} | ${runtimeText} | ${displayText} | ${item.expectedOpcodeHits.join(', ') || '-'} | ${item.keywordHits.join(', ') || '-'} | ${[...item.disallowedHits, ...item.driftHits].join(', ') || '-'} |`);
         }
         lines.push('', '## UI Layout Samples');
         for (const sample of uiLayoutSamples.slice(0, 8)) {
@@ -1480,6 +1709,8 @@ async function main() {
                 expectedOpcodeHits: item.expectedOpcodeHits,
                 keywordHits: item.keywordHits,
                 drift: item.drift,
+                displayOk: item.displayOk,
+                displayIssues: item.displayIssues,
                 runtimeCheck: item.runtimeCheck
             }))
         }, null, 2)}\n`);

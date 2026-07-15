@@ -1794,6 +1794,118 @@ test("CoachService math sum fallback recommends accumulator instead of turn/boun
   );
 });
 
+test("CoachService factorial fallback keeps product multiplication instead of sum accumulator", async () => {
+  const service = new CoachService(async () => {
+    throw new Error("network should not be required for fallback");
+  });
+
+  const snapshot = createSnapshot();
+  snapshot.programAreaModules = [
+    { id: "event", label: "事件", blockCount: 1 },
+    { id: "data", label: "变量", blockCount: 2 },
+    { id: "control", label: "控制", blockCount: 1 }
+  ];
+  snapshot.globalVariables = [
+    { id: "product", name: "product", value: 1, isCloud: false },
+    { id: "i", name: "i", value: 1, isCloud: false }
+  ];
+  snapshot.sprites[0].variables = snapshot.globalVariables;
+  snapshot.sprites[0].blockCount = 4;
+  snapshot.sprites[0].scripts = [
+    {
+      spriteName: "Cat",
+      event: "when green flag clicked",
+      blockSequence: ["当绿旗被点击", "将 product 设为 1", "将 i 设为 1", "重复执行 5 次"],
+      blockOpcodes: ["event_whenflagclicked", "data_setvariableto", "data_setvariableto", "control_repeat"]
+    }
+  ];
+  snapshot.detectedConcepts = ["event", "data", "control"];
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["当绿旗被点击 -> 将 product 设为 1 -> 将 i 设为 1 -> 重复执行 5 次"],
+    programAreaModules: snapshot.programAreaModules,
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "用重复执行计算 5 的阶乘，也就是 1×2×3×4×5，并说出结果",
+    aiConfig: createAiConfig({
+      configured: false,
+      apiKey: ""
+    })
+  });
+
+  assert.equal(result.source, "fallback");
+  assert.match(result.coachResponse.answerText, /阶乘|product|乘法/);
+  assert.equal(
+    result.coachResponse.recommendedBlocks.some((block) => /sum|\bn\b/.test(block.reason)),
+    false
+  );
+  assert.equal(
+    result.coachResponse.recommendedBlocks.some((block) =>
+      block.opcode === "data_setvariableto" && /product\s*\*\s*i/.test(block.reason)
+    ),
+    true
+  );
+});
+
+test("CoachService drawing fallback avoids edge-bounce drift after a pen loop exists", async () => {
+  const service = new CoachService(async () => {
+    throw new Error("network should not be required for fallback");
+  });
+
+  const snapshot = createSnapshot();
+  snapshot.loadedExtensions = ["pen"];
+  snapshot.programAreaModules = [
+    { id: "event", label: "事件", blockCount: 1 },
+    { id: "pen", label: "画笔", blockCount: 2 },
+    { id: "control", label: "控制", blockCount: 1 },
+    { id: "motion", label: "运动", blockCount: 2 }
+  ];
+  snapshot.sprites[0].blockCount = 6;
+  snapshot.sprites[0].scripts = [
+    {
+      spriteName: "Cat",
+      event: "when green flag clicked",
+      blockSequence: ["当绿旗被点击", "全部擦除", "落笔", "重复执行 4 次", "移动 100 步", "右转 90 度"],
+      blockOpcodes: [
+        "event_whenflagclicked",
+        "pen_clear",
+        "pen_penDown",
+        "control_repeat",
+        "motion_movesteps",
+        "motion_turnright"
+      ]
+    }
+  ];
+  snapshot.detectedConcepts = ["event", "pen", "control", "motion"];
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["当绿旗被点击 -> 全部擦除 -> 落笔 -> 重复执行 4 次 -> 移动 100 步 -> 右转 90 度"],
+    programAreaModules: snapshot.programAreaModules,
+    usedExtensions: ["pen"],
+    loadedExtensions: ["pen"],
+    goal: "用画笔和重复执行画一个正方形",
+    aiConfig: createAiConfig({
+      configured: false,
+      apiKey: ""
+    })
+  });
+
+  assert.equal(result.source, "fallback");
+  assert.match(result.coachResponse.answerText, /正方形|画|抬笔|闭合/);
+  assert.equal(
+    result.coachResponse.recommendedBlocks.some((block) =>
+      ["motion_ifonedgebounce", "sensing_touchingobject", "data_changevariableby"].includes(block.opcode)
+    ),
+    false
+  );
+  assert.equal(
+    result.coachResponse.recommendedBlocks.some((block) => block.opcode === "pen_penUp"),
+    true
+  );
+});
+
 test("CoachService prompt context includes math task guidance for chicken-rabbit variables", async () => {
   let capturedRequest = null;
   const service = new CoachService(async (url, init) => {
@@ -1937,6 +2049,80 @@ test("CoachService filters motion recommendations for math chicken-rabbit DeepSe
     false
   );
   assert.equal(result.coachResponse.recommendedBlocks[0]?.opcode, "data_setvariableto");
+});
+
+test("CoachService filters edge-bounce recommendations for drawing DeepSeek responses", async () => {
+  const service = new CoachService(async () => {
+    return {
+      ok: true,
+      async json() {
+        return {
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  summary: "继续画正方形，不要跑出舞台。",
+                  recommendation: {
+                    root: {
+                      opcode: "motion_ifonedgebounce",
+                      category: "运动",
+                      label: "碰到边缘就反弹",
+                      reason: "别跑出舞台",
+                      next: {
+                        opcode: "pen_penUp",
+                        category: "画笔",
+                        label: "抬笔",
+                        reason: "画完正方形后抬笔"
+                      }
+                    }
+                  }
+                })
+              }
+            }
+          ]
+        };
+      }
+    };
+  });
+
+  const snapshot = createSnapshot();
+  snapshot.loadedExtensions = ["pen"];
+  snapshot.programAreaModules = [
+    { id: "event", label: "事件", blockCount: 1 },
+    { id: "pen", label: "画笔", blockCount: 2 },
+    { id: "control", label: "控制", blockCount: 1 },
+    { id: "motion", label: "运动", blockCount: 2 }
+  ];
+  snapshot.sprites[0].scripts[0] = {
+    spriteName: "Cat",
+    event: "when green flag clicked",
+    blockSequence: ["当绿旗被点击", "全部擦除", "落笔", "重复执行 4 次", "移动 100 步", "右转 90 度"],
+    blockOpcodes: [
+      "event_whenflagclicked",
+      "pen_clear",
+      "pen_penDown",
+      "control_repeat",
+      "motion_movesteps",
+      "motion_turnright"
+    ]
+  };
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["当绿旗被点击 -> 全部擦除 -> 落笔 -> 重复执行 4 次 -> 移动 100 步 -> 右转 90 度"],
+    programAreaModules: snapshot.programAreaModules,
+    usedExtensions: ["pen"],
+    loadedExtensions: ["pen"],
+    goal: "用画笔和重复执行画一个正方形",
+    aiConfig: createAiConfig()
+  });
+
+  assert.equal(result.source, "deepseek");
+  assert.equal(
+    result.coachResponse.recommendedBlocks.some((block) => block.opcode === "motion_ifonedgebounce"),
+    false
+  );
+  assert.equal(result.coachResponse.recommendedBlocks[0]?.opcode, "pen_penUp");
 });
 
 test("CoachService filters ask recommendations for fixed upper-bound sum goals", async () => {

@@ -702,7 +702,25 @@ function normalizeRecommendedVariableToken(token: string | undefined) {
   return /^[a-z_][a-z0-9_]*$/i.test(normalized) ? normalized : null;
 }
 
-const VARIABLE_TOKEN_PATTERN = "(sum|i|n|result|number|累加和|总和|合计|计数器|计数|结果变量|计算结果|结果|输入的数|数字)";
+const VARIABLE_TOKEN_PATTERN = "([a-z_][a-z0-9_]*|累加和|总和|合计|计数器|计数|结果变量|计算结果|结果|输入的数|数字)";
+const FORMULA_OPERAND_PATTERN = "([a-z_][a-z0-9_]*|-?\\d+(?:\\.\\d+)?)";
+
+function inferRecommendedAssignedVariableName(text: string) {
+  const patterns = [
+    new RegExp(`(?:将|把)?\\s*([a-z_][a-z0-9_]*)\\s*(?:设为|设置为|=)`, "i"),
+    /(?:存入|存进|保存到)\s*(?:变量)?\s*([a-z_][a-z0-9_]*)/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    const variableName = normalizeRecommendedVariableToken(match?.[1]);
+    if (variableName) {
+      return variableName;
+    }
+  }
+
+  return null;
+}
 
 function inferRecommendedChangeRelationship(text: string) {
   const sourceToTargetPatterns = [
@@ -741,6 +759,13 @@ function inferRecommendedVariableName(block: RecommendedBlock) {
   const mentionsNumber = hasStandaloneToken(text, "number") || /输入的数|这个数|数字/.test(text);
   const mentionsCounter = /计数器|计数|自增/.test(text) || hasStandaloneToken(text, "i");
   const mentionsN = /上限|次数/.test(text) || hasStandaloneToken(text, "n");
+
+  if (block.opcode === "data_setvariableto") {
+    const assignedVariableName = inferRecommendedAssignedVariableName(text);
+    if (assignedVariableName) {
+      return assignedVariableName;
+    }
+  }
 
   if (block.opcode === "data_changevariableby") {
     const relationship = inferRecommendedChangeRelationship(text);
@@ -816,8 +841,70 @@ function inferRecommendedSetVariableValue(block: RecommendedBlock, variableName:
   return "0";
 }
 
+function buildFormulaOperandValueXml(inputName: string, operand: string) {
+  if (/^-?\d+(?:\.\d+)?$/.test(operand)) {
+    return buildNumberShadowValueXml(inputName, operand);
+  }
+
+  return buildVariableReporterValueXml(inputName, normalizeRecommendedVariableToken(operand) ?? operand);
+}
+
+function getOperatorOpcodeFromText(operatorText: string) {
+  if (/\*|×|乘/.test(operatorText)) {
+    return "operator_multiply";
+  }
+  if (/\/|÷|除/.test(operatorText)) {
+    return "operator_divide";
+  }
+  if (/\+|加/.test(operatorText)) {
+    return "operator_add";
+  }
+  if (/-|减/.test(operatorText)) {
+    return "operator_subtract";
+  }
+  return null;
+}
+
+function buildBinaryFormulaValueXml(inputName: string, opcode: string, leftOperand: string, rightOperand: string) {
+  return buildValueElementXml(
+    inputName,
+    buildElementXml(
+      "block",
+      opcode,
+      `${buildFormulaOperandValueXml("NUM1", leftOperand)}${buildFormulaOperandValueXml("NUM2", rightOperand)}`
+    )
+  );
+}
+
+function inferRecommendedBinaryFormulaValueXml(block: RecommendedBlock, variableName: string) {
+  const text = getRecommendedBlockText(block);
+  const escapedVariable = variableName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const operatorPattern = "(\\*|×|乘以|乘|\\/|÷|除以|除|\\+|加上|加|-|减去|减)";
+  const patterns = [
+    new RegExp(`${escapedVariable}\\s*(?:设为|设置为|=|为)\\s*${FORMULA_OPERAND_PATTERN}\\s*${operatorPattern}\\s*${FORMULA_OPERAND_PATTERN}`, "i"),
+    new RegExp(`(?:将|把)\\s*${escapedVariable}\\s*(?:设为|设置为)\\s*${FORMULA_OPERAND_PATTERN}\\s*${operatorPattern}\\s*${FORMULA_OPERAND_PATTERN}`, "i")
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (!match?.[1] || !match?.[2] || !match?.[3]) {
+      continue;
+    }
+    const opcode = getOperatorOpcodeFromText(match[2]);
+    if (opcode) {
+      return buildBinaryFormulaValueXml("VALUE", opcode, match[1], match[3]);
+    }
+  }
+
+  return null;
+}
+
 function inferRecommendedSetVariableValueXml(block: RecommendedBlock, variableName: string) {
   const text = getRecommendedBlockText(block);
+  const binaryFormulaValueXml = inferRecommendedBinaryFormulaValueXml(block, variableName);
+  if (binaryFormulaValueXml) {
+    return binaryFormulaValueXml;
+  }
   if (
     variableName === "result" &&
     /平方|乘以自己|\*\s*number|number\s*\*|number.*number|回答.*回答|answer.*answer/.test(text)
@@ -887,6 +974,16 @@ function inferRecommendedRepeatCount(block: RecommendedBlock) {
     }
   }
 
+  if (/三角形/.test(text)) {
+    return "3";
+  }
+  if (/正方形|四边形/.test(text)) {
+    return "4";
+  }
+  if (/五边形|五角星/.test(text)) {
+    return "5";
+  }
+
   return null;
 }
 
@@ -908,6 +1005,27 @@ function buildPositiveNumberShadowValueXml(inputName: string, value: string) {
 
 function buildAngleShadowValueXml(inputName: string, value: string) {
   return buildValueShadowXml(inputName, "math_angle", "NUM", value);
+}
+
+function inferRecommendedTurnDegrees(block: RecommendedBlock) {
+  const text = getRecommendedBlockText(block);
+  const explicitDegrees = text.match(/(?:右转|左转|转|角度|外角)[^\d-]{0,12}(-?\d+(?:\.\d+)?)/)?.[1];
+  if (explicitDegrees) {
+    return explicitDegrees;
+  }
+  if (/三角形/.test(text)) {
+    return "120";
+  }
+  if (/正方形|四边形/.test(text)) {
+    return "90";
+  }
+  if (/五边形/.test(text)) {
+    return "72";
+  }
+  if (/五角星/.test(text)) {
+    return "144";
+  }
+  return "15";
 }
 
 function buildColourShadowValueXml(inputName: string, value: string) {
@@ -1000,7 +1118,7 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
       return buildElementXml("block", block.opcode, buildNumberShadowValueXml("STEPS", "10"));
     case "motion_turnright":
     case "motion_turnleft":
-      return buildElementXml("block", block.opcode, buildAngleShadowValueXml("DEGREES", "15"));
+      return buildElementXml("block", block.opcode, buildAngleShadowValueXml("DEGREES", inferRecommendedTurnDegrees(block)));
     case "motion_pointindirection":
       return buildElementXml("block", block.opcode, buildAngleShadowValueXml("DIRECTION", "90"));
     case "motion_goto":

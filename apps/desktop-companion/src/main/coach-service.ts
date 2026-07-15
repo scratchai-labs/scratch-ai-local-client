@@ -38,7 +38,7 @@ const HINT_ONLY_USER_PROMPT =
   "这是一次基于最新快照的全新复评。请完整阅读舞台和全部角色的全部脚本，尤其使用 projectScriptEvidence 核对每个积木的真实字段、输入、条件分支和广播名称；不要沿用之前的完整性结论，也不要根据角色名或游戏题材脑补快照中没有的功能。请从绿旗入口开始追踪实际执行路径，确认广播发送条件能够到达、接收脚本能够启动，并区分自动运行与按键/鼠标控制。先从整个 Scratch 项目判断它是否已经形成完整、可运行、目标清楚的作品；summary 中提到的每项玩法都必须有当前脚本证据且实际可达。若还没完成，再给出“下一步做什么”的提示和按顺序连接的具体积木；优先基于已经使用过的模块继续推进，不要让学生一下子大改。不要把当前角色已经存在的事件帽子积木再次作为下一步推荐；如果后续积木需要接到现有脚本中，只返回需要新增的部分。若项目已经完整，不要为了给建议而强行添加功能，可以不返回 recommendation，只在 summary 里简短告诉学生如何启动、操作或体验。";
 
 const TASK_TYPE_GUIDANCE =
-  "先判断作品任务类型，再给下一步提示：1) 数学计算题：变量名或脚本出现 heads/feet/chickens/rabbits/n/sum/i/total 等，或目标含鸡兔同笼/求和/累加/公式时，按计算题辅导。2) 游戏动画题：以移动、碰撞、得分、按键控制为主时，按游戏动画辅导。3) 混合题：有数学变量又有运动时，优先补全计算与结果输出，不要为了热闹再加无关动画。数学计算题硬性规则：- 已知量是 heads/feet 或 n 时，下一步必须朝求解目标量推进，禁止把任务反转成“用鸡兔再算总头脚”或“为了动画而移动/旋转/反弹”。- 鸡兔同笼优先：rabbits=(feet-2*heads)/2，chickens=heads-rabbits，最后用 looks_say 或显示变量说出结果。- 1到n求和优先：初始化 sum=0 与 i=1，重复 n 次，循环内 sum 增加 i、i 增加 1，最后说出 sum；如果目标已经写明 100 这类固定上限，不要再推荐 sensing_askandwait 询问 n，直接使用已知上限。- 缺计算时优先推荐 data_setvariableto / data_changevariableby / operator_add / operator_subtract / operator_multiply / operator_divide / control_repeat / sensing_askandwait / looks_sayforsecs。- 除非学生目标明确要求动画，不要推荐 motion_movesteps、motion_turnright、motion_ifonedgebounce、looks_switchcostumeto 作为数学题的下一步。";
+  "先判断作品任务类型，再给下一步提示：1) 数学计算题：变量名或脚本出现 heads/feet/chickens/rabbits/n/sum/i/total 等，或目标含鸡兔同笼/求和/累加/公式时，按计算题辅导。2) 图形绘制题：目标含画笔/绘制/正方形/三角形/五边形时，按画笔、重复执行、移动、转角推进，不要推荐边缘反弹、碰撞或计分。3) 游戏动画题：以移动、碰撞、得分、按键控制为主时，按游戏动画辅导。4) 混合题：有数学变量又有运动时，优先补全计算与结果输出，不要为了热闹再加无关动画。数学计算题硬性规则：- 已知量是 heads/feet 或 n 时，下一步必须朝求解目标量推进，禁止把任务反转成“用鸡兔再算总头脚”或“为了动画而移动/旋转/反弹”。- 鸡兔同笼优先：rabbits=(feet-2*heads)/2，chickens=heads-rabbits，最后用 looks_say 或显示变量说出结果。- 1到n求和优先：初始化 sum=0 与 i=1，重复 n 次，循环内 sum 增加 i、i 增加 1，最后说出 sum；如果目标已经写明 100 这类固定上限，不要再推荐 sensing_askandwait 询问 n，直接使用已知上限。- 缺计算时优先推荐 data_setvariableto / data_changevariableby / operator_add / operator_subtract / operator_multiply / operator_divide / control_repeat / sensing_askandwait / looks_sayforsecs。- 除非学生目标明确要求动画，不要推荐 motion_movesteps、motion_turnright、motion_ifonedgebounce、looks_switchcostumeto 作为数学题的下一步。";
 
 const NON_REPEATABLE_HAT_OPCODE_SET = new Set([
   "event_whenflagclicked",
@@ -200,7 +200,7 @@ function buildBlockSuggestionFromOpcode(opcode: string) {
   }
 }
 
-type CoachingTaskType = "math-chicken-rabbit" | "math-sum" | "math-generic" | "game-or-animation" | "unknown";
+type CoachingTaskType = "math-chicken-rabbit" | "math-sum" | "math-generic" | "drawing" | "game-or-animation" | "unknown";
 
 interface CoachingTaskIntent {
   taskType: CoachingTaskType;
@@ -258,6 +258,9 @@ function detectCoachingTaskIntent(options: GenerateCoachHintOptions): CoachingTa
   const mentionsChickenRabbit = /鸡兔|同笼|chicken|rabbit/.test(combined);
   const mentionsSum = /1到n|1到n|累加|求和|sum=|求和|合计/.test(combined) || /1\+2|1到/.test(combined);
   const mentionsCalculation = /平方|乘以自己|计算|算出|公式|number\*number|number.*number/.test(combined);
+  const hasPenModule = hasModule(options.programAreaModules, "pen");
+  const mentionsShapeDrawing = /绘制|画.*图|正方形|四边形|三角形|五边形|五角星|等边/.test(combined);
+  const mentionsDrawing = mentionsShapeDrawing || (/画笔/.test(combined) && hasPenModule);
   const motionHeavy =
     hasModule(options.programAreaModules, "motion") &&
     !hasModule(options.programAreaModules, "data") &&
@@ -275,6 +278,7 @@ function detectCoachingTaskIntent(options: GenerateCoachHintOptions): CoachingTa
   if (mentionsChickenRabbit) signals.push("text:chicken-rabbit");
   if (mentionsSum) signals.push("text:sum");
   if (mentionsCalculation) signals.push("text:calculation");
+  if (mentionsDrawing || hasPenModule) signals.push("text:drawing");
 
   if ((hasHeads && hasFeet) || mentionsChickenRabbit || ((hasChickens || hasRabbits) && (hasHeads || hasFeet))) {
     return {
@@ -312,6 +316,17 @@ function detectCoachingTaskIntent(options: GenerateCoachHintOptions): CoachingTa
     }
   }
 
+  if (mentionsDrawing || hasPenModule) {
+    return {
+      taskType: "drawing",
+      confidence: mentionsDrawing ? "high" : "medium",
+      signals,
+      variableNames,
+      guidance:
+        "当前更像图形绘制题：优先补画笔、重复执行、移动步数和正确外角；不要转成边缘反弹、碰撞检测或计分小游戏。"
+    };
+  }
+
   if (motionHeavy) {
     return {
       taskType: "game-or-animation",
@@ -335,6 +350,88 @@ function isMathTaskType(taskType: CoachingTaskType) {
   return taskType === "math-chicken-rabbit" || taskType === "math-sum" || taskType === "math-generic";
 }
 
+function inferDrawingShapeSpec(options: GenerateCoachHintOptions) {
+  const text = normalizeIntentText(
+    [
+      options.goal,
+      options.snapshot.goal,
+      ...options.currentTargetPrograms,
+      ...options.snapshot.sprites.flatMap((sprite) =>
+        sprite.scripts.flatMap((script) => script.blockSequence)
+      )
+    ].join("|")
+  );
+
+  if (/三角形|等边/.test(text)) {
+    return { name: "等边三角形", sides: 3, turnDegrees: 120 };
+  }
+  if (/五边形/.test(text)) {
+    return { name: "五边形", sides: 5, turnDegrees: 72 };
+  }
+  if (/五角星/.test(text)) {
+    return { name: "五角星", sides: 5, turnDegrees: 144 };
+  }
+  if (/正方形|四边形/.test(text)) {
+    return { name: "正方形", sides: 4, turnDegrees: 90 };
+  }
+  return { name: "图形", sides: 4, turnDegrees: 90 };
+}
+
+function buildDrawingFallbackCoachResponse(options: GenerateCoachHintOptions): CoachResponse {
+  const opcodes = getCurrentTargetOpcodes(options.snapshot);
+  const hasEvent = hasOpcodePrefix(opcodes, "event_");
+  const hasPenDown = opcodes.includes("pen_penDown");
+  const hasPenUp = opcodes.includes("pen_penUp");
+  const hasLoop = opcodes.includes("control_repeat");
+  const hasMove = opcodes.includes("motion_movesteps");
+  const hasTurn = opcodes.includes("motion_turnright") || opcodes.includes("motion_turnleft");
+  const shape = inferDrawingShapeSpec(options);
+
+  if (!hasEvent || !hasPenDown) {
+    return {
+      answerText: `这是画 ${shape.name} 的绘图任务。先用绿旗开始，清空画面并落笔，不要转去做边缘反弹小游戏。`,
+      recommendedBlocks: [
+        createRecommendedBlock("event_whenflagclicked", "事件", "当绿旗被点击", "给绘图脚本一个明确开始时机。"),
+        createRecommendedBlock("pen_clear", "画笔", "全部擦除", "开始画图前先清空舞台。"),
+        createRecommendedBlock("pen_penDown", "画笔", "落笔", "落笔后移动才会留下线条。")
+      ],
+      nextStep: "先准备画笔起点。",
+      detectedIssues: []
+    };
+  }
+
+  if (!hasLoop || !hasMove || !hasTurn) {
+    return {
+      answerText: `下一步用重复执行 ${shape.sides} 次画 ${shape.name}：每次移动一条边，再右转 ${shape.turnDegrees} 度。`,
+      recommendedBlocks: [
+        createRecommendedBlock("control_repeat", "控制", "重复执行", `重复执行 ${shape.sides} 次，对应 ${shape.name} 的边数。`),
+        createRecommendedBlock("motion_movesteps", "运动", "移动 10 步", "每次移动画出一条边。"),
+        createRecommendedBlock("motion_turnright", "运动", "右转 15 度", `每条边后右转 ${shape.turnDegrees} 度。`)
+      ],
+      nextStep: `搭出 ${shape.sides} 次循环、移动和 ${shape.turnDegrees} 度转角。`,
+      detectedIssues: []
+    };
+  }
+
+  if (!hasPenUp) {
+    return {
+      answerText: `${shape.name} 的循环、移动和转角已经有了。最后加“抬笔”，这样画完后角色再移动也不会继续乱画。`,
+      recommendedBlocks: [
+        createRecommendedBlock("pen_penUp", "画笔", "抬笔", "画完后抬笔，避免继续留下线条。")
+      ],
+      nextStep: "画完后抬笔收尾。",
+      detectedIssues: []
+    };
+  }
+
+  return {
+    answerText: `${shape.name} 绘制已经接近完成。检查是否重复 ${shape.sides} 次，并且每条边后转 ${shape.turnDegrees} 度。`,
+    recommendedBlocks: [],
+    nextStep: "点击绿旗检查图形是否闭合。",
+    detectedIssues: []
+  };
+}
+
 function buildMathFallbackCoachResponse(
   options: GenerateCoachHintOptions,
   intent: CoachingTaskIntent
@@ -352,6 +449,15 @@ function buildMathFallbackCoachResponse(
   const hasRabbitsVar = names.some((name) => /rabbit|兔/.test(name));
   const hasChickensVar = names.some((name) => /chicken|鸡/.test(name));
   const hasSumVar = names.some((name) => /sum|总和|合计/.test(name));
+  const combinedMathText = normalizeIntentText(
+    [
+      options.goal,
+      options.snapshot.goal,
+      ...options.currentTargetPrograms,
+      names.join("|")
+    ].join("|")
+  );
+  const isFactorialTask = /阶乘|factorial|product|乘积|1×2×3|1\*2\*3/.test(combinedMathText);
 
   if (intent.taskType === "math-chicken-rabbit") {
     if (!hasEvent) {
@@ -427,6 +533,69 @@ function buildMathFallbackCoachResponse(
         createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "把最终答案清楚说出来。")
       ],
       nextStep: "验算并清楚说出鸡兔数量。",
+      detectedIssues: []
+    };
+  }
+
+  if (isFactorialTask) {
+    if (!hasEvent) {
+      return {
+        answerText: "这是阶乘计算题。先点绿旗开始，再准备 product 和 i，不要退回到求和变量 sum。",
+        recommendedBlocks: [
+          createRecommendedBlock("event_whenflagclicked", "事件", "当绿旗被点击", "给阶乘计算脚本一个明确开始时机。"),
+          createRecommendedBlock("data_setvariableto", "变量", "将变量设为", "将 product 设为 1，保存乘积。"),
+          createRecommendedBlock("data_setvariableto", "变量", "将变量设为", "将 i 设为 1，作为当前乘数。")
+        ],
+        nextStep: "先初始化 product 和 i。",
+        detectedIssues: []
+      };
+    }
+
+    if (!hasLoop) {
+      return {
+        answerText: "阶乘需要重复乘。下一步用重复执行 5 次，循环里逐步更新 product 和 i。",
+        recommendedBlocks: [
+          createRecommendedBlock("control_repeat", "控制", "重复执行", "重复执行 5 次，对应 1×2×3×4×5。"),
+          createRecommendedBlock("data_setvariableto", "变量", "将变量设为", "将 product 设为 product * i。"),
+          createRecommendedBlock("data_changevariableby", "变量", "将变量增加", "每次循环后将 i 增加 1。")
+        ],
+        nextStep: "用重复执行 5 次搭出阶乘循环。",
+        detectedIssues: []
+      };
+    }
+
+    if (!hasMultiply) {
+      return {
+        answerText: "循环已经有了。阶乘的关键是乘法：在循环里将 product 设为 product * i，然后将 i 增加 1。",
+        recommendedBlocks: [
+          createRecommendedBlock("data_setvariableto", "变量", "将变量设为", "将 product 设为 product * i。"),
+          createRecommendedBlock("data_changevariableby", "变量", "将变量增加", "每次循环后将 i 增加 1。"),
+          createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "循环结束后说出 product。")
+        ],
+        nextStep: "在循环里补 product = product * i 和 i 增加 1。",
+        detectedIssues: []
+      };
+    }
+
+    if (!hasSay) {
+      return {
+        answerText: "阶乘乘法逻辑接近完成。最后说出 product，检查 5 的阶乘是否是 120。",
+        recommendedBlocks: [
+          createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "循环结束后说出 product。"),
+          createRecommendedBlock("data_showvariable", "变量", "显示变量", "把 product 显示在舞台上。")
+        ],
+        nextStep: "说出 product 的最终结果。",
+        detectedIssues: []
+      };
+    }
+
+    return {
+      answerText: "阶乘计算已经接近完成。核对是否重复 5 次，并且每次都是 product = product * i、i 增加 1。",
+      recommendedBlocks: [
+        createRecommendedBlock("control_repeat", "控制", "重复执行", "确认重复执行 5 次。"),
+        createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "清楚说出 product。")
+      ],
+      nextStep: "核对阶乘循环并说出结果。",
       detectedIssues: []
     };
   }
@@ -697,6 +866,16 @@ function buildFallbackCoachResponse(options: GenerateCoachHintOptions): CoachRes
       recommendation: buildLinearRecommendation(mathResponse.recommendedBlocks.slice(0, MAX_RECOMMENDED_BLOCKS))
     };
   }
+  if (intent.taskType === "drawing") {
+    const drawingResponse = buildDrawingFallbackCoachResponse(options);
+    const visibleRecommendedBlocks = drawingResponse.recommendedBlocks.slice(0, MAX_RECOMMENDED_BLOCKS);
+    const recommendation = buildLinearRecommendation(visibleRecommendedBlocks);
+    return {
+      ...drawingResponse,
+      recommendedBlocks: visibleRecommendedBlocks,
+      ...(recommendation ? { recommendation } : {})
+    };
+  }
   return buildGenericFallbackCoachResponse(options);
 }
 
@@ -711,7 +890,7 @@ function buildPromptContext(options: GenerateCoachHintOptions) {
     taskSignals: taskIntent.signals,
     taskGuidance: taskIntent.guidance,
     snapshotRule: "这是本次请求的最新项目快照；只根据这里实际存在的脚本判断，不沿用旧结论，不根据角色名或题材补全不存在的功能。",
-    analysisPriority: "完整阅读舞台和全部角色的全部脚本，逐个核对实际积木后判断整个项目是否完整；完整时说明有脚本证据的用法，不强行推荐新积木。先识别任务类型（数学计算 / 游戏动画），数学题禁止任务反转与无关运动漂移。",
+    analysisPriority: "完整阅读舞台和全部角色的全部脚本，逐个核对实际积木后判断整个项目是否完整；完整时说明有脚本证据的用法，不强行推荐新积木。先识别任务类型（数学计算 / 图形绘制 / 游戏动画），数学题禁止任务反转与无关运动漂移，绘图题禁止转成边缘反弹、碰撞或计分。",
     currentTarget: snapshot.currentTarget || "",
     currentTargetPrograms: localizeProgramDescriptions(currentTargetPrograms),
     programAreaModules,
@@ -947,6 +1126,16 @@ const MATH_TASK_DISALLOWED_OPCODES = new Set([
   "looks_nextcostume"
 ]);
 
+const DRAWING_TASK_DISALLOWED_OPCODES = new Set([
+  "motion_ifonedgebounce",
+  "sensing_touchingobject",
+  "sensing_keypressed",
+  "data_setvariableto",
+  "data_changevariableby",
+  "looks_switchcostumeto",
+  "looks_nextcostume"
+]);
+
 function isAvailableRecommendedOpcode(opcode: string, options: GenerateCoachHintOptions) {
   if (!isSupportedRecommendedBlockOpcode(opcode)) {
     return false;
@@ -957,6 +1146,9 @@ function isAvailableRecommendedOpcode(opcode: string, options: GenerateCoachHint
     return false;
   }
   if (isMathTaskType(intent.taskType) && MATH_TASK_DISALLOWED_OPCODES.has(opcode)) {
+    return false;
+  }
+  if (intent.taskType === "drawing" && DRAWING_TASK_DISALLOWED_OPCODES.has(opcode)) {
     return false;
   }
 

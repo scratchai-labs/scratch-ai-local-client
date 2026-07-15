@@ -276,6 +276,21 @@ test("buildRecommendedBlockXml renders square calculation into result variable",
   assert.match(xml, /<field name="VARIABLE"[^>]*>number<\/field>[\s\S]*<field name="VARIABLE"[^>]*>number<\/field>/);
 });
 
+test("buildRecommendedBlockXml renders generic variable multiplication assignments", () => {
+  const xml = buildRecommendedBlockXml({
+    opcode: "data_setvariableto",
+    category: "变量",
+    label: "将变量设为",
+    reason: "将 product 设为 product * i，用来计算阶乘。"
+  });
+
+  assert.match(xml, /<field name="VARIABLE"[^>]*>product<\/field>/);
+  assert.match(xml, /<value name="VALUE">\s*<block type="operator_multiply">/);
+  assert.match(xml, /<value name="NUM1">\s*<block type="data_variable">/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>product<\/field>[\s\S]*<field name="VARIABLE"[^>]*>i<\/field>/);
+  assert.doesNotMatch(xml, /<field name="VARIABLE"[^>]*>i<\/field>[\s\S]*<value name="VALUE">\s*<shadow type="math_number">\s*<field name="NUM">1<\/field>/);
+});
+
 test("buildRecommendedStructureXml keeps distinct inferred sum variables in connected recommendations", () => {
   const xml = buildRecommendedStructureXml({
     root: {
@@ -317,6 +332,43 @@ test("buildRecommendedStructureXml infers math loop counts and accumulator input
   assert.match(xml, /<value name="VALUE">\s*<block type="data_variable">/);
   assert.match(xml, /<field name="VARIABLE"[^>]*>i<\/field>/);
   assert.doesNotMatch(xml, /<field name="NUM">10<\/field>[\s\S]*<statement name="SUBSTACK">/);
+});
+
+test("buildRecommendedStructureXml infers polygon repeat counts and turn degrees from drawing text", () => {
+  const triangleXml = buildRecommendedStructureXml({
+    root: {
+      opcode: "control_repeat",
+      category: "控制",
+      label: "重复执行",
+      reason: "用重复执行画一个等边三角形。",
+      substack: {
+        opcode: "motion_turnright",
+        category: "运动",
+        label: "右转",
+        reason: "每条边后右转，三角形外角是 120 度。"
+      }
+    }
+  });
+  const pentagonXml = buildRecommendedStructureXml({
+    root: {
+      opcode: "control_repeat",
+      category: "控制",
+      label: "重复执行",
+      reason: "用重复执行画一个五边形。",
+      substack: {
+        opcode: "motion_turnright",
+        category: "运动",
+        label: "右转",
+        reason: "五边形每次右转 72 度。"
+      }
+    }
+  });
+
+  assert.match(triangleXml, /<value name="TIMES">[\s\S]*<field name="NUM">3<\/field>/);
+  assert.match(triangleXml, /<value name="DEGREES">[\s\S]*<field name="NUM">120<\/field>/);
+  assert.match(pentagonXml, /<value name="TIMES">[\s\S]*<field name="NUM">5<\/field>/);
+  assert.match(pentagonXml, /<value name="DEGREES">[\s\S]*<field name="NUM">72<\/field>/);
+  assert.doesNotMatch(`${triangleXml}\n${pentagonXml}`, /<field name="NUM">15<\/field>/);
 });
 
 test("buildRecommendedBlockXml does not leave common input blocks as empty shells", () => {
