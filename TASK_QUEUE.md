@@ -8,6 +8,7 @@
 
 ## 已完成
 
+- 2026-07-15：继续修复鸡兔同笼推荐公式中文变量不渲染问题。补充发现：`头数` / `脚数` / `兔子数量` 这类中文变量虽已能被公式 parser 识别，但变量 id 都退化成 `variable--`，Blockly 可能因 id 冲突导致变量 reporter 显示异常；现改为对非 ASCII 变量名生成稳定码点 id，三类变量互不冲突，并补中文变量公式回归测试。`desktop-companion` 218 项测试通过。
 - 2026-07-15：修复鸡兔同笼推荐公式里的变量积木不渲染问题。根因为 DeepSeek 可能返回 `（feet - 2 × heads）÷ 2` 这类全角括号/数学符号公式，客户端公式 tokenizer 只归一化 `×/÷`，遇到全角括号会退回文本输入，导致 `feet/heads` 不显示为变量 reporter。现已归一化全角括号与全角四则运算符，并补回归测试；`desktop-companion` 217 项测试通过。
 - 2026-07-15：按用户要求杀掉当前运行的 AI 教练和 Scratch，并重新打开 AI 教练供人工测试；正常源码联调启动，不带 mock 环境变量，运行日志 `/tmp/scratch-ai-companion-dev-20260715-retest.log`。
 - 2026-07-15：完成“必要时超过 3 个积木”的推荐协议放宽。结构化推荐、共享 schema、renderer 展示与 DeepSeek prompt 均调整为最多 5 个节点，同时保留简单本地 fallback 最多 3 个，避免基础提示变啰嗦；补齐 5 节点协议、DeepSeek 超长结构裁剪、renderer 5 条展示与 camelCase 变量名渲染回归。真实复杂目标验证产物 `complex-render-verification-20260715-v5/`：overall pass=true，5 个 good、0 warning、0 fail；猜数字链路完整渲染 `询问 -> 将 guess 设为 answer -> if guess = secretNumber -> 说猜对了`，XML 保留 `sensing_answer` 与 `secretNumber`。根级 `npm test` 通过（shared 14、verification 34、desktop-companion 216）。

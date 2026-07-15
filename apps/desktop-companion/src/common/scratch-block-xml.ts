@@ -651,9 +651,20 @@ function hasStandaloneToken(text: string, token: string) {
   return new RegExp(`(^|[^a-z0-9_])${token}([^a-z0-9_]|$)`, "i").test(text);
 }
 
+function buildRecommendedVariableIdSuffix(variableName: string) {
+  if (/[^\x00-\x7F]/.test(variableName)) {
+    return Array.from(variableName)
+      .map((char) => char.codePointAt(0)?.toString(36))
+      .filter(Boolean)
+      .join("-") || "score";
+  }
+
+  return variableName.replace(/[^\w-]+/g, "-").replace(/^-+|-+$/g, "") || "score";
+}
+
 function buildRecommendedVariableAttributes(variableName: string) {
   const normalizedName = normalizeString(variableName) || "分数";
-  const idSuffix = normalizedName.replace(/[^\w-]+/g, "-") || "score";
+  const idSuffix = buildRecommendedVariableIdSuffix(normalizedName);
   return {
     id: `variable-${idSuffix}`,
     variabletype: SCALAR_VARIABLE_TYPE

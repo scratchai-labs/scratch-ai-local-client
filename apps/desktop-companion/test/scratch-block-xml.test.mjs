@@ -458,6 +458,34 @@ test("buildRecommendedStructureXml renders variables from full-width math formul
   assert.doesNotMatch(xml, /<shadow type="text">[\s\S]*feet - 2/);
 });
 
+test("buildRecommendedStructureXml renders Chinese formula variables with distinct ids", () => {
+  const xml = buildRecommendedStructureXml({
+    root: {
+      opcode: "data_setvariableto",
+      category: "变量",
+      label: "将变量设为",
+      reason: "用鸡兔同笼公式求兔子数量。",
+      params: {
+        variable: "兔子数量",
+        value: "（脚数 - 2 × 头数）÷ 2"
+      }
+    }
+  });
+
+  assert.match(xml, /<field name="VARIABLE"[^>]*>兔子数量<\/field>/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>脚数<\/field>/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>头数<\/field>/);
+
+  const idsByVariable = Object.fromEntries(
+    [...xml.matchAll(/<field name="VARIABLE" id="([^"]+)"[^>]*>([^<]+)<\/field>/g)].map((match) => [
+      match[2],
+      match[1]
+    ])
+  );
+  assert.equal(new Set([idsByVariable.兔子数量, idsByVariable.脚数, idsByVariable.头数]).size, 3);
+  assert.doesNotMatch(xml, /id="variable--"/);
+});
+
 test("buildRecommendedStructureXml infers polygon repeat counts and turn degrees from drawing text", () => {
   const triangleXml = buildRecommendedStructureXml({
     root: {
