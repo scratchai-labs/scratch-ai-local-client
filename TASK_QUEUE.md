@@ -244,4 +244,4 @@
   2. 使用 DeepSeek Beta Strict Function Calling，强制解析 `tool_calls[].function.arguments`，不回退普通 JSON 推荐。
   3. 增加结构编译诊断与真实 `scratch-blocks` 渲染合同测试，覆盖当前 93 个 opcode 和非法关系。
 - 完成：切换 Beta Strict Tool Calls，使用扁平 `id / parentId / relation` 节点协议并由本地编译器校验连接；修复 terminal next；新增 93 opcode 真实渲染合同和真实 DeepSeek 兼容性探针。
-- 验证：desktop-companion 228 项通过；真实 Renderer 合同覆盖 93 个单积木、4 类合法结构和 3 类 terminal 非法 next；DeepSeek V4 Flash 实际 Strict 请求返回循环 + 移动 + 反弹并成功生成 XML。
+- 验证：desktop-companion 228 项通过；真实 Renderer 合同覆盖 93 个单积木、4 类合法结构和 3 类 terminal 非法 next；DeepSeek V4 Flash / Pro 实际 Strict 请求均返回循环 + 移动 + 反弹并成功生成 XML。
