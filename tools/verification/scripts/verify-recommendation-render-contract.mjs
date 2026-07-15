@@ -305,6 +305,23 @@ async function runElectronContract() {
       createBlock("control_delete_this_clone", { next: createBlock("looks_show") })
     ];
 
+    console.log("[render-contract] 验证仅被 reporter 引用的变量名可见...");
+    const variableReporterResult = await renderXml(
+      browserWindow,
+      buildRecommendedStructureXml({
+        root: createBlock("control_repeat", {
+          params: { repeatTimes: "n" }
+        })
+      }),
+      "structure:reporter-variable-name"
+    );
+    assertCompleteRender("structure:reporter-variable-name", variableReporterResult);
+    assert.match(
+      variableReporterResult.text,
+      /n/,
+      "structure:reporter-variable-name: 重复执行里的变量 reporter 应显示 n，而不是空圆形"
+    );
+
     console.log("[render-contract] 验证 terminal block 的 next 会在渲染前被移除...");
     for (const root of terminalStructures) {
       const structure = sanitizeRecommendedStructure({ root });
@@ -321,7 +338,7 @@ async function runElectronContract() {
     }
 
     console.log(
-      `[render-contract] 通过：${SUPPORTED_RECOMMENDED_BLOCK_OPCODES.length} 个单积木、${legalStructures.length} 个合法结构、${terminalStructures.length} 个 terminal 非法 next 用例。`
+      `[render-contract] 通过：${SUPPORTED_RECOMMENDED_BLOCK_OPCODES.length} 个单积木、${legalStructures.length} 个合法结构、1 个变量名可见性、${terminalStructures.length} 个 terminal 非法 next 用例。`
     );
   } catch (error) {
     if (rendererDiagnostics.length > 0) {

@@ -436,6 +436,22 @@ test("buildRecommendedStructureXml keeps distinct inferred sum variables in conn
   assert.match(xml, /<field name="VARIABLE"[^>]*>sum<\/field>[\s\S]*<field name="VARIABLE"[^>]*>i<\/field>/);
 });
 
+test("buildRecommendedStructureXml declares variables referenced only by reporter blocks", () => {
+  const xml = buildRecommendedStructureXml({
+    root: {
+      opcode: "control_repeat",
+      category: "控制",
+      label: "重复执行",
+      reason: "重复执行 n 次。",
+      params: { repeatTimes: "n" }
+    }
+  });
+
+  assert.match(xml, /<variables>[\s\S]*<variable[^>]+id="variable-n"[^>]*>n<\/variable>[\s\S]*<\/variables>/);
+  assert.match(xml, /<value name="TIMES">\s*<block type="data_variable">/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>n<\/field>/);
+});
+
 test("buildRecommendedStructureXml infers math loop counts and accumulator inputs from recommendation text", () => {
   const xml = buildRecommendedStructureXml({
     root: {

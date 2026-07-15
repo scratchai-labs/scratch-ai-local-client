@@ -1816,8 +1816,28 @@ export function buildCurrentTargetScriptXmlList(
     .filter(Boolean);
 }
 
+function buildRecommendedVariablesXml(blockXml: string) {
+  const variables = new Map<string, string>();
+  const variableFieldPattern = /<field name="VARIABLE" id="([^"]+)" variabletype="">([^<]*)<\/field>/g;
+  for (const match of blockXml.matchAll(variableFieldPattern)) {
+    const [, id, name] = match;
+    if (id && name && !variables.has(id)) {
+      variables.set(id, name);
+    }
+  }
+
+  if (variables.size === 0) {
+    return "";
+  }
+
+  return `<variables>${[...variables.entries()]
+    .map(([id, name]) => `<variable type="" id="${id}" islocal="false" iscloud="false">${name}</variable>`)
+    .join("")}</variables>`;
+}
+
 export function buildRecommendedBlockXml(block: RecommendedBlock) {
-  return wrapWorkspaceXml(buildRecommendedBlockBody(block));
+  const blockXml = buildRecommendedBlockBody(block);
+  return wrapWorkspaceXml(blockXml, buildRecommendedVariablesXml(blockXml));
 }
 
 function appendBlockChildren(blockXml: string, childrenXml: string) {
@@ -1873,5 +1893,6 @@ function buildRecommendedStructureBody(rawNode: RecommendedBlockNode, previousNo
 }
 
 export function buildRecommendedStructureXml(structure: RecommendedBlockStructure) {
-  return wrapWorkspaceXml(buildRecommendedStructureBody(structure.root));
+  const blockXml = buildRecommendedStructureBody(structure.root);
+  return wrapWorkspaceXml(blockXml, buildRecommendedVariablesXml(blockXml));
 }
