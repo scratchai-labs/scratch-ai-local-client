@@ -359,6 +359,10 @@ test("renderState renders Scratch-style block stacks for current programs and re
     aiRecommendedBlocksElement.children[0].children[0].children[0].dataset.xml,
     /type="motion_movesteps"/
   );
+  assert.match(
+    aiRecommendedBlocksElement.children[0].children[0].children[0].dataset.fallbackXml,
+    /type="motion_movesteps"/
+  );
   assert.equal(
     aiRecommendedBlocksElement.children[0].children[0].children[0].dataset.fallbackText,
     "先让小猫动起来。"
@@ -421,6 +425,14 @@ test("renderState renders all flat recommended blocks in one ordered stack", () 
   assert.match(
     aiRecommendedBlocksElement.children[0].children[0].children[0].dataset.xml,
     /type="data_setvariableto"[\s\S]*type="data_changevariableby"[\s\S]*type="looks_sayforsecs"/
+  );
+  assert.match(
+    aiRecommendedBlocksElement.children[0].children[0].children[0].dataset.fallbackXml,
+    /type="data_setvariableto"/
+  );
+  assert.doesNotMatch(
+    aiRecommendedBlocksElement.children[0].children[0].children[0].dataset.fallbackXml,
+    /type="data_changevariableby"[\s\S]*type="looks_sayforsecs"/
   );
   assert.deepEqual(
     aiRecommendedBlocksElement.children[0].children[1].children.map((child) => child.textContent),
@@ -510,6 +522,14 @@ test("renderState renders one connected structured recommendation and hides exam
   assert.match(
     aiRecommendedBlocksElement.children[0].children[0].children[0].dataset.xml,
     /type="event_whenflagclicked"[\s\S]*type="motion_movesteps"/
+  );
+  assert.match(
+    aiRecommendedBlocksElement.children[0].children[0].children[0].dataset.fallbackXml,
+    /type="event_whenflagclicked"/
+  );
+  assert.doesNotMatch(
+    aiRecommendedBlocksElement.children[0].children[0].children[0].dataset.fallbackXml,
+    /type="motion_movesteps"/
   );
   assert.deepEqual(
     aiRecommendedBlocksElement.children[0].children[1].children.map((child) => child.textContent),

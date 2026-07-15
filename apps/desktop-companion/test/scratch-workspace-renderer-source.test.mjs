@@ -50,3 +50,11 @@ test("readonly Scratch workspace renderer checks success after sizing blocks", a
     /ScratchBlocks\.clearWorkspaceAndLoadFromXml\(parsedXml, workspace\);[\s\S]*moveTopLevelBlocksIntoView\(workspace\);[\s\S]*resizeWorkspaceHost\(host, workspace\);[\s\S]*assertWorkspaceRendered\(host, workspace\);/
   );
 });
+
+test("readonly Scratch workspace renderer retries fallback XML before text fallback", async () => {
+  const source = await readFile(new URL("../src/renderer/scratch-workspace-renderer.ts", import.meta.url), "utf8");
+
+  assert.match(source, /dataset\.fallbackXml/);
+  assert.match(source, /scratch-workspace-host-degraded/);
+  assert.match(source, /renderScratchWorkspaceXml\(host, fallbackXml\)/);
+});

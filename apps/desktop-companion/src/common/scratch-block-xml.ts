@@ -639,6 +639,20 @@ function getRecommendedParam(block: RecommendedBlock, name: keyof NonNullable<Re
   return normalizeString(block.params?.[name]);
 }
 
+function getRecommendedNumericParam(
+  block: RecommendedBlock,
+  name: keyof NonNullable<RecommendedBlock["params"]>,
+  fallback: string
+) {
+  const paramValue = getRecommendedParam(block, name);
+  const numericMatch = paramValue.match(/^(\d+(?:\.\d+)?)\s*(?:秒|s|sec|secs|seconds)?$/i);
+  return numericMatch?.[1] ?? fallback;
+}
+
+function getRecommendedSecsParam(block: RecommendedBlock, fallback: string) {
+  return getRecommendedNumericParam(block, "secs", fallback);
+}
+
 function getRecommendedBlockText(block: RecommendedBlock) {
   return [block.label, block.reason, block.example]
     .map((value) => normalizeString(value))
@@ -1416,7 +1430,7 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildPositiveNumberShadowValueXml("SECS", "1")}${buildNumberShadowValueXml(
+        `${buildPositiveNumberShadowValueXml("SECS", getRecommendedSecsParam(block, "1"))}${buildNumberShadowValueXml(
           "X",
           "0"
         )}${buildNumberShadowValueXml("Y", "0")}`
@@ -1425,7 +1439,7 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildPositiveNumberShadowValueXml("SECS", "1")}${buildMenuShadowValueXml(
+        `${buildPositiveNumberShadowValueXml("SECS", getRecommendedSecsParam(block, "1"))}${buildMenuShadowValueXml(
           "TO",
           "motion_glideto_menu",
           "TO",
@@ -1525,10 +1539,17 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildRecommendedMessageValueXml(block, messageText)}${buildNumberShadowValueXml("SECS", "2")}`
+        `${buildRecommendedMessageValueXml(block, messageText)}${buildNumberShadowValueXml(
+          "SECS",
+          getRecommendedSecsParam(block, "2")
+        )}`
       );
     case "control_wait":
-      return buildElementXml("block", block.opcode, buildPositiveNumberShadowValueXml("DURATION", "1"));
+      return buildElementXml(
+        "block",
+        block.opcode,
+        buildPositiveNumberShadowValueXml("DURATION", getRecommendedSecsParam(block, "1"))
+      );
     case "control_repeat":
       return buildElementXml(
         "block",

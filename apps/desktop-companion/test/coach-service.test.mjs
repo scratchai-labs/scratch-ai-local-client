@@ -476,6 +476,7 @@ test("CoachService sends DeepSeek V4 chat completions requests in JSON non-think
   assert.equal(capturedRequest.body.messages[0].content.includes("substack2"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("params"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("messageVariable"), true);
+  assert.equal(capturedRequest.body.messages[0].content.includes('params.secs="3"'), true);
   assert.equal(capturedRequest.body.messages[0].content.includes('params.value="sensing_answer"'), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("优先复用项目里已经存在的变量名"), true);
   assert.equal(capturedRequest.body.messages[0].content.includes("新建变量时按本课目标和题目语言"), true);
@@ -653,6 +654,16 @@ test("CoachService normalizes DeepSeek recommendation params objects and numbers
                   variable: "i",
                   changeBy: 1
                 }
+              },
+              next: {
+                opcode: "looks_sayforsecs",
+                category: "外观",
+                label: "说 3 秒",
+                reason: "把结果说 3 秒。",
+                params: {
+                  message: "算好了",
+                  secs: 3
+                }
               }
             }
           }
@@ -662,12 +673,13 @@ test("CoachService normalizes DeepSeek recommendation params objects and numbers
   );
 
   const snapshot = createSnapshot();
-  snapshot.toolboxCategories = ["事件", "变量", "运算", "控制"];
+  snapshot.toolboxCategories = ["事件", "变量", "运算", "控制", "外观"];
   snapshot.programAreaModules = [
     { id: "event", label: "事件", blockCount: 1 },
     { id: "data", label: "变量", blockCount: 4 },
     { id: "operator", label: "运算", blockCount: 3 },
-    { id: "control", label: "控制", blockCount: 1 }
+    { id: "control", label: "控制", blockCount: 1 },
+    { id: "looks", label: "外观", blockCount: 1 }
   ];
   snapshot.globalVariables = [
     { id: "heads", name: "heads", value: 35, isCloud: false },
@@ -704,6 +716,10 @@ test("CoachService normalizes DeepSeek recommendation params objects and numbers
   assert.deepEqual(result.coachResponse.recommendation.root.next.substack.params, {
     variable: "i",
     changeBy: "1"
+  });
+  assert.deepEqual(result.coachResponse.recommendation.root.next.next.params, {
+    message: "算好了",
+    secs: "3"
   });
 });
 

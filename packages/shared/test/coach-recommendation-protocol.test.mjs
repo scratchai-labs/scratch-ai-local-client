@@ -65,7 +65,8 @@ test("accepts constrained recommendation params for display defaults", () => {
         reason: "用公式求兔子数量。",
         params: {
           variable: "rabbits",
-          value: "(feet - 2 * heads) / 2"
+          value: "(feet - 2 * heads) / 2",
+          secs: "3"
         }
       }
     }
@@ -73,7 +74,8 @@ test("accepts constrained recommendation params for display defaults", () => {
 
   assert.deepEqual(response.recommendation.root.params, {
     variable: "rabbits",
-    value: "(feet - 2 * heads) / 2"
+    value: "(feet - 2 * heads) / 2",
+    secs: "3"
   });
 });
 

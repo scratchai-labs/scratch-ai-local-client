@@ -92,6 +92,44 @@ test("buildRecommendedBlockXml creates official block XML with default inputs", 
   assert.match(waitXml, /<field name="NUM">1<\/field>/);
 });
 
+test("buildRecommendedBlockXml maps DeepSeek secs params to Scratch duration inputs", () => {
+  const sayXml = buildRecommendedBlockXml({
+    opcode: "looks_sayforsecs",
+    category: "外观",
+    label: "说 3 秒",
+    reason: "说出结果。",
+    params: {
+      message: "完成",
+      secs: "3"
+    }
+  });
+  const waitXml = buildRecommendedBlockXml({
+    opcode: "control_wait",
+    category: "控制",
+    label: "等待 0.5 秒",
+    reason: "稍微停一下。",
+    params: {
+      secs: "0.5"
+    }
+  });
+  const glideXml = buildRecommendedBlockXml({
+    opcode: "motion_glidesecstoxy",
+    category: "运动",
+    label: "在 4 秒内滑行到 x: y:",
+    reason: "慢慢移动到中心。",
+    params: {
+      secs: "4"
+    }
+  });
+
+  assert.match(sayXml, /<block[^>]+type="looks_sayforsecs"/);
+  assert.match(sayXml, /<value name="SECS">[\s\S]*<field name="NUM">3<\/field>/);
+  assert.match(waitXml, /<block[^>]+type="control_wait"/);
+  assert.match(waitXml, /<value name="DURATION">[\s\S]*<field name="NUM">0.5<\/field>/);
+  assert.match(glideXml, /<block[^>]+type="motion_glidesecstoxy"/);
+  assert.match(glideXml, /<value name="SECS">[\s\S]*<field name="NUM">4<\/field>/);
+});
+
 test("buildRecommendedStructureXml serializes ordered blocks through next connections", () => {
   const xml = buildRecommendedStructureXml({
     root: {

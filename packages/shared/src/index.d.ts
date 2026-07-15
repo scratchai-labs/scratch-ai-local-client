@@ -74,6 +74,7 @@ export type RecommendedBlockParams = {
   right?: string;
   steps?: string;
   degrees?: string;
+  secs?: string;
 };
 
 export type RecommendedBlockNode = {

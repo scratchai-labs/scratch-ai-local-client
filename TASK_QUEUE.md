@@ -227,3 +227,11 @@
   4. 高频“任务反转”：当脚本里已有鸡/兔变量后，常建议“算总头数/总脚数”，而非继续完善求兔公式。
   5. 最好的公式句在 C-ask-follow-2：`鸡的数量 = 头的总数 - 兔子的数量`（部分正确，仍缺求兔公式）。
   6. 自动 apply 推荐积木仅为学生模拟近似；结论以提示文本与 opcode 为准。
+
+## 2026-07-15 DeepSeek 推荐积木渲染失败根因排查
+- 状态：已完成
+- 需求：彻底解决 DeepSeek 返回代码在推荐积木区域偶发渲染不出编程积木块的问题；调研是否需要对照 Scratch/Blockly 原生积木实现。
+- 初始方向：追踪 DeepSeek 推荐协议 → 客户端归一化/校验 → XML 生成 → 推荐区渲染链路，定位不可渲染 opcode/field/input/variable/shadow 组合。
+- 结论：继续坚持 DeepSeek 只返回受约束 JSON，客户端按 Scratch 官方 block definition 生成 Blockly XML；已对照 `scratch-blocks/src/blocks/{looks,control,motion}.ts` 确认秒数输入名分别为 `SECS` / `DURATION`。
+- 修复：推荐区主结构 XML 渲染失败时，自动重试根积木 fallback XML，避免整张推荐卡退成纯文字；补齐 `params.secs` 协议、schema、类型、提示词和 XML 生成，秒数只写入可解析数字。
+- 验证：先补失败用例复现 schema/XML 缺口；随后 `npm run test` 通过（shared 14、verification 34、desktop 221）。

@@ -344,13 +344,7 @@ function assertWorkspaceRendered(host: HTMLElement, workspace: ScratchBlocks.Wor
   }
 }
 
-function renderScratchWorkspace(host: HTMLElement) {
-  const xmlText = host.dataset.xml?.trim();
-  if (!xmlText) {
-    return;
-  }
-
-  host.classList.remove("scratch-workspace-host-fallback");
+function renderScratchWorkspaceXml(host: HTMLElement, xmlText: string) {
   host.replaceChildren();
 
   const workspace = ScratchBlocks.inject(host, createReadonlyWorkspaceOptions({
@@ -358,22 +352,50 @@ function renderScratchWorkspace(host: HTMLElement) {
     theme: scratchReadonlyTheme
   }));
 
-  const parsedXml = new DOMParser().parseFromString(
-    normalizeScratchWorkspaceXml(xmlText),
-    "text/xml"
-  ).documentElement;
-  ScratchBlocks.clearWorkspaceAndLoadFromXml(parsedXml, workspace);
-  moveTopLevelBlocksIntoView(workspace);
-  resizeWorkspaceHost(host, workspace);
-  assertWorkspaceRendered(host, workspace);
-  activeWorkspaces.set(host, workspace);
-
-  window.requestAnimationFrame(() => {
-    if (activeWorkspaces.get(host) !== workspace) {
-      return;
-    }
+  try {
+    const parsedXml = new DOMParser().parseFromString(
+      normalizeScratchWorkspaceXml(xmlText),
+      "text/xml"
+    ).documentElement;
+    ScratchBlocks.clearWorkspaceAndLoadFromXml(parsedXml, workspace);
+    moveTopLevelBlocksIntoView(workspace);
     resizeWorkspaceHost(host, workspace);
-  });
+    assertWorkspaceRendered(host, workspace);
+    activeWorkspaces.set(host, workspace);
+
+    window.requestAnimationFrame(() => {
+      if (activeWorkspaces.get(host) !== workspace) {
+        return;
+      }
+      resizeWorkspaceHost(host, workspace);
+    });
+  } catch (error) {
+    workspace.dispose();
+    throw error;
+  }
+}
+
+function renderScratchWorkspace(host: HTMLElement) {
+  const xmlText = host.dataset.xml?.trim();
+  if (!xmlText) {
+    return;
+  }
+
+  host.classList.remove("scratch-workspace-host-fallback", "scratch-workspace-host-degraded");
+
+  try {
+    renderScratchWorkspaceXml(host, xmlText);
+    return;
+  } catch (primaryError) {
+    const fallbackXml = host.dataset.fallbackXml?.trim();
+    if (!fallbackXml || fallbackXml === xmlText) {
+      throw primaryError;
+    }
+
+    console.warn("Primary Scratch workspace XML failed; retrying fallback XML", primaryError);
+    host.classList.add("scratch-workspace-host-degraded");
+    renderScratchWorkspaceXml(host, fallbackXml);
+  }
 }
 
 export function renderScratchWorkspaces(documentRef: Document = document) {

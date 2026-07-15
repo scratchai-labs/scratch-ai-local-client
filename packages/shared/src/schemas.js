@@ -15,7 +15,8 @@ const recommendedBlockParamsSchema = z
     left: z.string().max(80).optional(),
     right: z.string().max(80).optional(),
     steps: z.string().max(80).optional(),
-    degrees: z.string().max(80).optional()
+    degrees: z.string().max(80).optional(),
+    secs: z.string().max(80).optional()
   })
   .strict();
 

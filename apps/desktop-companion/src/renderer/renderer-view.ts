@@ -4,7 +4,7 @@ import type {
   RecommendedBlockNode,
   RecommendedBlockStructure
 } from "../common/types";
-import { buildRecommendedStructureXml } from "../common/scratch-block-xml";
+import { buildRecommendedBlockXml, buildRecommendedStructureXml } from "../common/scratch-block-xml";
 import {
   canRenderRecommendedNodeAtPosition,
   sanitizeRecommendedStructure
@@ -301,13 +301,17 @@ function createScratchWorkspaceHost(
   documentRef: MinimalDocument,
   xml: string,
   layout: "frame" | "inline",
-  fallbackText?: string
+  fallbackText?: string,
+  fallbackXml?: string
 ) {
   const host = documentRef.createElement("div");
   host.className = "scratch-workspace-host";
   if (host.dataset) {
     host.dataset.xml = xml;
     host.dataset.layout = layout;
+    if (fallbackXml) {
+      host.dataset.fallbackXml = fallbackXml;
+    }
     if (fallbackText) {
       host.dataset.fallbackText = fallbackText;
     }
@@ -329,12 +333,17 @@ function createScratchWorkspaceFrame(
 function createScratchWorkspaceInline(
   documentRef: MinimalDocument,
   xml: string,
-  fallbackText?: string
+  fallbackText?: string,
+  fallbackXml?: string
 ) {
   const inline = documentRef.createElement("div");
   inline.className = "scratch-workspace-inline";
-  inline.append(createScratchWorkspaceHost(documentRef, xml, "inline", fallbackText));
+  inline.append(createScratchWorkspaceHost(documentRef, xml, "inline", fallbackText, fallbackXml));
   return inline;
+}
+
+function buildRecommendedFallbackXml(structure: RecommendedBlockStructure) {
+  return buildRecommendedBlockXml(structure.root);
 }
 
 function collectRecommendedNodeReasons(
@@ -485,7 +494,8 @@ function renderRecommendedBlockCards(
         createScratchWorkspaceInline(
           documentRef,
           buildRecommendedStructureXml(structure),
-          response?.answerText ?? structure.root.label
+          response?.answerText ?? structure.root.label,
+          buildRecommendedFallbackXml(structure)
         )
       );
       item.append(createRecommendedReasonList(documentRef, collectRecommendedStructureReasons(structure)));
@@ -508,7 +518,8 @@ function renderRecommendedBlockCards(
       createScratchWorkspaceInline(
         documentRef,
         buildRecommendedStructureXml(structure),
-        response?.answerText ?? structure.root.label
+        response?.answerText ?? structure.root.label,
+        buildRecommendedFallbackXml(structure)
       )
     );
     item.append(createRecommendedReasonList(documentRef, collectRecommendedStructureReasons(structure)));
@@ -528,7 +539,8 @@ function renderRecommendedBlockCards(
     createScratchWorkspaceInline(
       documentRef,
       buildRecommendedStructureXml(blockStructure),
-      response?.answerText ?? blockStructure.root.label
+      response?.answerText ?? blockStructure.root.label,
+      buildRecommendedFallbackXml(blockStructure)
     )
   );
   item.append(createRecommendedReasonList(documentRef, getRecommendedReasonItems(response)));

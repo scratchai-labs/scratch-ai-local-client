@@ -50,6 +50,7 @@ export interface RecommendedBlockParams {
   right?: string;
   steps?: string;
   degrees?: string;
+  secs?: string;
 }
 
 export interface RecommendedBlockNode {
