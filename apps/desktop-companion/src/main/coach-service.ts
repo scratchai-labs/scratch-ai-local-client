@@ -77,7 +77,8 @@ function createRecommendedBlock(
   category: string,
   label: string,
   reason: string,
-  example?: string
+  example?: string,
+  params?: RecommendedBlock["params"]
 ): RecommendedBlock {
   const block: RecommendedBlock = {
     opcode,
@@ -88,6 +89,9 @@ function createRecommendedBlock(
 
   if (example) {
     block.example = example;
+  }
+  if (params) {
+    block.params = params;
   }
 
   return block;
@@ -496,9 +500,14 @@ function buildMathFallbackCoachResponse(
       return {
         answerText: "已知头和脚时，下一步应求兔子数量：rabbits = (feet - 2 × heads) ÷ 2，不要反过来再算总头脚。",
         recommendedBlocks: [
-          createRecommendedBlock("data_setvariableto", "变量", "将变量设为", "把计算结果存进 rabbits。"),
-          createRecommendedBlock("operator_subtract", "运算", "减", "先算 feet - 2×heads。"),
-          createRecommendedBlock("operator_divide", "运算", "除", "再把结果除以 2 得到兔子数。")
+          createRecommendedBlock(
+            "data_setvariableto",
+            "变量",
+            "将 rabbits 设为",
+            "把 (feet - 2 × heads) ÷ 2 的计算结果存进 rabbits。",
+            undefined,
+            { variable: "rabbits", value: "(feet - 2 * heads) / 2" }
+          )
         ],
         nextStep: "先写出求兔子数量的公式，再求鸡的数量。",
         detectedIssues: []
@@ -509,9 +518,15 @@ function buildMathFallbackCoachResponse(
       return {
         answerText: "你已经能求兔子了。下一步用 chickens = heads - rabbits 求出鸡的数量。",
         recommendedBlocks: [
-          createRecommendedBlock("data_setvariableto", "变量", "将变量设为", "把鸡的数量存进 chickens。"),
-          createRecommendedBlock("operator_subtract", "运算", "减", "鸡数 = 头数 - 兔数。"),
-          createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "算完后把鸡和兔的数量说出来。")
+          createRecommendedBlock(
+            "data_setvariableto",
+            "变量",
+            "将 chickens 设为",
+            "把 heads - rabbits 的计算结果存进 chickens。",
+            undefined,
+            { variable: "chickens", value: "heads - rabbits" }
+          ),
+          createRecommendedBlock("looks_sayforsecs", "外观", "说 2 秒", "算完后把 chickens 和 rabbits 的数量说出来。")
         ],
         nextStep: "用 heads - rabbits 求出 chickens。",
         detectedIssues: []

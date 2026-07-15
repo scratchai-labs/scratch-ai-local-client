@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { CoachService } from "../dist/coach-service.js";
+import { buildRecommendedStructureXml } from "../dist/scratch-block-xml.js";
 
 function createAiConfig(overrides = {}) {
   return {
@@ -2047,6 +2048,12 @@ test("CoachService math chicken-rabbit fallback recommends formula path instead 
     ),
     true
   );
+  const xml = buildRecommendedStructureXml(result.coachResponse.recommendation);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>rabbits<\/field>/);
+  assert.match(xml, /<block type="operator_subtract">/);
+  assert.match(xml, /<block type="operator_multiply">/);
+  assert.match(xml, /<block type="operator_divide">/);
+  assert.doesNotMatch(xml, /<field name="TEXT">0<\/field>/);
 });
 
 test("CoachService math sum fallback recommends accumulator instead of turn/bounce", async () => {
