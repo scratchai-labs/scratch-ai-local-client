@@ -80,9 +80,9 @@ Electron 桌面工具，源码拆成三层：
 10. `SessionManager` 额外把 `projectData` 转成 `currentTargetScriptXmlList`
 11. `StateStore` 更新状态，渲染层先生成 workspace 宿主节点
 12. `renderScratchWorkspaces(...)` 按当前文档语言初始化 `ScratchMsgs`，再使用 `scratch-blocks` 把 XML 加载成只读 SVG
-13. 用户请求 AI 提示时，桌面端直接调用 DeepSeek 或本地 fallback
-14. `CoachService` 严格解析 DeepSeek 返回的 `summary + recommendation.root`，过滤不可用 opcode，并对结构化推荐先做一轮关系净化
-15. 渲染层在真正生成推荐积木 XML 前再次净化结构；如果只剩扁平 `recommendedBlocks`，也只会串联可渲染节点
+13. 用户请求 AI 提示时，桌面端通过 Beta Strict Tool Calls 直接调用 DeepSeek；Strict 不可用或结果非法时使用本地 fallback
+14. DeepSeek 返回带 `id / parentId / relation` 的扁平推荐节点；`CoachService` 编译并校验唯一根节点、父子连接、terminal、条件位置、节点数量和当前工具箱
+15. 编译后的推荐树再经过业务过滤与渲染层净化，客户端自行生成 Blockly XML；Renderer 不加载 AI 原始 XML
 
 关键约束：
 
@@ -117,6 +117,6 @@ Electron 桌面工具，源码拆成三层：
 - GitHub Releases 的正式导出规则固定为 4 个无 Key 包：Windows portable / setup、macOS zip / dmg；本地只承诺当前平台可出包
 - `tools/verification/artifacts/` 不再进 git，需要通过文档和 CI artifact 回看验证结果
 - 推荐积木白名单外的新 opcode，先扩 `src/common/scratch-block-xml.ts` 的默认模板，再决定是否放行到 AI 输出
-- 若复杂推荐再次出现“文字兜底”，优先检查 `recommended-structure` 净化是否把根节点或关键关系裁掉，再检查 renderer 是否还停留在旧实例
+- 若复杂推荐再次出现 fallback，先运行 `npm run verify:deepseek-strict` 检查 Strict 工具兼容性，再运行 `npm run test:recommendation-render-contract` 检查真实 scratch-blocks 渲染
 - 新出现的扩展块、动态菜单块或特殊 mutation，可能还需要在只读渲染层补兜底定义
 - Scratch 语言问题优先从桥接日志排查：确认是否记录到 `Scratch locale remembered`，以及下一次受控启动是否带对应 `--lang`

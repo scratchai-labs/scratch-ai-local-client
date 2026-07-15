@@ -111,7 +111,7 @@
 
 ## AI 返回协议
 
-- DeepSeek 只返回受约束 JSON，不返回 Blockly XML
+- DeepSeek 只通过 Strict Tool Calls 返回受约束节点，不返回 Blockly XML
 - JSON 描述积木 opcode、前后连接、条件输入和子堆栈关系
 - JSON 节点可以带受约束的 `params` 显示默认值，例如变量名、公式、说话变量、循环次数、询问文案、移动步数或转角
 - 客户端使用 schema 校验结构，并应用官方白名单与当前工具箱过滤
