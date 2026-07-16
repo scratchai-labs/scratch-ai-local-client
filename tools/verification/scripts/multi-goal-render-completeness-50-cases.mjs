@@ -441,7 +441,11 @@ const EXTRA_RENDER_COMPLETENESS_GOAL_CASES = Object.freeze([
         expectedOpcodes: ['operator_round', 'operator_mod', 'data_setvariableto'],
         expectedKeywords: ['四舍五入', 'rounded', '余数', 'remainder', '5'],
         disallowedOpcodes: ['motion_movesteps', 'pen_clear'],
-        driftKeywords: ['鸡兔', '苹果', '五边形']
+        driftKeywords: ['鸡兔', '苹果', '五边形'],
+        displayChecks: [
+            {type: 'xml-opcode', opcode: 'operator_round', label: '四舍五入公式'},
+            {type: 'xml-opcode', opcode: 'operator_mod', label: '取余数公式'}
+        ]
     },
     {
         id: 'C50-join-message',

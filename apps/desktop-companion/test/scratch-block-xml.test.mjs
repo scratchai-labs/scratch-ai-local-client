@@ -787,6 +787,32 @@ test("buildRecommendedStructureXml renders join and round helper params", () => 
   assert.match(xml, /<field name="VARIABLE"[^>]*>number<\/field>/);
 });
 
+test("buildRecommendedStructureXml infers round and mod formulas from natural language", () => {
+  const xml = buildRecommendedStructureXml({
+    root: {
+      opcode: "data_setvariableto",
+      category: "变量",
+      label: "rounded",
+      reason: "把 number 四舍五入的结果存入 rounded 将 result 设为 number * number。",
+      params: { variable: "rounded", value: "operator_round number" },
+      next: {
+        opcode: "data_setvariableto",
+        category: "变量",
+        label: "remainder",
+        reason: "把 number 除以 5 的余数存入 remainder 将 result 设为 number * number。",
+        params: { variable: "remainder", value: "operator_mod number 5" }
+      }
+    }
+  });
+
+  assert.match(xml, /<field name="VARIABLE"[^>]*>rounded<\/field>/);
+  assert.match(xml, /<block type="operator_round">/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>number<\/field>/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>remainder<\/field>/);
+  assert.match(xml, /<block type="operator_mod">/);
+  assert.match(xml, /<field name="NUM">5<\/field>/);
+});
+
 test("buildRecommendedStructureXml renders named broadcast and list params", () => {
   const xml = buildRecommendedStructureXml({
     root: {

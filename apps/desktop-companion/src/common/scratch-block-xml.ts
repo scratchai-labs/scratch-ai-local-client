@@ -1011,8 +1011,8 @@ const FORMULA_OPERAND_PATTERN = "([a-z_][a-z0-9_]*|-?\\d+(?:\\.\\d+)?)";
 
 function inferRecommendedAssignedVariableName(text: string) {
   const patterns = [
-    new RegExp(`(?:将|把)?\\s*([a-z_][a-z0-9_]*)\\s*(?:设为|设置为|=)`, "i"),
-    /(?:存入|存进|保存到)\s*(?:变量)?\s*([a-z_][a-z0-9_]*)/i
+    /(?:存入|存进|保存到)\s*(?:变量)?\s*([a-z_][a-z0-9_]*)/i,
+    new RegExp(`(?:将|把)?\\s*([a-z_][a-z0-9_]*)\\s*(?:设为|设置为|=)`, "i")
   ];
 
   for (const pattern of patterns) {
@@ -1192,6 +1192,67 @@ function buildBinaryFormulaValueXml(inputName: string, opcode: string, leftOpera
   );
 }
 
+function inferRoundOperand(text: string) {
+  return normalizeRecommendedVariableToken(
+    text.match(/(?:把|将)?\s*([a-z_][a-z0-9_]*)\s*(?:四舍五入|round)/i)?.[1] ??
+      text.match(/(?:四舍五入|round)[^\w]{0,8}([a-z_][a-z0-9_]*)/i)?.[1]
+  ) ?? "number";
+}
+
+function inferModOperands(text: string) {
+  const match = text.match(
+    /([a-z_][a-z0-9_]*)\s*(?:除以|除|\/|%|mod)\s*(-?\d+(?:\.\d+)?|[a-z_][a-z0-9_]*)\s*(?:的)?(?:余数)?/i
+  );
+  return {
+    left: normalizeRecommendedVariableToken(match?.[1]) ?? match?.[1] ?? "number",
+    right: normalizeRecommendedVariableToken(match?.[2]) ?? match?.[2] ?? "2"
+  };
+}
+
+function buildOperatorOpcodeParamValueXml(inputName: string, value: string, text: string) {
+  const parts = normalizeString(value).split(/\s+/).filter(Boolean);
+  if (parts[0] === "operator_round") {
+    const operand = normalizeRecommendedVariableToken(parts[1]) ?? parts[1] ?? inferRoundOperand(text);
+    return buildValueElementXml(
+      inputName,
+      buildElementXml("block", "operator_round", buildFormulaOrNumberValueXml("NUM", operand, "3.6"))
+    );
+  }
+  if (parts[0] === "operator_mod") {
+    const inferred = inferModOperands(text);
+    return buildBinaryFormulaValueXml(
+      inputName,
+      "operator_mod",
+      normalizeRecommendedVariableToken(parts[1]) ?? parts[1] ?? inferred.left,
+      normalizeRecommendedVariableToken(parts[2]) ?? parts[2] ?? inferred.right
+    );
+  }
+  return null;
+}
+
+function inferRecommendedNamedMathFormulaValueXml(block: RecommendedBlock, variableName: string) {
+  const text = getRecommendedBlockText(block);
+  const normalizedVariable = normalizeRecommendedVariableToken(variableName);
+
+  if ((normalizedVariable === "rounded" || /rounded/.test(text)) && /四舍五入|round/i.test(text)) {
+    return buildValueElementXml(
+      "VALUE",
+      buildElementXml(
+        "block",
+        "operator_round",
+        buildFormulaOrNumberValueXml("NUM", inferRoundOperand(text), "3.6")
+      )
+    );
+  }
+
+  if ((normalizedVariable === "remainder" || /remainder/.test(text)) && /余数|取余|mod|%/i.test(text)) {
+    const {left, right} = inferModOperands(text);
+    return buildBinaryFormulaValueXml("VALUE", "operator_mod", left, right);
+  }
+
+  return null;
+}
+
 function inferRecommendedBinaryFormulaValueXml(block: RecommendedBlock, variableName: string) {
   const text = getRecommendedBlockText(block);
   const escapedVariable = variableName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -1217,7 +1278,12 @@ function inferRecommendedBinaryFormulaValueXml(block: RecommendedBlock, variable
 
 function inferRecommendedSetVariableValueXml(block: RecommendedBlock, variableName: string) {
   const paramValue = getRecommendedParam(block, "value");
-  const isOperatorOpcodePlaceholder = /^operator_(?:add|subtract|multiply|divide|mod)$/.test(paramValue);
+  const text = getRecommendedBlockText(block);
+  const operatorOpcodeParamValueXml = buildOperatorOpcodeParamValueXml("VALUE", paramValue, text);
+  if (operatorOpcodeParamValueXml) {
+    return operatorOpcodeParamValueXml;
+  }
+  const isOperatorOpcodePlaceholder = /^operator_(?:add|subtract|multiply|divide|mod|round)$/.test(paramValue);
   if (paramValue && !isOperatorOpcodePlaceholder) {
     if (paramValue.startsWith("text:")) {
       return buildTextShadowValueXml("VALUE", paramValue.slice("text:".length));
@@ -1230,7 +1296,10 @@ function inferRecommendedSetVariableValueXml(block: RecommendedBlock, variableNa
       buildTextShadowValueXml("VALUE", paramValue);
   }
 
-  const text = getRecommendedBlockText(block);
+  const namedMathFormulaValueXml = inferRecommendedNamedMathFormulaValueXml(block, variableName);
+  if (namedMathFormulaValueXml) {
+    return namedMathFormulaValueXml;
+  }
   const binaryFormulaValueXml = inferRecommendedBinaryFormulaValueXml(block, variableName);
   if (binaryFormulaValueXml) {
     return binaryFormulaValueXml;

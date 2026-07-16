@@ -1526,6 +1526,10 @@ function analyzeDisplayChecks(testCase, entries) {
             ) {
                 issues.push(`${check.label}: 推荐区平方公式未显示为乘法积木`);
             }
+        } else if (check.type === 'xml-opcode') {
+            if (!combinedXml.includes(`type="${check.opcode}"`)) {
+                issues.push(`${check.label}: 推荐区缺少 ${check.opcode} 积木`);
+            }
         }
     }
     return issues;
