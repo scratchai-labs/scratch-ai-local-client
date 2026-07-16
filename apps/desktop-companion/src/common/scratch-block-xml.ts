@@ -1421,7 +1421,9 @@ function buildRecommendedRepeatTimesValueXml(block: RecommendedBlock) {
     if (/^\d+(?:\.\d+)?$/.test(paramRepeatTimes)) {
       return buildWholeNumberShadowValueXml("TIMES", paramRepeatTimes);
     }
-    const repeatTimesXml = buildFormulaExpressionValueXml("TIMES", paramRepeatTimes);
+    const repeatTimesXml =
+      buildSpecialExpressionValueXml("TIMES", paramRepeatTimes) ??
+      buildFormulaExpressionValueXml("TIMES", paramRepeatTimes);
     if (repeatTimesXml) {
       return repeatTimesXml;
     }
@@ -1519,11 +1521,15 @@ function buildMouseDownConditionValueXml() {
 }
 
 function buildFormulaOrTextValueXml(inputName: string, value: string) {
-  return buildFormulaExpressionValueXml(inputName, value) ?? buildTextShadowValueXml(inputName, value);
+  return buildSpecialExpressionValueXml(inputName, value) ??
+    buildFormulaExpressionValueXml(inputName, value) ??
+    buildTextShadowValueXml(inputName, value);
 }
 
 function buildFormulaOrNumberValueXml(inputName: string, value: string, fallback: string) {
-  return buildFormulaExpressionValueXml(inputName, value) ?? buildNumberShadowValueXml(inputName, fallback);
+  return buildSpecialExpressionValueXml(inputName, value) ??
+    buildFormulaExpressionValueXml(inputName, value) ??
+    buildNumberShadowValueXml(inputName, fallback);
 }
 
 function buildTurnDegreesValueXml(block: RecommendedBlock) {

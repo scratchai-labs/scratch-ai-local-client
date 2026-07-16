@@ -145,7 +145,7 @@ Windows / macOS 已验证通过：
 - 能生成桌面端 AI 提示，并在无 key 时回退到本地提示
 - Electron UI 自动化已覆盖当前本地版界面结构
 - 源码版和打包版 UI 冒烟可通过
-- 推荐积木渲染合同已覆盖 `94` 个单积木、`71` 个结构化 root、`4908` 个合法关系 pair 和 params 变体，结果为 `0 fallback / 0 degraded`
+- 推荐积木渲染合同已覆盖 `94` 个单积木、`71` 个结构化 root、`4908` 个合法关系 pair、params 变体和 `5` 个组合输入槽变体，结果为 `0 fallback / 0 degraded`
 - `recommendation` 结构渲染前净化回归、`CoachService` 定向回归与 `desktop-companion` 全量测试均已纳入常规回归
 
 ## 本地开发命令
@@ -235,7 +235,7 @@ node tools/verification/scripts/verify-desktop-companion-real-e2e.mjs --project-
 从仓库根目录执行：
 
 ```bash
-# 不需要 DeepSeek Key：真实 Electron + scratch-blocks 穷举验证推荐 opcode、结构关系和 params 变体
+# 不需要 DeepSeek Key：真实 Electron + scratch-blocks 穷举验证推荐 opcode、结构关系、params 和组合输入槽
 npm run test:recommendation-render-contract
 
 # 需要设置窗口中已保存的 DeepSeek Key：验证 Beta Strict、节点编译和 XML 生成

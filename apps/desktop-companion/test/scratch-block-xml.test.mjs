@@ -721,6 +721,79 @@ test("buildRecommendedStructureXml renders variable angles and coordinate params
   assert.match(xml, /<block type="motion_gotoxy">[\s\S]*<field name="NUM">0<\/field>[\s\S]*<field name="NUM">0<\/field>/);
 });
 
+test("buildRecommendedStructureXml renders composite repeat count expressions", () => {
+  const formulaXml = buildRecommendedStructureXml({
+    root: {
+      opcode: "control_repeat",
+      category: "控制",
+      label: "重复 n + 2 次",
+      reason: "次数由变量和算式决定。",
+      params: { repeatTimes: "n + 2" },
+      substack: {
+        opcode: "data_changevariableby",
+        category: "变量",
+        label: "sum 增加 i * 2",
+        reason: "每轮累加两倍的 i。",
+        params: { variable: "sum", changeBy: "i * 2" }
+      }
+    }
+  });
+  const nestedFormulaXml = buildRecommendedStructureXml({
+    root: {
+      opcode: "control_repeat",
+      category: "控制",
+      label: "重复 (rounds + bonus) * 2 次",
+      reason: "次数使用嵌套算式。",
+      params: { repeatTimes: "(rounds + bonus) * 2" },
+      substack: {
+        opcode: "motion_movesteps",
+        category: "运动",
+        label: "移动 speed + 1",
+        reason: "移动步数也使用算式。",
+        params: { steps: "speed + 1" }
+      }
+    }
+  });
+  const reporterXml = buildRecommendedStructureXml({
+    root: {
+      opcode: "control_repeat",
+      category: "控制",
+      label: "重复四舍五入后的次数",
+      reason: "次数来自 reporter。",
+      params: { repeatTimes: "round(number)" },
+      substack: {
+        opcode: "looks_say",
+        category: "外观",
+        label: "说 hi",
+        reason: "验证子堆栈可见。",
+        params: { message: "hi" }
+      },
+      next: {
+        opcode: "control_repeat",
+        category: "控制",
+        label: "按列表长度重复",
+        reason: "列表长度也能放在次数槽。",
+        params: { repeatTimes: "listlength(购物清单)" }
+      }
+    }
+  });
+
+  assert.match(formulaXml, /<value name="TIMES">\s*<block type="operator_add">/);
+  assert.match(formulaXml, /<field name="VARIABLE"[^>]*>n<\/field>/);
+  assert.match(formulaXml, /<field name="NUM">2<\/field>/);
+  assert.match(formulaXml, /<value name="VALUE">\s*<block type="operator_multiply">/);
+  assert.match(formulaXml, /<field name="VARIABLE"[^>]*>i<\/field>/);
+  assert.match(nestedFormulaXml, /<value name="TIMES">\s*<block type="operator_multiply">/);
+  assert.match(nestedFormulaXml, /<block type="operator_add">[\s\S]*<field name="VARIABLE"[^>]*>rounds<\/field>/);
+  assert.match(nestedFormulaXml, /<field name="VARIABLE"[^>]*>bonus<\/field>/);
+  assert.match(nestedFormulaXml, /<value name="STEPS">\s*<block type="operator_add">/);
+  assert.match(nestedFormulaXml, /<field name="VARIABLE"[^>]*>speed<\/field>/);
+  assert.match(reporterXml, /<value name="TIMES">\s*<block type="operator_round">/);
+  assert.match(reporterXml, /<field name="VARIABLE"[^>]*>number<\/field>/);
+  assert.match(reporterXml, /<value name="TIMES">\s*<block type="data_lengthoflist">/);
+  assert.match(reporterXml, /<field name="LIST"[^>]*>购物清单<\/field>/);
+});
+
 test("buildRecommendedStructureXml renders mod, string helper and list length params", () => {
   const xml = buildRecommendedStructureXml({
     root: {

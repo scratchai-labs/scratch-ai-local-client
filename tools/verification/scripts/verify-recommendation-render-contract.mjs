@@ -260,7 +260,16 @@ async function renderXmlBatch(browserWindow, cases) {
   `);
 }
 
-function assertRenderedCase(caseName, result, minimumNonShadowBlocks = 1) {
+function assertCaseXmlExpectations(caseItem) {
+  for (const pattern of caseItem.expectedXmlPatterns ?? []) {
+    assert.match(caseItem.xml, pattern, `${caseItem.name}: XML 应匹配 ${String(pattern)}`);
+  }
+  for (const pattern of caseItem.rejectedXmlPatterns ?? []) {
+    assert.doesNotMatch(caseItem.xml, pattern, `${caseItem.name}: XML 不应匹配 ${String(pattern)}`);
+  }
+}
+
+function assertRenderedCase(caseName, result, minimumNonShadowBlocks = 1, expectedTextPatterns = []) {
   assert.ok(result, `${caseName}: 未找到对应的 scratch workspace host`);
   assert.equal(result.fallback, false, `${caseName}: 不应进入文字 fallback：${result.text}`);
   assert.equal(result.degraded, false, `${caseName}: 不应进入 root-only degraded 渲染`);
@@ -268,6 +277,9 @@ function assertRenderedCase(caseName, result, minimumNonShadowBlocks = 1) {
     result.nonShadowBlockCount >= minimumNonShadowBlocks,
     `${caseName}: 预期至少 ${minimumNonShadowBlocks} 个非 shadow block，实际 ${result.nonShadowBlockCount}`
   );
+  for (const pattern of expectedTextPatterns) {
+    assert.match(result.text, pattern, `${caseName}: 渲染文本应匹配 ${String(pattern)}，实际：${result.text}`);
+  }
 }
 
 function assertCompleteRender(caseName, result, minimumNonShadowBlocks = 1) {
@@ -282,20 +294,27 @@ async function renderCasesInBatches(browserWindow, cases) {
     const results = await renderXmlBatch(browserWindow, batch);
     assert.equal(results.length, batch.length, `批量渲染应返回 ${batch.length} 个 host，实际 ${results.length}`);
     for (const [caseIndex, item] of batch.entries()) {
-      assertRenderedCase(item.name, results[caseIndex], item.minimumNonShadowBlocks ?? 1);
+      assertCaseXmlExpectations(item);
+      assertRenderedCase(
+        item.name,
+        results[caseIndex],
+        item.minimumNonShadowBlocks ?? 1,
+        item.expectedTextPatterns ?? []
+      );
     }
     renderedCount += batch.length;
   }
   return renderedCount;
 }
 
-function createStructureRenderCase(name, root, sanitizeRecommendedStructure, buildRecommendedStructureXml) {
+function createStructureRenderCase(name, root, sanitizeRecommendedStructure, buildRecommendedStructureXml, expectations = {}) {
   const structure = sanitizeRecommendedStructure({ root });
   assert.ok(structure, `${name}: 合法结构不应被净化器拒绝`);
   return {
     name,
     xml: buildRecommendedStructureXml(structure),
-    minimumNonShadowBlocks: countStructureNodes(structure.root)
+    minimumNonShadowBlocks: countStructureNodes(structure.root),
+    ...expectations
   };
 }
 
@@ -498,6 +517,128 @@ function createParameterVariantCases(sanitizeRecommendedStructure, buildRecommen
   );
 }
 
+function createCompositeInputVariantRoots() {
+  return [
+    {
+      name: "combo:repeat-variable-formula-substack",
+      root: createBlock("control_repeat", {
+        params: { repeatTimes: "n + 2" },
+        substack: createBlock("data_changevariableby", {
+          params: { variable: "sum", changeBy: "i * 2" }
+        }),
+        next: createBlock("looks_say", { params: { messageVariable: "sum" } })
+      }),
+      expectedXmlPatterns: [
+        /<value name="TIMES">\s*<block type="operator_add">/,
+        /<field name="VARIABLE"[^>]*>n<\/field>/,
+        /<field name="NUM">2<\/field>/,
+        /<value name="VALUE">\s*<block type="operator_multiply">/,
+        /<field name="VARIABLE"[^>]*>i<\/field>/,
+        /<field name="VARIABLE"[^>]*>sum<\/field>/
+      ],
+      expectedTextPatterns: [/n/, /i/, /sum/],
+      rejectedXmlPatterns: [
+        /<value name="TIMES">\s*<shadow type="math_whole_number">\s*<field name="NUM">10<\/field>/
+      ]
+    },
+    {
+      name: "combo:repeat-nested-formula-motion",
+      root: createBlock("control_repeat", {
+        params: { repeatTimes: "(rounds + bonus) * 2" },
+        substack: createBlock("motion_movesteps", {
+          params: { steps: "speed + 1" }
+        })
+      }),
+      expectedXmlPatterns: [
+        /<value name="TIMES">\s*<block type="operator_multiply">/,
+        /<block type="operator_add">[\s\S]*<field name="VARIABLE"[^>]*>rounds<\/field>/,
+        /<field name="VARIABLE"[^>]*>bonus<\/field>/,
+        /<value name="STEPS">\s*<block type="operator_add">/,
+        /<field name="VARIABLE"[^>]*>speed<\/field>/
+      ],
+      expectedTextPatterns: [/rounds/, /bonus/, /speed/]
+    },
+    {
+      name: "combo:repeat-reporter-function-times",
+      root: createBlock("control_repeat", {
+        params: { repeatTimes: "round(number)" },
+        substack: createBlock("looks_say", { params: { message: "hi" } }),
+        next: createBlock("control_repeat", {
+          params: { repeatTimes: "listlength(购物清单)" },
+          substack: createBlock("data_addtolist", {
+            params: { list: "购物清单", value: "item" }
+          })
+        })
+      }),
+      expectedXmlPatterns: [
+        /<value name="TIMES">\s*<block type="operator_round">/,
+        /<field name="VARIABLE"[^>]*>number<\/field>/,
+        /<value name="TIMES">\s*<block type="data_lengthoflist">/,
+        /<field name="LIST"[^>]*>购物清单<\/field>/,
+        /<value name="ITEM">\s*<block type="data_variable">/
+      ],
+      expectedTextPatterns: [/number/, /购物清单/, /item/]
+    },
+    {
+      name: "combo:repeat-until-arithmetic-condition",
+      root: createBlock("control_repeat_until", {
+        condition: createBlock("operator_equals", {
+          params: { left: "number % 2", right: "0" }
+        }),
+        substack: createBlock("looks_say", { params: { message: "偶数" } }),
+        next: createBlock("data_setvariableto", {
+          params: { variable: "total", value: "score + bonus * 2" }
+        })
+      }),
+      expectedXmlPatterns: [
+        /<value name="CONDITION">\s*<block type="operator_equals">/,
+        /<block type="operator_mod">/,
+        /<field name="VARIABLE"[^>]*>number<\/field>/,
+        /<field name="NUM">0<\/field>/,
+        /<field name="VARIABLE"[^>]*>total<\/field>/,
+        /<value name="VALUE">\s*<block type="operator_add">/,
+        /<block type="operator_multiply">[\s\S]*<field name="VARIABLE"[^>]*>bonus<\/field>/
+      ],
+      expectedTextPatterns: [/number/, /total/, /score/, /bonus/]
+    },
+    {
+      name: "combo:if-else-arithmetic-comparison",
+      root: createBlock("control_if_else", {
+        condition: createBlock("operator_gt", {
+          params: { left: "score + bonus", right: "target * 2" }
+        }),
+        substack: createBlock("looks_say", { params: { message: "达标" } }),
+        substack2: createBlock("looks_say", { params: { message: "继续" } })
+      }),
+      expectedXmlPatterns: [
+        /<value name="CONDITION">\s*<block type="operator_gt">/,
+        /<value name="OPERAND1">\s*<block type="operator_add">/,
+        /<field name="VARIABLE"[^>]*>score<\/field>/,
+        /<field name="VARIABLE"[^>]*>bonus<\/field>/,
+        /<value name="OPERAND2">\s*<block type="operator_multiply">/,
+        /<field name="VARIABLE"[^>]*>target<\/field>/
+      ],
+      expectedTextPatterns: [/score/, /bonus/, /target/]
+    }
+  ];
+}
+
+function createCompositeInputVariantCases(sanitizeRecommendedStructure, buildRecommendedStructureXml) {
+  return createCompositeInputVariantRoots().map((scenario) =>
+    createStructureRenderCase(
+      scenario.name,
+      scenario.root,
+      sanitizeRecommendedStructure,
+      buildRecommendedStructureXml,
+      {
+        expectedXmlPatterns: scenario.expectedXmlPatterns,
+        rejectedXmlPatterns: scenario.rejectedXmlPatterns,
+        expectedTextPatterns: scenario.expectedTextPatterns
+      }
+    )
+  );
+}
+
 async function runElectronContract() {
   const {
     SUPPORTED_RECOMMENDED_BLOCK_OPCODES,
@@ -690,6 +831,13 @@ async function runElectronContract() {
     console.log(`[render-contract] 验证 ${parameterVariantCases.length} 个 params 协议变体...`);
     await renderCasesInBatches(browserWindow, parameterVariantCases);
 
+    const compositeInputVariantCases = createCompositeInputVariantCases(
+      sanitizeRecommendedStructure,
+      buildRecommendedStructureXml
+    );
+    console.log(`[render-contract] 验证 ${compositeInputVariantCases.length} 个组合输入槽变体...`);
+    await renderCasesInBatches(browserWindow, compositeInputVariantCases);
+
     const terminalStructures = [
       createBlock("control_forever", {
         substack: createBlock("motion_movesteps", { params: { steps: "10" } }),
@@ -732,7 +880,7 @@ async function runElectronContract() {
     }
 
     console.log(
-      `[render-contract] 通过：${SUPPORTED_RECOMMENDED_BLOCK_OPCODES.length} 个单积木、${legalStructures.length} 个样例结构、${rootStructureCases.length} 个 root、${relationCases.length} 个关系 pair、${combinedRelationCases.length} 个多关系组合、${parameterVariantCases.length} 个 params 变体、1 个变量名可见性、${terminalStructures.length} 个 terminal 非法 next 用例。`
+      `[render-contract] 通过：${SUPPORTED_RECOMMENDED_BLOCK_OPCODES.length} 个单积木、${legalStructures.length} 个样例结构、${rootStructureCases.length} 个 root、${relationCases.length} 个关系 pair、${combinedRelationCases.length} 个多关系组合、${parameterVariantCases.length} 个 params 变体、${compositeInputVariantCases.length} 个组合输入槽变体、1 个变量名可见性、${terminalStructures.length} 个 terminal 非法 next 用例。`
     );
   } catch (error) {
     if (rendererDiagnostics.length > 0) {
