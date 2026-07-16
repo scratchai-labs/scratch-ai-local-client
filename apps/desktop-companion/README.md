@@ -145,8 +145,8 @@ Windows / macOS 已验证通过：
 - 能生成桌面端 AI 提示，并在无 key 时回退到本地提示
 - Electron UI 自动化已覆盖当前本地版界面结构
 - 源码版和打包版 UI 冒烟可通过
-- 推荐积木白名单内 `93` 个常用官方 opcode 已做过一轮 Electron 真渲染 sweep，结果为 `0 fallback`
-- `recommendation` 结构渲染前净化回归、`CoachService` 定向回归与 `desktop-companion` 全量测试当前为 `160/160`
+- 推荐积木渲染合同已覆盖 `94` 个单积木、`71` 个结构化 root、`4908` 个合法关系 pair 和 params 变体，结果为 `0 fallback / 0 degraded`
+- `recommendation` 结构渲染前净化回归、`CoachService` 定向回归与 `desktop-companion` 全量测试均已纳入常规回归
 
 ## 本地开发命令
 
@@ -186,7 +186,7 @@ npm run package:mac:dmg
 当前仓库里和桌面端交付物相关的 workflow 有两条：
 
 - `CI`
-  执行 `build + test`；Ubuntu runner 额外通过 `xvfb-run` 运行 93 opcode 的真实 Electron / scratch-blocks 推荐渲染合同，当前不会上传可下载产物。
+  执行 `build + test`；Ubuntu runner 额外通过 `xvfb-run` 运行推荐积木真实 Electron / scratch-blocks 穷举渲染合同，当前不会上传可下载产物。
 - `Desktop Release Artifacts`
   在 Windows 和 macOS runner 上实际出包，并把 `installers/**` 上传为 GitHub Actions artifact。
 
@@ -235,7 +235,7 @@ node tools/verification/scripts/verify-desktop-companion-real-e2e.mjs --project-
 从仓库根目录执行：
 
 ```bash
-# 不需要 DeepSeek Key：真实 Electron + scratch-blocks 验证 93 个 opcode 和结构关系
+# 不需要 DeepSeek Key：真实 Electron + scratch-blocks 穷举验证推荐 opcode、结构关系和 params 变体
 npm run test:recommendation-render-contract
 
 # 需要设置窗口中已保存的 DeepSeek Key：验证 Beta Strict、节点编译和 XML 生成
