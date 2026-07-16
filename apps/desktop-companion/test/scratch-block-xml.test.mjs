@@ -649,6 +649,30 @@ test("buildRecommendedStructureXml infers polygon repeat counts and turn degrees
   assert.doesNotMatch(`${triangleXml}\n${pentagonXml}`, /<field name="NUM">15<\/field>/);
 });
 
+test("buildRecommendedStructureXml renders key selection and speed variable movement params", () => {
+  const xml = buildRecommendedStructureXml({
+    root: {
+      opcode: "event_whenkeypressed",
+      category: "事件",
+      label: "按下右方向键",
+      reason: "按下右方向键时移动。",
+      params: { key: "right arrow" },
+      next: {
+        opcode: "motion_changexby",
+        category: "运动",
+        label: "将 x 坐标增加 speed",
+        reason: "移动距离使用 speed。",
+        params: { steps: "speed" }
+      }
+    }
+  });
+
+  assert.match(xml, /<field name="KEY_OPTION">right arrow<\/field>/);
+  assert.match(xml, /<value name="DX">\s*<block type="data_variable">/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>speed<\/field>/);
+  assert.match(xml, /<variable[^>]+id="variable-speed"[^>]*>speed<\/variable>/);
+});
+
 test("buildRecommendedBlockXml does not leave common input blocks as empty shells", () => {
   const opcodes = [
     "event_whenkeypressed",

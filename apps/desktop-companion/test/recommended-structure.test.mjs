@@ -81,3 +81,23 @@ test("sanitizeRecommendedStructure removes next from terminal Scratch blocks", (
     assert.equal(result?.root.next, undefined, `${opcode} must not keep a next relation`);
   }
 });
+
+test("sanitizeRecommendedStructure preserves sprite-click hat recommendations", () => {
+  const result = sanitizeRecommendedStructure({
+    root: {
+      opcode: "event_whenthisspriteclicked",
+      category: "事件",
+      label: "当角色被点击",
+      reason: "点击角色时开始加分。",
+      next: {
+        opcode: "data_changevariableby",
+        category: "变量",
+        label: "将 score 增加 1",
+        reason: "记录点击得分。"
+      }
+    }
+  });
+
+  assert.equal(result?.root.opcode, "event_whenthisspriteclicked");
+  assert.equal(result?.root.next?.opcode, "data_changevariableby");
+});

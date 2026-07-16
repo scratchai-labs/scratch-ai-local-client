@@ -20,6 +20,7 @@ const PARAM_NAMES = [
   "messageVariable",
   "repeatTimes",
   "question",
+  "key",
   "left",
   "right",
   "steps",
@@ -27,6 +28,7 @@ const PARAM_NAMES = [
   "secs"
 ] as const;
 const PARAM_NAME_SET = new Set<string>(PARAM_NAMES);
+const PARAM_NAME_BY_LOWERCASE = new Map(PARAM_NAMES.map((name) => [name.toLowerCase(), name]));
 const SUPPORTED_OPCODE_SET = new Set<string>(SUPPORTED_RECOMMENDED_BLOCK_OPCODES);
 
 function objectSchema(properties: Record<string, unknown>) {
@@ -120,10 +122,11 @@ function parseStrictParams(value: unknown) {
       throw new Error("DeepSeek 严格推荐参数格式无效。");
     }
     const record = item as Record<string, unknown>;
-    const name = parseRequiredString(record, "name");
+    const rawName = parseRequiredString(record, "name");
+    const name = PARAM_NAME_BY_LOWERCASE.get(rawName.toLowerCase());
     const paramValue = parseRequiredString(record, "value");
-    if (!PARAM_NAME_SET.has(name)) {
-      throw new Error(`DeepSeek 严格推荐包含未知参数 ${name}。`);
+    if (!name || !PARAM_NAME_SET.has(name)) {
+      throw new Error(`DeepSeek 严格推荐包含未知参数 ${rawName}。`);
     }
     if (Object.hasOwn(params, name)) {
       throw new Error(`DeepSeek 严格推荐重复提供参数 ${name}。`);

@@ -7,6 +7,7 @@ export type RecommendedBlockPosition = "root" | RecommendedBlockRelation;
 const HAT_OPCODES = new Set([
   "event_whenflagclicked",
   "event_whenkeypressed",
+  "event_whenthisspriteclicked",
   "event_whenbroadcastreceived",
   "event_whenbackdropswitchesto"
 ]);

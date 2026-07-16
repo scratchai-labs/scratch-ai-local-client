@@ -77,6 +77,26 @@ test("compileDeepSeekStrictNodes builds a legal forever substack", () => {
   });
 });
 
+test("compileDeepSeekStrictNodes accepts key params and normalizes common MESSAGE casing", () => {
+  const keyRoot = compileDeepSeekStrictNodes([
+    node("key", "event_whenkeypressed", "", "root", [
+      { name: "key", value: "right arrow" }
+    ]),
+    node("move", "motion_changexby", "key", "next", [
+      { name: "steps", value: "speed" }
+    ])
+  ]);
+  assert.equal(keyRoot.params.key, "right arrow");
+  assert.equal(keyRoot.next.params.steps, "speed");
+
+  const sayRoot = compileDeepSeekStrictNodes([
+    node("say", "looks_sayforsecs", "", "root", [
+      { name: "MESSAGE", value: "开始" }
+    ])
+  ]);
+  assert.equal(sayRoot.params.message, "开始");
+});
+
 test("compileDeepSeekStrictNodes rejects terminal next and invalid condition links", () => {
   assert.throws(
     () => compileDeepSeekStrictNodes([

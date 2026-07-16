@@ -12,6 +12,7 @@ const recommendedBlockParamsSchema = z
     messageVariable: z.string().max(80).optional(),
     repeatTimes: z.string().max(80).optional(),
     question: z.string().max(120).optional(),
+    key: z.string().max(80).optional(),
     left: z.string().max(80).optional(),
     right: z.string().max(80).optional(),
     steps: z.string().max(80).optional(),

@@ -46,6 +46,7 @@ export interface RecommendedBlockParams {
   messageVariable?: string;
   repeatTimes?: string;
   question?: string;
+  key?: string;
   left?: string;
   right?: string;
   steps?: string;

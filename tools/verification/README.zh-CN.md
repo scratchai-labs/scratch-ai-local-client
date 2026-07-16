@@ -53,7 +53,7 @@ npm run verify:deepseek-strict
 - 本地 `.sb3` 读取与教学草稿生成
 - 打包版真实端到端 E2E
 - DeepSeek Beta Strict 工具兼容性、扁平节点编译与 XML 生成探针
-- 93 个推荐 opcode、合法结构和 terminal 非法连接的真实 Electron / scratch-blocks 渲染合同
+- 94 个推荐 opcode、合法结构和 terminal 非法连接的真实 Electron / scratch-blocks 渲染合同
 - 第二组 10 个变量型真实目标，可逐项比较 XML 变量字段次数与 Blockly 可见文字次数，发现空圆形即判失败
 
 ## 推荐积木专项验证

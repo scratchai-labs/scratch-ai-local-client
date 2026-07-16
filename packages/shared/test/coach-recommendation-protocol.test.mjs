@@ -66,6 +66,7 @@ test("accepts constrained recommendation params for display defaults", () => {
         params: {
           variable: "rabbits",
           value: "(feet - 2 * heads) / 2",
+          key: "right arrow",
           secs: "3"
         }
       }
@@ -75,6 +76,7 @@ test("accepts constrained recommendation params for display defaults", () => {
   assert.deepEqual(response.recommendation.root.params, {
     variable: "rabbits",
     value: "(feet - 2 * heads) / 2",
+    key: "right arrow",
     secs: "3"
   });
 });

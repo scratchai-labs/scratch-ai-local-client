@@ -511,6 +511,7 @@ const DEFAULT_SUPPORTED_RECOMMENDED_OPCODE = "looks_sayforsecs";
 export const SUPPORTED_RECOMMENDED_BLOCK_OPCODES = Object.freeze([
   "event_whenflagclicked",
   "event_whenkeypressed",
+  "event_whenthisspriteclicked",
   "event_whenbroadcastreceived",
   "event_whenbackdropswitchesto",
   "event_broadcast",
@@ -1381,9 +1382,14 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
 
   switch (block.opcode) {
     case "event_whenflagclicked":
+    case "event_whenthisspriteclicked":
       return buildElementXml("block", block.opcode, "");
     case "event_whenkeypressed":
-      return buildElementXml("block", block.opcode, buildFieldXml("KEY_OPTION", "space"));
+      return buildElementXml(
+        "block",
+        block.opcode,
+        buildFieldXml("KEY_OPTION", getRecommendedParam(block, "key") || "space")
+      );
     case "event_whenbroadcastreceived":
       return buildElementXml(
         "block",
@@ -1409,7 +1415,7 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
       return buildElementXml(
         "block",
         block.opcode,
-        buildNumberShadowValueXml("STEPS", getRecommendedParam(block, "steps") || "10")
+        buildFormulaOrNumberValueXml("STEPS", getRecommendedParam(block, "steps") || "10", "10")
       );
     case "motion_turnright":
     case "motion_turnleft":
@@ -1455,7 +1461,11 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
         )}`
       );
     case "motion_changexby":
-      return buildElementXml("block", block.opcode, buildNumberShadowValueXml("DX", "10"));
+      return buildElementXml(
+        "block",
+        block.opcode,
+        buildFormulaOrNumberValueXml("DX", getRecommendedParam(block, "steps") || "10", "10")
+      );
     case "motion_setx":
       return buildElementXml("block", block.opcode, buildNumberShadowValueXml("X", "0"));
     case "motion_changeyby":
@@ -1624,7 +1634,12 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
       return buildElementXml(
         "block",
         block.opcode,
-        buildMenuShadowValueXml("KEY_OPTION", "sensing_keyoptions", "KEY_OPTION", "space")
+        buildMenuShadowValueXml(
+          "KEY_OPTION",
+          "sensing_keyoptions",
+          "KEY_OPTION",
+          getRecommendedParam(block, "key") || "space"
+        )
       );
     case "sensing_askandwait":
       return buildElementXml(
