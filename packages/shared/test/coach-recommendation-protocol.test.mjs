@@ -67,6 +67,8 @@ test("accepts constrained recommendation params for display defaults", () => {
           variable: "rabbits",
           value: "(feet - 2 * heads) / 2",
           key: "right arrow",
+          list: "购物清单",
+          broadcast: "开始游戏",
           secs: "3"
         }
       }
@@ -77,6 +79,8 @@ test("accepts constrained recommendation params for display defaults", () => {
     variable: "rabbits",
     value: "(feet - 2 * heads) / 2",
     key: "right arrow",
+    list: "购物清单",
+    broadcast: "开始游戏",
     secs: "3"
   });
 });

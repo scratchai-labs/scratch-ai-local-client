@@ -20,6 +20,7 @@
  *   node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs --packaged=false --follow-steps=1
  *   node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs --case-ids=G4-chicken-rabbit,G7-square-number,G10-draw-pentagon
  *   node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs --goal-suite=variable-visibility
+ *   node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs --goal-suite=real-world-stability
  */
 import {access, mkdir, readFile, rm, writeFile} from 'node:fs/promises';
 import path from 'node:path';
@@ -32,6 +33,10 @@ import {
     VARIABLE_VISIBILITY_GOAL_CASES,
     VARIABLE_VISIBILITY_SEED_SPECS
 } from './multi-goal-variable-visibility-cases.mjs';
+import {
+    REAL_WORLD_STABILITY_GOAL_CASES,
+    REAL_WORLD_STABILITY_SEED_SPECS
+} from './multi-goal-real-world-stability-cases.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
@@ -575,13 +580,16 @@ ${findVmHelpersSource()}
   if (!Array.isArray(project.extensions)) project.extensions = [];
 
   const flagId = makeId("flag");
-  const variableVisibilitySeedSpecs = ${JSON.stringify(VARIABLE_VISIBILITY_SEED_SPECS)};
-  const variableVisibilitySpec = variableVisibilitySeedSpecs[seedName];
+  const additionalSeedSpecs = ${JSON.stringify({
+    ...VARIABLE_VISIBILITY_SEED_SPECS,
+    ...REAL_WORLD_STABILITY_SEED_SPECS
+  })};
+  const additionalSeedSpec = additionalSeedSpecs[seedName];
 
-  if (variableVisibilitySpec) {
-    const variableEntries = Object.entries(variableVisibilitySpec.variables || {});
+  if (additionalSeedSpec) {
+    const variableEntries = Object.entries(additionalSeedSpec.variables || {});
     const { ids } = ensureStageVariables(project, variableEntries.map(([name]) => name));
-    for (const extension of variableVisibilitySpec.extensions || []) {
+    for (const extension of additionalSeedSpec.extensions || []) {
       if (!project.extensions.includes(extension)) project.extensions.push(extension);
     }
 
@@ -597,9 +605,9 @@ ${findVmHelpersSource()}
       return id;
     }
 
-    const askedVariable = variableVisibilitySpec.ask?.variable || null;
-    if (variableVisibilitySpec.ask) {
-      appendStackBlock("sensing_askandwait", { QUESTION: [1, [10, variableVisibilitySpec.ask.question]] });
+    const askedVariable = additionalSeedSpec.ask?.variable || null;
+    if (additionalSeedSpec.ask) {
+      appendStackBlock("sensing_askandwait", { QUESTION: [1, [10, additionalSeedSpec.ask.question]] });
       const answerId = makeId("answer");
       const setAnswerId = appendStackBlock(
         "data_setvariableto",
@@ -618,16 +626,16 @@ ${findVmHelpersSource()}
       );
     }
 
-    for (const opcode of variableVisibilitySpec.beforeTailOpcodes || []) {
+    for (const opcode of additionalSeedSpec.beforeTailOpcodes || []) {
       appendStackBlock(opcode);
     }
 
-    if (variableVisibilitySpec.tail?.opcode === "control_repeat") {
-      const timesInput = variableVisibilitySpec.tail.countVariable
-        ? [3, [12, variableVisibilitySpec.tail.countVariable, ids[variableVisibilitySpec.tail.countVariable]], [6, "10"]]
-        : [1, [6, String(variableVisibilitySpec.tail.count || "10")]];
+    if (additionalSeedSpec.tail?.opcode === "control_repeat") {
+      const timesInput = additionalSeedSpec.tail.countVariable
+        ? [3, [12, additionalSeedSpec.tail.countVariable, ids[additionalSeedSpec.tail.countVariable]], [6, "10"]]
+        : [1, [6, String(additionalSeedSpec.tail.count || "10")]];
       appendStackBlock("control_repeat", { TIMES: timesInput, SUBSTACK: [1, null] });
-    } else if (variableVisibilitySpec.tail?.opcode === "control_forever") {
+    } else if (additionalSeedSpec.tail?.opcode === "control_forever") {
       appendStackBlock("control_forever", { SUBSTACK: [1, null] });
     }
     sprite.blocks = blocks;
@@ -1365,9 +1373,11 @@ const defaultGoalCases = [
 
 const goalCases = goalSuite === 'variable-visibility'
     ? VARIABLE_VISIBILITY_GOAL_CASES
-    : defaultGoalCases;
+    : goalSuite === 'real-world-stability'
+        ? REAL_WORLD_STABILITY_GOAL_CASES
+        : defaultGoalCases;
 assert(
-    goalSuite === 'default' || goalSuite === 'variable-visibility',
+    goalSuite === 'default' || goalSuite === 'variable-visibility' || goalSuite === 'real-world-stability',
     `未知 --goal-suite：${goalSuite}`
 );
 const activeGoalCases = requestedCaseIds.size > 0

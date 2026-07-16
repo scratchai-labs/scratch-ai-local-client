@@ -673,6 +673,86 @@ test("buildRecommendedStructureXml renders key selection and speed variable move
   assert.match(xml, /<variable[^>]+id="variable-speed"[^>]*>speed<\/variable>/);
 });
 
+test("buildRecommendedStructureXml renders named broadcast and list params", () => {
+  const xml = buildRecommendedStructureXml({
+    root: {
+      opcode: "event_broadcast",
+      category: "事件",
+      label: "广播开始游戏",
+      reason: "发送开场消息。",
+      params: { broadcast: "开始游戏" },
+      next: {
+        opcode: "data_addtolist",
+        category: "变量",
+        label: "把 item 加入购物清单",
+        reason: "保存输入物品。",
+        params: { list: "购物清单", value: "item" }
+      }
+    }
+  });
+
+  assert.match(xml, /<field name="BROADCAST_OPTION"[^>]*>开始游戏<\/field>/);
+  assert.match(xml, /<field name="LIST"[^>]*>购物清单<\/field>/);
+  assert.match(xml, /<value name="ITEM">\s*<block type="data_variable">/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>item<\/field>/);
+  assert.match(xml, /<variable type="broadcast_msg"[^>]*>开始游戏<\/variable>/);
+  assert.match(xml, /<variable type="list"[^>]*>购物清单<\/variable>/);
+});
+
+test("buildRecommendedStructureXml renders distance-to-mouse expressions in comparisons", () => {
+  const xml = buildRecommendedStructureXml({
+    root: {
+      opcode: "control_if",
+      category: "控制",
+      label: "如果距离小于 50",
+      reason: "检测鼠标距离。",
+      condition: {
+        opcode: "operator_lt",
+        category: "运算",
+        label: "距离小于 50",
+        reason: "比较鼠标距离。",
+        params: { left: "sensing_distanceto", right: "50" }
+      },
+      substack: {
+        opcode: "looks_sayforsecs",
+        category: "外观",
+        label: "说靠近了",
+        reason: "距离足够近时提示。",
+        params: { message: "靠近了", secs: "2" }
+      }
+    }
+  });
+
+  assert.match(xml, /<block type="sensing_distanceto">/);
+  assert.match(xml, /<field name="DISTANCETOMENU">鼠标指针<\/field>/);
+  assert.doesNotMatch(xml, /<field name="VARIABLE"[^>]*>sensing_distanceto<\/field>/);
+});
+
+test("buildRecommendedStructureXml distinguishes text literals from variable expressions", () => {
+  const gradeXml = buildRecommendedBlockXml({
+    opcode: "data_setvariableto",
+    category: "变量",
+    label: "将 grade 设为 A",
+    reason: "设置等级文字。",
+    params: { variable: "grade", value: "text:A" }
+  });
+  assert.match(gradeXml, /<field name="VARIABLE"[^>]*>grade<\/field>/);
+  assert.match(gradeXml, /<field name="TEXT">A<\/field>/);
+  assert.doesNotMatch(gradeXml, /<field name="VARIABLE"[^>]*>A<\/field>/);
+
+  const passwordXml = buildRecommendedBlockXml({
+    opcode: "operator_contains",
+    category: "运算",
+    label: "password 包含 scratch",
+    reason: "检查密码内容。",
+    params: { left: "password", right: "scratch" }
+  });
+  assert.match(passwordXml, /<value name="STRING1">\s*<block type="data_variable">/);
+  assert.match(passwordXml, /<field name="VARIABLE"[^>]*>password<\/field>/);
+  assert.match(passwordXml, /<value name="STRING2">\s*<shadow type="text">/);
+  assert.match(passwordXml, /<field name="TEXT">scratch<\/field>/);
+});
+
 test("buildRecommendedBlockXml does not leave common input blocks as empty shells", () => {
   const opcodes = [
     "event_whenkeypressed",

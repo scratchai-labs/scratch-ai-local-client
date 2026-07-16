@@ -498,14 +498,6 @@ function wrapWorkspaceXml(blockXml: string, variablesXml = "") {
   return `<xml xmlns="${XML_NAMESPACE}">${variablesXml}${blockXml}</xml>`;
 }
 
-const DEFAULT_BROADCAST_ATTRIBUTES = {
-  id: "broadcast-message-1",
-  variabletype: BROADCAST_VARIABLE_TYPE
-};
-const DEFAULT_LIST_ATTRIBUTES = {
-  id: "list-items",
-  variabletype: LIST_VARIABLE_TYPE
-};
 const DEFAULT_SUPPORTED_RECOMMENDED_OPCODE = "looks_sayforsecs";
 
 export const SUPPORTED_RECOMMENDED_BLOCK_OPCODES = Object.freeze([
@@ -859,6 +851,13 @@ function buildFormulaExpressionElementXml(expression: FormulaExpressionNode): st
     if (expression.value === "answer" || expression.value === "sensing_answer") {
       return buildAnswerReporterBlockXml();
     }
+    if (expression.value === "sensing_distanceto") {
+      return buildElementXml(
+        "block",
+        "sensing_distanceto",
+        buildMenuShadowValueXml("DISTANCETOMENU", "sensing_distancetomenu", "DISTANCETOMENU", "鼠标指针")
+      );
+    }
     return buildVariableReporterBlockXml(expression.value);
   }
 
@@ -1114,6 +1113,9 @@ function inferRecommendedSetVariableValueXml(block: RecommendedBlock, variableNa
   const paramValue = getRecommendedParam(block, "value");
   const isOperatorOpcodePlaceholder = /^operator_(?:add|subtract|multiply|divide|mod)$/.test(paramValue);
   if (paramValue && !isOperatorOpcodePlaceholder) {
+    if (paramValue.startsWith("text:")) {
+      return buildTextShadowValueXml("VALUE", paramValue.slice("text:".length));
+    }
     if (/^-?\d+(?:\.\d+)?$/.test(paramValue)) {
       return buildTextShadowValueXml("VALUE", paramValue);
     }
@@ -1374,7 +1376,17 @@ function buildOperatorMathXml(opcode: string, left: string, right: string) {
 }
 
 function buildListFieldXml(name = "LIST", value = "清单") {
-  return buildFieldXml(name, value, DEFAULT_LIST_ATTRIBUTES);
+  return buildFieldXml(name, value, {
+    id: `list-${buildRecommendedVariableIdSuffix(value)}`,
+    variabletype: LIST_VARIABLE_TYPE
+  });
+}
+
+function buildBroadcastAttributes(value: string) {
+  return {
+    id: `broadcast-${buildRecommendedVariableIdSuffix(value)}`,
+    variabletype: BROADCAST_VARIABLE_TYPE
+  };
 }
 
 function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPlaceholders = true) {
@@ -1390,16 +1402,19 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
         block.opcode,
         buildFieldXml("KEY_OPTION", getRecommendedParam(block, "key") || "space")
       );
-    case "event_whenbroadcastreceived":
+    case "event_whenbroadcastreceived": {
+      const broadcast = getRecommendedParam(block, "broadcast") || "消息1";
       return buildElementXml(
         "block",
         block.opcode,
-        buildFieldXml("BROADCAST_OPTION", "消息1", DEFAULT_BROADCAST_ATTRIBUTES)
+        buildFieldXml("BROADCAST_OPTION", broadcast, buildBroadcastAttributes(broadcast))
       );
+    }
     case "event_whenbackdropswitchesto":
       return buildElementXml("block", block.opcode, buildFieldXml("BACKDROP", "背景1"));
     case "event_broadcast":
-    case "event_broadcastandwait":
+    case "event_broadcastandwait": {
+      const broadcast = getRecommendedParam(block, "broadcast") || "消息1";
       return buildElementXml(
         "block",
         block.opcode,
@@ -1407,10 +1422,11 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
           "BROADCAST_INPUT",
           "event_broadcast_menu",
           "BROADCAST_OPTION",
-          "消息1",
-          DEFAULT_BROADCAST_ATTRIBUTES
+          broadcast,
+          buildBroadcastAttributes(broadcast)
         )
       );
+    }
     case "motion_movesteps":
       return buildElementXml(
         "block",
@@ -1546,7 +1562,11 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
         `${buildFieldXml("EFFECT", "PITCH")}${buildNumberShadowValueXml("VALUE", "100")}`
       );
     case "sound_changevolumeby":
-      return buildElementXml("block", block.opcode, buildNumberShadowValueXml("VOLUME", "-10"));
+      return buildElementXml(
+        "block",
+        block.opcode,
+        buildFormulaOrNumberValueXml("VOLUME", getRecommendedParam(block, "changeBy") || "-10", "-10")
+      );
     case "sound_setvolumeto":
       return buildElementXml("block", block.opcode, buildNumberShadowValueXml("VOLUME", "100"));
     case "looks_say":
@@ -1696,9 +1716,9 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildTextShadowValueXml("STRING1", "Scratch AI")}${buildTextShadowValueXml(
+        `${buildFormulaOrTextValueXml("STRING1", getRecommendedParam(block, "left") || "Scratch AI")}${buildTextShadowValueXml(
           "STRING2",
-          "AI"
+          getRecommendedParam(block, "right") || "AI"
         )}`
       );
     case "operator_mod":
@@ -1743,20 +1763,23 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
         block.opcode,
         buildRecommendedVariableFieldXml(inferRecommendedVariableName(block))
       );
-    case "data_addtolist":
+    case "data_addtolist": {
+      const listName = getRecommendedParam(block, "list") || "清单";
+      const itemValue = getRecommendedParam(block, "value") || "项目";
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildTextShadowValueXml("ITEM", "项目")}${buildListFieldXml()}`
+        `${buildFormulaOrTextValueXml("ITEM", itemValue)}${buildListFieldXml("LIST", listName)}`
       );
+    }
     case "data_deleteoflist":
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildWholeNumberShadowValueXml("INDEX", "1")}${buildListFieldXml()}`
+        `${buildWholeNumberShadowValueXml("INDEX", "1")}${buildListFieldXml("LIST", getRecommendedParam(block, "list") || "清单")}`
       );
     case "data_deletealloflist":
-      return buildElementXml("block", block.opcode, buildListFieldXml());
+      return buildElementXml("block", block.opcode, buildListFieldXml("LIST", getRecommendedParam(block, "list") || "清单"));
     case "data_insertatlist":
       return buildElementXml(
         "block",
@@ -1764,13 +1787,13 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
         `${buildTextShadowValueXml("ITEM", "项目")}${buildWholeNumberShadowValueXml(
           "INDEX",
           "1"
-        )}${buildListFieldXml()}`
+        )}${buildListFieldXml("LIST", getRecommendedParam(block, "list") || "清单")}`
       );
     case "data_replaceitemoflist":
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildWholeNumberShadowValueXml("INDEX", "1")}${buildListFieldXml()}${buildTextShadowValueXml(
+        `${buildWholeNumberShadowValueXml("INDEX", "1")}${buildListFieldXml("LIST", getRecommendedParam(block, "list") || "清单")}${buildTextShadowValueXml(
           "ITEM",
           "新项目"
         )}`
@@ -1779,28 +1802,28 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildWholeNumberShadowValueXml("INDEX", "1")}${buildListFieldXml()}`
+        `${buildWholeNumberShadowValueXml("INDEX", "1")}${buildListFieldXml("LIST", getRecommendedParam(block, "list") || "清单")}`
       );
     case "data_itemnumoflist":
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildTextShadowValueXml("ITEM", "项目")}${buildListFieldXml()}`
+        `${buildTextShadowValueXml("ITEM", "项目")}${buildListFieldXml("LIST", getRecommendedParam(block, "list") || "清单")}`
       );
     case "data_lengthoflist":
-      return buildElementXml("block", block.opcode, buildListFieldXml());
+      return buildElementXml("block", block.opcode, buildListFieldXml("LIST", getRecommendedParam(block, "list") || "清单"));
     case "data_listcontainsitem":
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildListFieldXml()}${buildTextShadowValueXml("ITEM", "项目")}`
+        `${buildListFieldXml("LIST", getRecommendedParam(block, "list") || "清单")}${buildTextShadowValueXml("ITEM", "项目")}`
       );
     case "data_showlist":
     case "data_hidelist":
       return buildElementXml(
         "block",
         block.opcode,
-        buildListFieldXml()
+        buildListFieldXml("LIST", getRecommendedParam(block, "list") || "清单")
       );
     case "pen_setPenColorToColor":
       return buildElementXml("block", block.opcode, buildColourShadowValueXml("COLOR", "#ff4d6a"));
@@ -1832,12 +1855,12 @@ export function buildCurrentTargetScriptXmlList(
 }
 
 function buildRecommendedVariablesXml(blockXml: string) {
-  const variables = new Map<string, string>();
-  const variableFieldPattern = /<field name="VARIABLE" id="([^"]+)" variabletype="">([^<]*)<\/field>/g;
+  const variables = new Map<string, { name: string; type: string }>();
+  const variableFieldPattern = /<field name="(?:VARIABLE|LIST|BROADCAST_OPTION)" id="([^"]+)" variabletype="([^"]*)">([^<]*)<\/field>/g;
   for (const match of blockXml.matchAll(variableFieldPattern)) {
-    const [, id, name] = match;
+    const [, id, type, name] = match;
     if (id && name && !variables.has(id)) {
-      variables.set(id, name);
+      variables.set(id, { name, type });
     }
   }
 
@@ -1846,7 +1869,7 @@ function buildRecommendedVariablesXml(blockXml: string) {
   }
 
   return `<variables>${[...variables.entries()]
-    .map(([id, name]) => `<variable type="" id="${id}" islocal="false" iscloud="false">${name}</variable>`)
+    .map(([id, variable]) => `<variable type="${variable.type}" id="${id}" islocal="false" iscloud="false">${variable.name}</variable>`)
     .join("")}</variables>`;
 }
 

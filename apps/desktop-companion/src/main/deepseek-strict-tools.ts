@@ -21,6 +21,8 @@ const PARAM_NAMES = [
   "repeatTimes",
   "question",
   "key",
+  "list",
+  "broadcast",
   "left",
   "right",
   "steps",

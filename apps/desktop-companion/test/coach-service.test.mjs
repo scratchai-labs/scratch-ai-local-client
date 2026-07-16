@@ -2120,6 +2120,42 @@ test("CoachService keeps common variable goals relevant when Strict output falls
   }
 });
 
+test("CoachService provides renderable fallbacks for common real-world goals", async () => {
+  const service = new CoachService(async () => {
+    throw new Error("force fallback");
+  });
+  const cases = [
+    { goal: "商品单价 price=12.5，数量 quantity=4，计算 total = price × quantity 并说出总价", variables: ["price", "quantity", "total"], expected: [/total<\/field>/, /price<\/field>/, /quantity<\/field>/, /operator_multiply/] },
+    { goal: "用 weight=60、height=1.7 计算 bmi = weight ÷ (height × height)，并说出 bmi", variables: ["weight", "height", "bmi"], expected: [/bmi<\/field>/, /weight<\/field>/, /height<\/field>/, /operator_divide/, /operator_multiply/] },
+    { goal: "询问一个物品 item，把 item 加入购物清单，并显示购物清单", variables: ["item"], expected: [/data_addtolist/, /item<\/field>/, /购物清单<\/field>/, /data_showlist/] },
+    { goal: "点击绿旗后广播开始游戏", variables: [], expected: [/event_broadcast/, /开始游戏<\/field>/] },
+    { goal: "用重复执行 6 次制作造型动画：每次切换到下一个造型并等待 0.2 秒", variables: [], expected: [/control_repeat/, /<field name="NUM">6<\/field>/, /looks_nextcostume/, /<field name="NUM">0.2<\/field>/] },
+    { goal: "用重复执行 5 次让音量逐渐变大：每次音量增加 10，再等待 0.5 秒", variables: [], expected: [/control_repeat/, /sound_changevolumeby/, /<field name="NUM">10<\/field>/, /<field name="NUM">0.5<\/field>/] },
+    { goal: "持续检测角色到鼠标指针的距离，小于 50 时说靠近了", variables: [], expected: [/control_forever/, /control_if/, /sensing_distanceto/, /operator_lt/, /<field name="NUM">50<\/field>/, /靠近了/] },
+    { goal: "根据 score 判断等级：score 大于 90 时 grade 设为 A，否则设为 B，并说出 grade", variables: ["score", "grade"], expected: [/control_if_else/, /operator_gt/, /score<\/field>/, /grade<\/field>/, /<field name="TEXT">A<\/field>/, /<field name="TEXT">B<\/field>/] },
+    { goal: "做一道 3+4 的问答题：回答等于 7 时 score 加 1 并说回答正确", variables: ["answerNumber", "score"], expected: [/control_if/, /operator_equals/, /answerNumber<\/field>/, /score<\/field>/, /回答正确/] },
+    { goal: "询问密码并保存到 password；如果 password 包含 scratch 就说通过，否则说密码错误", variables: ["password"], expected: [/control_if_else/, /operator_contains/, /password<\/field>/, /<field name="TEXT">scratch<\/field>/, /通过/, /密码错误/] }
+  ];
+
+  for (const scenario of cases) {
+    const snapshot = createSnapshot();
+    snapshot.globalVariables = scenario.variables.map(name => ({ id: `var-${name}`, name, value: 0, isCloud: false }));
+    snapshot.sprites[0].variables = snapshot.globalVariables;
+    const result = await service.generateHint({
+      snapshot,
+      currentTargetPrograms: ["当绿旗被点击"],
+      programAreaModules: snapshot.programAreaModules,
+      usedExtensions: [],
+      loadedExtensions: [],
+      goal: scenario.goal,
+      aiConfig: createAiConfig({configured: false, apiKey: ""})
+    });
+    const xml = buildRecommendedStructureXml(result.coachResponse.recommendation);
+    for (const pattern of scenario.expected) assert.match(xml, pattern, scenario.goal);
+    assert.doesNotMatch(result.coachResponse.answerText, /累加结果变量 sum|碰到边缘就反弹/, scenario.goal);
+  }
+});
+
 test("CoachService replaces a structurally valid but off-target click recommendation", async () => {
   const service = new CoachService(async () => createDeepSeekResponse(JSON.stringify({
     summary: "持续检测是否碰到目标。",
@@ -2176,6 +2212,35 @@ test("CoachService replaces a structurally valid but off-target click recommenda
   assert.match(xml, /score<\/field>/);
   assert.match(xml, /targetScore<\/field>/);
   assert.doesNotMatch(xml, /sensing_touchingobject/);
+});
+
+test("CoachService replaces password recommendations that omit required params", async () => {
+  const service = new CoachService(async () => createDeepSeekResponse(JSON.stringify({
+    summary: "判断密码并给出反馈。",
+    recommendation: {
+      root: {
+        opcode: "control_if_else", category: "控制", label: "如果否则", reason: "判断 password 是否包含 scratch。",
+        condition: { opcode: "operator_contains", category: "运算", label: "包含", reason: "password 包含 scratch。" },
+        substack: { opcode: "looks_sayforsecs", category: "外观", label: "说通过", reason: "说通过。" },
+        substack2: { opcode: "looks_sayforsecs", category: "外观", label: "说密码错误", reason: "说密码错误。" }
+      }
+    }
+  })));
+  const snapshot = createSnapshot();
+  snapshot.globalVariables = [{ id: "password", name: "password", value: "", isCloud: false }];
+  snapshot.sprites[0].variables = snapshot.globalVariables;
+  const result = await service.generateHint({
+    snapshot, currentTargetPrograms: ["询问密码 -> 将 password 设为回答"],
+    programAreaModules: [{ id: "data", label: "变量", blockCount: 1 }], usedExtensions: [], loadedExtensions: [],
+    goal: "询问密码并保存到 password；如果 password 包含 scratch 就说通过，否则说密码错误",
+    aiConfig: createAiConfig()
+  });
+  const xml = buildRecommendedStructureXml(result.coachResponse.recommendation);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>password<\/field>/);
+  assert.match(xml, /<field name="TEXT">scratch<\/field>/);
+  assert.match(xml, /<field name="TEXT">通过<\/field>/);
+  assert.match(xml, /<field name="TEXT">密码错误<\/field>/);
+  assert.doesNotMatch(xml, /Scratch AI|开始吧/);
 });
 
 test("CoachService math sum fallback recommends accumulator instead of turn/bounce", async () => {

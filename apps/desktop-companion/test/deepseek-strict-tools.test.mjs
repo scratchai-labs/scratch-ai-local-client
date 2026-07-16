@@ -95,6 +95,19 @@ test("compileDeepSeekStrictNodes accepts key params and normalizes common MESSAG
     ])
   ]);
   assert.equal(sayRoot.params.message, "开始");
+
+  const mediaRoot = compileDeepSeekStrictNodes([
+    node("broadcast", "event_broadcast", "", "root", [
+      { name: "broadcast", value: "开始游戏" }
+    ]),
+    node("list", "data_addtolist", "broadcast", "next", [
+      { name: "list", value: "购物清单" },
+      { name: "value", value: "item" }
+    ])
+  ]);
+  assert.equal(mediaRoot.params.broadcast, "开始游戏");
+  assert.equal(mediaRoot.next.params.list, "购物清单");
+  assert.equal(mediaRoot.next.params.value, "item");
 });
 
 test("compileDeepSeekStrictNodes rejects terminal next and invalid condition links", () => {
