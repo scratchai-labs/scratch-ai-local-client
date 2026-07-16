@@ -69,6 +69,8 @@ test("accepts constrained recommendation params for display defaults", () => {
           key: "right arrow",
           list: "购物清单",
           broadcast: "开始游戏",
+          x: "-100",
+          y: "80",
           secs: "3"
         }
       }
@@ -81,6 +83,8 @@ test("accepts constrained recommendation params for display defaults", () => {
     key: "right arrow",
     list: "购物清单",
     broadcast: "开始游戏",
+    x: "-100",
+    y: "80",
     secs: "3"
   });
 });

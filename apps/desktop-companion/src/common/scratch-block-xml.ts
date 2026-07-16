@@ -694,6 +694,22 @@ function buildVariableReporterValueXml(inputName: string, variableName: string) 
   return buildValueElementXml(inputName, buildVariableReporterBlockXml(variableName));
 }
 
+function buildWholeNumberShadowValueXml(inputName: string, value: string) {
+  return buildValueShadowXml(inputName, "math_whole_number", "NUM", value);
+}
+
+function buildPositiveNumberShadowValueXml(inputName: string, value: string) {
+  return buildValueShadowXml(inputName, "math_positive_number", "NUM", value);
+}
+
+function buildAngleShadowValueXml(inputName: string, value: string) {
+  return buildValueShadowXml(inputName, "math_angle", "NUM", value);
+}
+
+function buildColourShadowValueXml(inputName: string, value: string) {
+  return buildValueShadowXml(inputName, "colour_picker", "COLOUR", value);
+}
+
 function buildVariableMathValueXml(inputName: string, opcode: string, leftVariable: string, rightVariable: string) {
   return buildValueElementXml(
     inputName,
@@ -731,7 +747,7 @@ function tokenizeFormulaExpression(value: string) {
     }
 
     const previous = tokens[tokens.length - 1];
-    const canStartSignedNumber = !previous || ["(", "+", "-", "*", "/"].includes(previous);
+    const canStartSignedNumber = !previous || ["(", "+", "-", "*", "/", "%"].includes(previous);
     const numberMatch = normalized
       .slice(index)
       .match(canStartSignedNumber ? /^-?\d+(?:\.\d+)?/ : /^\d+(?:\.\d+)?/);
@@ -750,7 +766,7 @@ function tokenizeFormulaExpression(value: string) {
       continue;
     }
 
-    if ("()+-*/".includes(char)) {
+    if ("()+-*/%".includes(char)) {
       tokens.push(char);
       index += 1;
       continue;
@@ -772,6 +788,8 @@ function operatorTokenToOpcode(operator: string) {
       return "operator_multiply";
     case "/":
       return "operator_divide";
+    case "%":
+      return "operator_mod";
     default:
       return null;
   }
@@ -812,7 +830,7 @@ function parseFormulaExpression(value: string): FormulaExpressionNode | null {
 
   const parseMultiplicative = (): FormulaExpressionNode | null => {
     let node = parsePrimary();
-    while (node && (tokens[index] === "*" || tokens[index] === "/")) {
+    while (node && (tokens[index] === "*" || tokens[index] === "/" || tokens[index] === "%")) {
       const opcode = operatorTokenToOpcode(tokens[index]);
       index += 1;
       const right = parsePrimary();
@@ -874,6 +892,94 @@ function buildFormulaExpressionElementXml(expression: FormulaExpressionNode): st
 function buildFormulaExpressionValueXml(inputName: string, value: string) {
   const expression = parseFormulaExpression(value);
   return expression ? buildValueElementXml(inputName, buildFormulaExpressionElementXml(expression)) : null;
+}
+
+function splitRecommendedFunctionArgs(value: string) {
+  const args: string[] = [];
+  let depth = 0;
+  let current = "";
+
+  for (const char of value) {
+    if (char === "(") {
+      depth += 1;
+      current += char;
+      continue;
+    }
+    if (char === ")") {
+      depth -= 1;
+      current += char;
+      continue;
+    }
+    if (char === "," && depth === 0) {
+      args.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+
+  if (current.trim()) {
+    args.push(current.trim());
+  }
+
+  return args;
+}
+
+function parseRecommendedFunctionCall(value: string, functionName: string) {
+  const match = value.trim().match(new RegExp(`^${functionName}\\((.*)\\)$`, "i"));
+  return match?.[1] ? splitRecommendedFunctionArgs(match[1]) : null;
+}
+
+function buildStringOperandValueXml(inputName: string, value: string) {
+  if (value.startsWith("text:")) {
+    return buildTextShadowValueXml(inputName, value.slice("text:".length));
+  }
+  return buildFormulaExpressionValueXml(inputName, value) ?? buildTextShadowValueXml(inputName, value);
+}
+
+function buildSpecialExpressionElementXml(value: string): string | null {
+  const letterArgs = parseRecommendedFunctionCall(value, "letter");
+  if (letterArgs?.[0]) {
+    return buildElementXml(
+      "block",
+      "operator_letter_of",
+      `${buildFormulaOrNumberValueXml("LETTER", letterArgs[1] || "1", "1")}${buildStringOperandValueXml(
+        "STRING",
+        letterArgs[0]
+      )}`
+    );
+  }
+
+  const lengthArgs = parseRecommendedFunctionCall(value, "length");
+  if (lengthArgs?.[0]) {
+    return buildElementXml("block", "operator_length", buildStringOperandValueXml("STRING", lengthArgs[0]));
+  }
+
+  const listLengthArgs = parseRecommendedFunctionCall(value, "listlength");
+  if (listLengthArgs?.[0]) {
+    return buildElementXml("block", "data_lengthoflist", buildListFieldXml("LIST", listLengthArgs[0]));
+  }
+
+  const roundArgs = parseRecommendedFunctionCall(value, "round");
+  if (roundArgs?.[0]) {
+    return buildElementXml("block", "operator_round", buildFormulaOrNumberValueXml("NUM", roundArgs[0], "3.6"));
+  }
+
+  const joinArgs = parseRecommendedFunctionCall(value, "join");
+  if (joinArgs?.[0] && joinArgs[1]) {
+    return buildElementXml(
+      "block",
+      "operator_join",
+      `${buildStringOperandValueXml("STRING1", joinArgs[0])}${buildStringOperandValueXml("STRING2", joinArgs[1])}`
+    );
+  }
+
+  return null;
+}
+
+function buildSpecialExpressionValueXml(inputName: string, value: string) {
+  const elementXml = buildSpecialExpressionElementXml(value);
+  return elementXml ? buildValueElementXml(inputName, elementXml) : null;
 }
 
 function normalizeRecommendedVariableToken(token: string | undefined) {
@@ -1119,7 +1225,9 @@ function inferRecommendedSetVariableValueXml(block: RecommendedBlock, variableNa
     if (/^-?\d+(?:\.\d+)?$/.test(paramValue)) {
       return buildTextShadowValueXml("VALUE", paramValue);
     }
-    return buildFormulaExpressionValueXml("VALUE", paramValue) ?? buildTextShadowValueXml("VALUE", paramValue);
+    return buildSpecialExpressionValueXml("VALUE", paramValue) ??
+      buildFormulaExpressionValueXml("VALUE", paramValue) ??
+      buildTextShadowValueXml("VALUE", paramValue);
   }
 
   const text = getRecommendedBlockText(block);
@@ -1197,13 +1305,15 @@ function buildRecommendedMessageValueXml(block: RecommendedBlock, fallbackText: 
   }
 
   const outputVariable = inferRecommendedOutputVariableName(block);
+  if (outputVariable) {
+    const specialExpressionXml = buildSpecialExpressionValueXml("MESSAGE", outputVariable);
+    if (specialExpressionXml) {
+      return specialExpressionXml;
+    }
+  }
   return outputVariable
     ? buildVariableReporterValueXml("MESSAGE", outputVariable)
     : buildTextShadowValueXml("MESSAGE", fallbackText);
-}
-
-function buildWholeNumberShadowValueXml(inputName: string, value: string) {
-  return buildValueShadowXml(inputName, "math_whole_number", "NUM", value);
 }
 
 function inferRecommendedRepeatCount(block: RecommendedBlock) {
@@ -1259,14 +1369,6 @@ function buildRecommendedRepeatTimesValueXml(block: RecommendedBlock) {
   return buildWholeNumberShadowValueXml("TIMES", "10");
 }
 
-function buildPositiveNumberShadowValueXml(inputName: string, value: string) {
-  return buildValueShadowXml(inputName, "math_positive_number", "NUM", value);
-}
-
-function buildAngleShadowValueXml(inputName: string, value: string) {
-  return buildValueShadowXml(inputName, "math_angle", "NUM", value);
-}
-
 function inferRecommendedTurnDegrees(block: RecommendedBlock) {
   const paramDegrees = getRecommendedParam(block, "degrees");
   if (paramDegrees) {
@@ -1298,10 +1400,6 @@ function inferRecommendedTurnDegrees(block: RecommendedBlock) {
     }
   }
   return "15";
-}
-
-function buildColourShadowValueXml(inputName: string, value: string) {
-  return buildValueShadowXml(inputName, "colour_picker", "COLOUR", value);
 }
 
 function buildMenuShadowValueXml(
@@ -1359,6 +1457,14 @@ function buildFormulaOrNumberValueXml(inputName: string, value: string, fallback
   return buildFormulaExpressionValueXml(inputName, value) ?? buildNumberShadowValueXml(inputName, fallback);
 }
 
+function buildTurnDegreesValueXml(block: RecommendedBlock) {
+  const degrees = inferRecommendedTurnDegrees(block);
+  if (/^-?\d+(?:\.\d+)?$/.test(degrees)) {
+    return buildAngleShadowValueXml("DEGREES", degrees);
+  }
+  return buildFormulaExpressionValueXml("DEGREES", degrees) ?? buildAngleShadowValueXml("DEGREES", "15");
+}
+
 function buildOperatorComparisonXml(opcode: string, left: string, right: string) {
   return buildElementXml(
     "block",
@@ -1411,7 +1517,7 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
       );
     }
     case "event_whenbackdropswitchesto":
-      return buildElementXml("block", block.opcode, buildFieldXml("BACKDROP", "背景1"));
+      return buildElementXml("block", block.opcode, buildFieldXml("BACKDROP", getRecommendedParam(block, "value") || "背景1"));
     case "event_broadcast":
     case "event_broadcastandwait": {
       const broadcast = getRecommendedParam(block, "broadcast") || "消息1";
@@ -1435,7 +1541,7 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
       );
     case "motion_turnright":
     case "motion_turnleft":
-      return buildElementXml("block", block.opcode, buildAngleShadowValueXml("DEGREES", inferRecommendedTurnDegrees(block)));
+      return buildElementXml("block", block.opcode, buildTurnDegreesValueXml(block));
     case "motion_pointindirection":
       return buildElementXml("block", block.opcode, buildAngleShadowValueXml("DIRECTION", "90"));
     case "motion_goto":
@@ -1454,16 +1560,21 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildNumberShadowValueXml("X", "0")}${buildNumberShadowValueXml("Y", "0")}`
+        `${buildFormulaOrNumberValueXml("X", getRecommendedParam(block, "x") || "0", "0")}${buildFormulaOrNumberValueXml(
+          "Y",
+          getRecommendedParam(block, "y") || "0",
+          "0"
+        )}`
       );
     case "motion_glidesecstoxy":
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildPositiveNumberShadowValueXml("SECS", getRecommendedSecsParam(block, "1"))}${buildNumberShadowValueXml(
+        `${buildPositiveNumberShadowValueXml("SECS", getRecommendedSecsParam(block, "1"))}${buildFormulaOrNumberValueXml(
           "X",
+          getRecommendedParam(block, "x") || "0",
           "0"
-        )}${buildNumberShadowValueXml("Y", "0")}`
+        )}${buildFormulaOrNumberValueXml("Y", getRecommendedParam(block, "y") || "0", "0")}`
       );
     case "motion_glideto":
       return buildElementXml(
@@ -1483,11 +1594,23 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
         buildFormulaOrNumberValueXml("DX", getRecommendedParam(block, "steps") || "10", "10")
       );
     case "motion_setx":
-      return buildElementXml("block", block.opcode, buildNumberShadowValueXml("X", "0"));
+      return buildElementXml(
+        "block",
+        block.opcode,
+        buildFormulaOrNumberValueXml("X", getRecommendedParam(block, "x") || "0", "0")
+      );
     case "motion_changeyby":
-      return buildElementXml("block", block.opcode, buildNumberShadowValueXml("DY", "10"));
+      return buildElementXml(
+        "block",
+        block.opcode,
+        buildFormulaOrNumberValueXml("DY", getRecommendedParam(block, "steps") || "10", "10")
+      );
     case "motion_sety":
-      return buildElementXml("block", block.opcode, buildNumberShadowValueXml("Y", "0"));
+      return buildElementXml(
+        "block",
+        block.opcode,
+        buildFormulaOrNumberValueXml("Y", getRecommendedParam(block, "y") || "0", "0")
+      );
     case "motion_ifonedgebounce":
       return buildElementXml("block", block.opcode, "");
     case "looks_show":
@@ -1699,19 +1822,26 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildTextShadowValueXml("STRING1", "你好")}${buildTextShadowValueXml("STRING2", "Scratch")}`
+        `${buildStringOperandValueXml("STRING1", getRecommendedParam(block, "left") || "text:你好")}${buildStringOperandValueXml(
+          "STRING2",
+          getRecommendedParam(block, "right") || "text:Scratch"
+        )}`
       );
     case "operator_letter_of":
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildWholeNumberShadowValueXml("LETTER", "1")}${buildTextShadowValueXml(
+        `${buildFormulaOrNumberValueXml("LETTER", getRecommendedParam(block, "right") || "1", "1")}${buildStringOperandValueXml(
           "STRING",
-          "Scratch"
+          getRecommendedParam(block, "left") || "text:Scratch"
         )}`
       );
     case "operator_length":
-      return buildElementXml("block", block.opcode, buildTextShadowValueXml("STRING", "Scratch"));
+      return buildElementXml(
+        "block",
+        block.opcode,
+        buildStringOperandValueXml("STRING", getRecommendedParam(block, "left") || "text:Scratch")
+      );
     case "operator_contains":
       return buildElementXml(
         "block",
@@ -1725,10 +1855,18 @@ function buildRecommendedBlockBody(block: RecommendedBlock, includeStructuralPla
       return buildElementXml(
         "block",
         block.opcode,
-        `${buildNumberShadowValueXml("NUM1", "10")}${buildNumberShadowValueXml("NUM2", "3")}`
+        `${buildFormulaOrNumberValueXml("NUM1", getRecommendedParam(block, "left") || "10", "10")}${buildFormulaOrNumberValueXml(
+          "NUM2",
+          getRecommendedParam(block, "right") || "3",
+          "3"
+        )}`
       );
     case "operator_round":
-      return buildElementXml("block", block.opcode, buildNumberShadowValueXml("NUM", "3.6"));
+      return buildElementXml(
+        "block",
+        block.opcode,
+        buildFormulaOrNumberValueXml("NUM", getRecommendedParam(block, "left") || "3.6", "3.6")
+      );
     case "operator_mathop":
       return buildElementXml(
         "block",

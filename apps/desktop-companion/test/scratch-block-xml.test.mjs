@@ -673,6 +673,120 @@ test("buildRecommendedStructureXml renders key selection and speed variable move
   assert.match(xml, /<variable[^>]+id="variable-speed"[^>]*>speed<\/variable>/);
 });
 
+test("buildRecommendedStructureXml renders variable angles and coordinate params", () => {
+  const xml = buildRecommendedStructureXml({
+    root: {
+      opcode: "control_repeat",
+      category: "控制",
+      label: "重复 sides 次",
+      reason: "六边形边数来自 sides。",
+      params: { repeatTimes: "sides" },
+      substack: {
+        opcode: "motion_turnright",
+        category: "运动",
+        label: "右转 angle",
+        reason: "每条边使用 angle 变量。",
+        params: { degrees: "angle" }
+      },
+      next: {
+        opcode: "motion_setx",
+        category: "运动",
+        label: "设 x",
+        reason: "设置 x。",
+        params: { x: "-100" },
+        next: {
+          opcode: "motion_sety",
+          category: "运动",
+          label: "设 y",
+          reason: "设置 y。",
+          params: { y: "80" },
+          next: {
+            opcode: "motion_gotoxy",
+            category: "运动",
+            label: "到坐标",
+            reason: "回到中心。",
+            params: { x: "0", y: "0" }
+          }
+        }
+      }
+    }
+  });
+
+  assert.match(xml, /<value name="TIMES">\s*<block type="data_variable">/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>sides<\/field>/);
+  assert.match(xml, /<value name="DEGREES">\s*<block type="data_variable">/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>angle<\/field>/);
+  assert.match(xml, /<block type="motion_setx">[\s\S]*<field name="NUM">-100<\/field>/);
+  assert.match(xml, /<block type="motion_sety">[\s\S]*<field name="NUM">80<\/field>/);
+  assert.match(xml, /<block type="motion_gotoxy">[\s\S]*<field name="NUM">0<\/field>[\s\S]*<field name="NUM">0<\/field>/);
+});
+
+test("buildRecommendedStructureXml renders mod, string helper and list length params", () => {
+  const xml = buildRecommendedStructureXml({
+    root: {
+      opcode: "data_setvariableto",
+      category: "变量",
+      label: "remainder",
+      reason: "保存余数。",
+      params: { variable: "remainder", value: "number % 2" },
+      next: {
+        opcode: "data_setvariableto",
+        category: "变量",
+        label: "first",
+        reason: "保存第一个字母。",
+        params: { variable: "first", value: "letter(word,1)" },
+        next: {
+          opcode: "data_setvariableto",
+          category: "变量",
+          label: "length",
+          reason: "保存长度。",
+          params: { variable: "length", value: "length(word)" },
+          next: {
+            opcode: "looks_sayforsecs",
+            category: "外观",
+            label: "说长度",
+            reason: "说出购物清单长度。",
+            params: { messageVariable: "listlength(购物清单)" }
+          }
+        }
+      }
+    }
+  });
+
+  assert.match(xml, /<block type="operator_mod">/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>number<\/field>/);
+  assert.match(xml, /<block type="operator_letter_of">/);
+  assert.match(xml, /<block type="operator_length">/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>word<\/field>/);
+  assert.match(xml, /<block type="data_lengthoflist">/);
+  assert.match(xml, /<field name="LIST"[^>]*>购物清单<\/field>/);
+});
+
+test("buildRecommendedStructureXml renders join and round helper params", () => {
+  const xml = buildRecommendedStructureXml({
+    root: {
+      opcode: "data_setvariableto",
+      category: "变量",
+      label: "message",
+      reason: "拼接问候语。",
+      params: { variable: "message", value: "join(text:你好,name)" },
+      next: {
+        opcode: "data_setvariableto",
+        category: "变量",
+        label: "rounded",
+        reason: "四舍五入 number。",
+        params: { variable: "rounded", value: "round(number)" }
+      }
+    }
+  });
+
+  assert.match(xml, /<block type="operator_join">/);
+  assert.match(xml, /<field name="TEXT">你好<\/field>/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>name<\/field>/);
+  assert.match(xml, /<block type="operator_round">/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>number<\/field>/);
+});
+
 test("buildRecommendedStructureXml renders named broadcast and list params", () => {
   const xml = buildRecommendedStructureXml({
     root: {

@@ -263,7 +263,7 @@ const EXTRA_RENDER_COMPLETENESS_GOAL_CASES = Object.freeze([
         expectedOpcodes: ['data_deletealloflist', 'data_addtolist', 'data_lengthoflist', 'looks_sayforsecs'],
         expectedKeywords: ['购物清单', '清空', 'item', '长度'],
         disallowedOpcodes: ['motion_movesteps', 'pen_clear'],
-        driftKeywords: ['鸡兔', '正方形', '苹果']
+        driftKeywords: ['鸡兔', '正方形', '五边形']
     },
     {
         id: 'C34-list-insert-replace',

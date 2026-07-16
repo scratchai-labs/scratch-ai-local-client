@@ -108,6 +108,17 @@ test("compileDeepSeekStrictNodes accepts key params and normalizes common MESSAG
   assert.equal(mediaRoot.params.broadcast, "开始游戏");
   assert.equal(mediaRoot.next.params.list, "购物清单");
   assert.equal(mediaRoot.next.params.value, "item");
+
+  const positionRoot = compileDeepSeekStrictNodes([
+    node("x", "motion_setx", "", "root", [
+      { name: "x", value: "-100" }
+    ]),
+    node("y", "motion_sety", "x", "next", [
+      { name: "y", value: "80" }
+    ])
+  ]);
+  assert.equal(positionRoot.params.x, "-100");
+  assert.equal(positionRoot.next.params.y, "80");
 });
 
 test("compileDeepSeekStrictNodes rejects terminal next and invalid condition links", () => {

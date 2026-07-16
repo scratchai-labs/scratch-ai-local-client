@@ -25,6 +25,8 @@ const PARAM_NAMES = [
   "broadcast",
   "left",
   "right",
+  "x",
+  "y",
   "steps",
   "degrees",
   "secs"

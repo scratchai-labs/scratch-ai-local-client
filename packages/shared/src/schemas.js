@@ -17,6 +17,8 @@ const recommendedBlockParamsSchema = z
     broadcast: z.string().max(80).optional(),
     left: z.string().max(80).optional(),
     right: z.string().max(80).optional(),
+    x: z.string().max(80).optional(),
+    y: z.string().max(80).optional(),
     steps: z.string().max(80).optional(),
     degrees: z.string().max(80).optional(),
     secs: z.string().max(80).optional()

@@ -41,7 +41,7 @@ const DEFAULT_DEEPSEEK_MAX_TOKENS = 2048;
 export const DEFAULT_HINT_ONLY_SYSTEM_PROMPT =
   "你是 Scratch 小学编程助教。请完整阅读舞台和全部角色的全部脚本，从整个项目而不是只从当前角色判断作品是否完整。完整性判断只能依据本次最新项目快照中实际存在的脚本和积木；不得根据角色名称、造型主题或常见游戏玩法推测项目具有快照中没有的控制、得分、升级、胜利、失败或结束功能。请逐个核对舞台和每个角色的实际脚本，并从绿旗开始检查实际可达路径：追踪事件入口、条件、循环、变量和广播的发送与接收，确认核心流程不会因为等待尚未发生的广播或条件而无法启动。如果没有按键、角色点击、鼠标位置、鼠标按下等真实输入积木，就不能声称学生可以控制角色；如果碰撞条件指向的是另一个角色，也不能改写成学生控制的角色发生碰撞。只有启动方式、操作方式、核心规则、反馈和结束条件等你在 summary 中声称存在的功能，都能在当前脚本中找到证据并且实际可达时，才能判断作品完整。若作品仍需完善，给出具体、可执行、面向小学生的中文提示，但不要直接给完整答案，不要写完整脚本，并给出当前最适合尝试的 1 到 5 个按顺序连接的关键积木；简单下一步优先 1 到 3 个，只有输入、保存、条件和反馈等复杂步骤确实需要时才使用 4 到 5 个。若作品已经形成完整、可运行、目标清楚的程序，可以不返回 recommendation，只用 summary 简短告诉学生作品已完成以及如何启动、操作或体验。所有展示给学生的自然语言都必须直接对学生说“你”，不要用“学生”“老师”“用户”等第三人称称呼。所有自然语言必须使用中文，不要出现英文 opcode、英文积木名、英文字段解释，避免中英混杂。recommendation.root 里的 opcode 必须使用 Scratch 官方积木 opcode，不要编造不存在的 opcode。";
 const HINT_ONLY_OUTPUT_REQUIREMENTS =
-  "必须调用且只调用一个严格工具：作品已经完整时调用 submit_completed_project；作品仍需完善时调用 submit_scratch_recommendation。不要在 message.content 输出 JSON、Markdown、解释、追问或 XML。推荐工具的 nodes 最多包含 5 个节点；每个节点必须填写唯一 id、parentId、relation、opcode、category、label、reason 和 params。root 节点 relation=root 且 parentId 为空字符串；其他节点的 parentId 必须指向已有节点 id，relation 只能是 next、condition、substack、substack2。next 表示合法的后续顺序积木，condition 只能放布尔积木，substack/substack2 只能用于对应控制积木；一直重复的内部动作必须使用 substack，停止全部和删除本克隆体之后禁止 next。params 是由 {name,value} 组成的数组，没有参数时使用空数组；name 只允许 variable、value、changeBy、message、messageVariable、repeatTimes、question、key、list、broadcast、left、right、steps、degrees、secs，value 必须是字符串。如果 sensing_askandwait 后紧接 data_setvariableto 保存回答，使用 {name=value,value=sensing_answer}。变量名优先复用项目已有名称；新建变量时使用符合题目语言的短名称，同一含义必须保持一致。";
+  "必须调用且只调用一个严格工具：作品已经完整时调用 submit_completed_project；作品仍需完善时调用 submit_scratch_recommendation。不要在 message.content 输出 JSON、Markdown、解释、追问或 XML。推荐工具的 nodes 最多包含 5 个节点；每个节点必须填写唯一 id、parentId、relation、opcode、category、label、reason 和 params。root 节点 relation=root 且 parentId 为空字符串；其他节点的 parentId 必须指向已有节点 id，relation 只能是 next、condition、substack、substack2。next 表示合法的后续顺序积木，condition 只能放布尔积木，substack/substack2 只能用于对应控制积木；一直重复的内部动作必须使用 substack，停止全部和删除本克隆体之后禁止 next。params 是由 {name,value} 组成的数组，没有参数时使用空数组；name 只允许 variable、value、changeBy、message、messageVariable、repeatTimes、question、key、list、broadcast、left、right、x、y、steps、degrees、secs，value 必须是字符串。如果 sensing_askandwait 后紧接 data_setvariableto 保存回答，使用 {name=value,value=sensing_answer}。变量名优先复用项目已有名称；新建变量时使用符合题目语言的短名称，同一含义必须保持一致。";
 const RECOMMENDED_OPCODE_WHITELIST_REQUIREMENTS =
   `recommendation 里的 opcode 只允许从以下 Scratch 官方 opcode 白名单中选择：${SUPPORTED_RECOMMENDED_BLOCK_OPCODES.join("、")}。如果不确定具体 opcode，就不要返回那一块，不要替换成其他积木。`;
 const HINT_ONLY_USER_PROMPT =
@@ -970,6 +970,8 @@ const RECOMMENDATION_PARAM_KEY_SET = new Set([
   "broadcast",
   "left",
   "right",
+  "x",
+  "y",
   "steps",
   "degrees",
   "secs"

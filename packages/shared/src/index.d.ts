@@ -75,6 +75,8 @@ export type RecommendedBlockParams = {
   broadcast?: string;
   left?: string;
   right?: string;
+  x?: string;
+  y?: string;
   steps?: string;
   degrees?: string;
   secs?: string;

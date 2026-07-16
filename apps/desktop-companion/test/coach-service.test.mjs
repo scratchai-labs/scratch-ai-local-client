@@ -2156,6 +2156,52 @@ test("CoachService provides renderable fallbacks for common real-world goals", a
   }
 });
 
+test("CoachService covers render-completeness weak targets with specific fallbacks", async () => {
+  const service = new CoachService(async () => {
+    throw new Error("force fallback");
+  });
+  const cases = [
+    { goal: "输入整数 number，用除以 2 的余数判断奇数或偶数，并说出结果", variables: ["number", "remainder"], expected: [/operator_mod/, /number<\/field>/, /remainder<\/field>/, /control_if_else/, /偶数/, /奇数/] },
+    { goal: "做生命值系统：碰到敌人时 health 减少 damage，health 等于 0 时停止全部", variables: ["health", "damage"], expected: [/control_forever/, /sensing_touchingobject/, /health<\/field>/, /damage<\/field>/, /operator_subtract/] },
+    { goal: "用画笔画正六边形：重复次数使用变量 sides，每次右转变量 angle 度", variables: ["sides", "angle"], expected: [/control_repeat/, /sides<\/field>/, /motion_turnright/, /angle<\/field>/] },
+    { goal: "已知 distance=120、speed=30，计算 time = distance ÷ speed 并说出来", variables: ["distance", "speed", "time"], expected: [/time<\/field>/, /distance<\/field>/, /speed<\/field>/, /operator_divide/] },
+    { goal: "每天存 daily=10 元，重复执行 10 次把 money 增加 daily，达到 target=100 后说“达成目标”", variables: ["money", "target", "daily"], expected: [/control_repeat/, /money<\/field>/, /daily<\/field>/, /target<\/field>/, /达成目标/] },
+    { goal: "做能量系统：按空格键时 energy 增加 boost，energy 大于 100 时说“能量满了”", variables: ["energy", "boost"], expected: [/control_forever/, /sensing_keypressed/, /space/, /energy<\/field>/, /boost<\/field>/] },
+    { goal: "使用重复执行直到 score 等于 target，循环里让 score 增加 1，结束后说“完成”", variables: ["score", "target"], expected: [/control_repeat_until/, /score<\/field>/, /target<\/field>/, /完成/] },
+    { goal: "点击绿旗创建自己的克隆体，克隆体出现后等待 1 秒再删除此克隆体", variables: [], expected: [/control_create_clone_of/, /control_wait/, /<field name="NUM">1<\/field>/, /control_delete_this_clone/] },
+    { goal: "当背景切换到 bedroom 时广播“到卧室”，收到“到卧室”后说“到了”", variables: [], expected: [/event_whenbackdropswitchesto/, /bedroom/, /event_broadcast/, /到卧室/] },
+    { goal: "先清空购物清单，再把 item 加入购物清单，然后说出购物清单长度", variables: ["item"], expected: [/data_deletealloflist/, /data_addtolist/, /data_lengthoflist/, /购物清单/, /item<\/field>/] },
+    { goal: "把 word 的第 1 个字母保存到 first，把 word 的长度保存到 length，并说出 first 和 length", variables: ["word", "first", "length"], expected: [/operator_letter_of/, /operator_length/, /operator_join/, /word<\/field>/, /first<\/field>/, /length<\/field>/] },
+    { goal: "一直检测上箭头和下箭头：按上箭头 y 增加 step，按下箭头 y 减少 step", variables: ["step"], expected: [/control_forever/, /sensing_keypressed/, /up arrow/, /motion_changeyby/, /step<\/field>/] },
+    { goal: "点击绿旗后用 1 秒滑行到鼠标指针，再说“我到了”", variables: [], expected: [/motion_glideto/, /<field name="NUM">1<\/field>/, /我到了/] },
+    { goal: "点击绿旗后把 x 坐标设为 -100，把 y 坐标设为 80，然后移到 x=0 y=0", variables: [], expected: [/motion_setx/, /<field name="NUM">-100<\/field>/, /motion_sety/, /<field name="NUM">80<\/field>/, /motion_gotoxy/] },
+    { goal: "点击绿旗后广播“准备”并等待，收到“准备”后说“开始”", variables: [], expected: [/event_broadcastandwait/, /准备/, /开始/] },
+    { goal: "如果 health 等于 0，就说“游戏结束”并停止全部脚本", variables: ["health"], expected: [/control_if/, /operator_equals/, /health<\/field>/, /control_stop/, /游戏结束/] },
+    { goal: "把“你好 ”和 name 拼接成 message，并说出 message", variables: ["name", "message"], expected: [/operator_join/, /你好/, /name<\/field>/, /message<\/field>/, /<value name="MESSAGE">\s*<block type="data_variable"[\s\S]*<field name="VARIABLE"[^>]*>message<\/field>/] }
+  ];
+
+  for (const scenario of cases) {
+    const snapshot = createSnapshot();
+    snapshot.globalVariables = scenario.variables.map(name => ({ id: `var-${name}`, name, value: 0, isCloud: false }));
+    snapshot.sprites[0].variables = snapshot.globalVariables;
+    const result = await service.generateHint({
+      snapshot,
+      currentTargetPrograms: ["当绿旗被点击"],
+      programAreaModules: snapshot.programAreaModules,
+      usedExtensions: [],
+      loadedExtensions: [],
+      goal: scenario.goal,
+      aiConfig: createAiConfig({configured: false, apiKey: ""})
+    });
+
+    assert.equal(result.source, "fallback", scenario.goal);
+    assert.ok(result.coachResponse.recommendation, scenario.goal);
+    const xml = buildRecommendedStructureXml(result.coachResponse.recommendation);
+    for (const pattern of scenario.expected) assert.match(xml, pattern, scenario.goal);
+    assert.doesNotMatch(result.coachResponse.answerText, /累加结果变量 sum|碰到边缘就反弹|固定次数的循环测试/, scenario.goal);
+  }
+});
+
 test("CoachService replaces a structurally valid but off-target click recommendation", async () => {
   const service = new CoachService(async () => createDeepSeekResponse(JSON.stringify({
     summary: "持续检测是否碰到目标。",
@@ -2212,6 +2258,103 @@ test("CoachService replaces a structurally valid but off-target click recommenda
   assert.match(xml, /score<\/field>/);
   assert.match(xml, /targetScore<\/field>/);
   assert.doesNotMatch(xml, /sensing_touchingobject/);
+});
+
+test("CoachService replaces join-message recommendations that omit the message reporter", async () => {
+  const service = new CoachService(async () => createDeepSeekResponse(JSON.stringify({
+    summary: "还需要拼接并说出 message。",
+    recommendation: {
+      root: {
+        opcode: "data_setvariableto",
+        category: "变量",
+        label: "将 message 设为拼接结果",
+        reason: "把“你好 ”和 name 拼接后存入 message 变量",
+        next: {
+          opcode: "looks_say",
+          category: "外观",
+          label: "说出 message",
+          reason: "说出拼接好的 message，让结果展示出来"
+        }
+      }
+    }
+  })));
+  const snapshot = createSnapshot();
+  snapshot.globalVariables = [
+    { id: "name", name: "name", value: "小猫", isCloud: false },
+    { id: "message", name: "message", value: "", isCloud: false }
+  ];
+  snapshot.sprites[0].variables = snapshot.globalVariables;
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["当绿旗被点击 -> 将 name 设为 小猫 -> 将 message 设为 空"],
+    programAreaModules: [{ id: "data", label: "变量", blockCount: 2 }],
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "把“你好 ”和 name 拼接成 message，并说出 message",
+    aiConfig: createAiConfig()
+  });
+
+  const xml = buildRecommendedStructureXml(result.coachResponse.recommendation);
+  assert.match(xml, /operator_join/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>name<\/field>/);
+  assert.match(xml, /<value name="MESSAGE">\s*<block type="data_variable"[\s\S]*<field name="VARIABLE"[^>]*>message<\/field>/);
+});
+
+test("CoachService replaces stop-all recommendations that omit the exact stop-all intent", async () => {
+  const service = new CoachService(async () => createDeepSeekResponse(JSON.stringify({
+    summary: "判断 health 是否归零并结束游戏。",
+    recommendation: {
+      root: {
+        opcode: "control_forever",
+        category: "控制",
+        label: "持续检测",
+        reason: "需要持续检测 health 是否变成 0",
+        substack: {
+          opcode: "control_if",
+          category: "控制",
+          label: "如果 health 等于 0",
+          reason: "判断 health 是否等于 0",
+          condition: {
+            opcode: "operator_equals",
+            category: "运算",
+            label: "health = 0",
+            reason: "比较 health 是否等于 0"
+          },
+          substack: {
+            opcode: "looks_sayforsecs",
+            category: "外观",
+            label: "说游戏结束",
+            reason: "提示玩家游戏结束",
+            next: {
+              opcode: "control_stop",
+              category: "控制",
+              label: "停止",
+              reason: "结束所有脚本"
+            }
+          }
+        }
+      }
+    }
+  })));
+  const snapshot = createSnapshot();
+  snapshot.globalVariables = [{ id: "health", name: "health", value: 0, isCloud: false }];
+  snapshot.sprites[0].variables = snapshot.globalVariables;
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["当绿旗被点击 -> 将 health 设为 1"],
+    programAreaModules: [{ id: "data", label: "变量", blockCount: 1 }],
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "如果 health 等于 0，就说“游戏结束”并停止全部脚本",
+    aiConfig: createAiConfig()
+  });
+
+  const xml = buildRecommendedStructureXml(result.coachResponse.recommendation);
+  assert.match(result.coachResponse.answerText, /停止全部脚本/);
+  assert.match(xml, /<field name="VARIABLE"[^>]*>health<\/field>/);
+  assert.match(xml, /<field name="STOP_OPTION">all<\/field>/);
 });
 
 test("CoachService replaces password recommendations that omit required params", async () => {
