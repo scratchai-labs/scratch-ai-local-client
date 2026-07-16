@@ -27,6 +27,7 @@ node tools/verification\scripts\generate-teaching-brief-from-sb3.mjs --sb3="C:\P
 node tools/verification\scripts\run-deepseek-teaching-workflow.mjs
 npm run test:recommendation-render-contract
 npm run verify:deepseek-strict
+node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs --packaged=false --goal-suite=variable-visibility --follow-steps=1
 ```
 
 macOS 对应入口：
@@ -53,6 +54,7 @@ npm run verify:deepseek-strict
 - 打包版真实端到端 E2E
 - DeepSeek Beta Strict 工具兼容性、扁平节点编译与 XML 生成探针
 - 93 个推荐 opcode、合法结构和 terminal 非法连接的真实 Electron / scratch-blocks 渲染合同
+- 第二组 10 个变量型真实目标，可逐项比较 XML 变量字段次数与 Blockly 可见文字次数，发现空圆形即判失败
 
 ## 推荐积木专项验证
 

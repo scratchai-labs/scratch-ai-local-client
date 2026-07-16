@@ -19,6 +19,7 @@
  *   node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs
  *   node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs --packaged=false --follow-steps=1
  *   node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs --case-ids=G4-chicken-rabbit,G7-square-number,G10-draw-pentagon
+ *   node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs --goal-suite=variable-visibility
  */
 import {access, mkdir, readFile, rm, writeFile} from 'node:fs/promises';
 import path from 'node:path';
@@ -27,6 +28,10 @@ import {spawn} from 'node:child_process';
 
 import {findDefaultAutomationScratchExecutablePath, parseLatestScratchLaunchInfo} from './automation-platform.mjs';
 import {getDefaultElectronBinaryPath, getDefaultPackagedCompanionBinaryPath} from './electron-paths.mjs';
+import {
+    VARIABLE_VISIBILITY_GOAL_CASES,
+    VARIABLE_VISIBILITY_SEED_SPECS
+} from './multi-goal-variable-visibility-cases.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
@@ -54,6 +59,7 @@ const companionDebugPort = Number(argv.get('--port') ?? '9407');
 const timeoutMs = Number(argv.get('--timeout-ms') ?? '150000');
 const maxFollowSteps = Number(argv.get('--follow-steps') ?? '1');
 const keepOpen = argv.get('--keep-open') === 'true';
+const goalSuite = argv.get('--goal-suite') ?? 'default';
 const requestedCaseIds = new Set(
     (argv.get('--case-ids') ?? '')
         .split(',')
@@ -569,8 +575,63 @@ ${findVmHelpersSource()}
   if (!Array.isArray(project.extensions)) project.extensions = [];
 
   const flagId = makeId("flag");
+  const variableVisibilitySeedSpecs = ${JSON.stringify(VARIABLE_VISIBILITY_SEED_SPECS)};
+  const variableVisibilitySpec = variableVisibilitySeedSpecs[seedName];
 
-  if (seedName === "apple-game") {
+  if (variableVisibilitySpec) {
+    const variableEntries = Object.entries(variableVisibilitySpec.variables || {});
+    const { ids } = ensureStageVariables(project, variableEntries.map(([name]) => name));
+    for (const extension of variableVisibilitySpec.extensions || []) {
+      if (!project.extensions.includes(extension)) project.extensions.push(extension);
+    }
+
+    const blocks = {
+      [flagId]: { opcode: "event_whenflagclicked", next: null, parent: null, inputs: {}, fields: {}, shadow: false, topLevel: true, x: 70, y: 70 }
+    };
+    let previousId = flagId;
+    function appendStackBlock(opcode, inputs = {}, fields = {}) {
+      const id = makeId(opcode);
+      blocks[previousId].next = id;
+      blocks[id] = { opcode, next: null, parent: previousId, inputs, fields, shadow: false, topLevel: false };
+      previousId = id;
+      return id;
+    }
+
+    const askedVariable = variableVisibilitySpec.ask?.variable || null;
+    if (variableVisibilitySpec.ask) {
+      appendStackBlock("sensing_askandwait", { QUESTION: [1, [10, variableVisibilitySpec.ask.question]] });
+      const answerId = makeId("answer");
+      const setAnswerId = appendStackBlock(
+        "data_setvariableto",
+        { VALUE: [3, answerId, [10, "0"]] },
+        { VARIABLE: varField(askedVariable, ids) }
+      );
+      blocks[answerId] = { opcode: "sensing_answer", next: null, parent: setAnswerId, inputs: {}, fields: {}, shadow: false, topLevel: false };
+    }
+
+    for (const [name, value] of variableEntries) {
+      if (name === askedVariable) continue;
+      appendStackBlock(
+        "data_setvariableto",
+        { VALUE: [1, [10, String(value)]] },
+        { VARIABLE: varField(name, ids) }
+      );
+    }
+
+    for (const opcode of variableVisibilitySpec.beforeTailOpcodes || []) {
+      appendStackBlock(opcode);
+    }
+
+    if (variableVisibilitySpec.tail?.opcode === "control_repeat") {
+      const timesInput = variableVisibilitySpec.tail.countVariable
+        ? [3, [12, variableVisibilitySpec.tail.countVariable, ids[variableVisibilitySpec.tail.countVariable]], [6, "10"]]
+        : [1, [6, String(variableVisibilitySpec.tail.count || "10")]];
+      appendStackBlock("control_repeat", { TIMES: timesInput, SUBSTACK: [1, null] });
+    } else if (variableVisibilitySpec.tail?.opcode === "control_forever") {
+      appendStackBlock("control_forever", { SUBSTACK: [1, null] });
+    }
+    sprite.blocks = blocks;
+  } else if (seedName === "apple-game") {
     const { ids } = ensureStageVariables(project, ["score"]);
     const setScoreId = makeId("set-score");
     sprite.blocks = {
@@ -1173,7 +1234,7 @@ async function closeScratchTarget(target) {
     }
 }
 
-const goalCases = [
+const defaultGoalCases = [
     {
         id: 'G1-game',
         kind: '小游戏',
@@ -1302,6 +1363,13 @@ const goalCases = [
     }
 ];
 
+const goalCases = goalSuite === 'variable-visibility'
+    ? VARIABLE_VISIBILITY_GOAL_CASES
+    : defaultGoalCases;
+assert(
+    goalSuite === 'default' || goalSuite === 'variable-visibility',
+    `未知 --goal-suite：${goalSuite}`
+);
 const activeGoalCases = requestedCaseIds.size > 0
     ? goalCases.filter(testCase => requestedCaseIds.has(testCase.id))
     : goalCases;
@@ -1319,6 +1387,49 @@ function getRenderedXmlList(entries) {
     return entries
         .filter(entry => !String(entry.tag).endsWith('goal-typed'))
         .flatMap(entry => getEntryRecommendationXmlList(entry));
+}
+function decodeXmlText(value) {
+    return String(value)
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&amp;', '&');
+}
+function analyzeVariableVisibility(entries) {
+    const issues = [];
+    const visibleVariableNames = new Set();
+    for (const entry of entries.filter(item => !String(item.tag).endsWith('goal-typed'))) {
+        const xmlList = getEntryRecommendationXmlList(entry);
+        const blockTextList = Array.isArray(entry.renderedRecommendation?.blockTextList)
+            ? entry.renderedRecommendation.blockTextList
+            : [];
+        xmlList.forEach((xml, index) => {
+            const expectedCounts = new Map();
+            for (const match of xml.matchAll(/<field name="VARIABLE"[^>]*>([^<]+)<\/field>/g)) {
+                const variableName = decodeXmlText(match[1]).trim();
+                if (!variableName) continue;
+                expectedCounts.set(variableName, (expectedCounts.get(variableName) ?? 0) + 1);
+            }
+            const renderedCounts = new Map();
+            for (const text of blockTextList[index] ?? []) {
+                const normalized = String(text).trim();
+                if (!normalized) continue;
+                renderedCounts.set(normalized, (renderedCounts.get(normalized) ?? 0) + 1);
+            }
+            for (const [variableName, expectedCount] of expectedCounts) {
+                const renderedCount = renderedCounts.get(variableName) ?? 0;
+                if (renderedCount > 0) visibleVariableNames.add(variableName);
+                if (renderedCount < expectedCount) {
+                    issues.push(`${entry.tag}: 变量 ${variableName} 应显示 ${expectedCount} 次，实际可见 ${renderedCount} 次`);
+                }
+            }
+        });
+    }
+    return {
+        ok: issues.length === 0,
+        issues,
+        visibleVariableNames: [...visibleVariableNames]
+    };
 }
 function hasFieldValue(xml, value) {
     return new RegExp(`<field name="NUM">${escapeRegex(value)}<\\/field>`).test(xml);
@@ -1407,10 +1518,18 @@ function evaluateCaseResult(testCase, entries) {
     const runtimeOk = testCase.runtimeCheck ? Boolean(runtimeCheck?.ok) : true;
     const displayIssues = analyzeDisplayChecks(testCase, entries);
     const displayOk = displayIssues.length === 0;
+    const variableVisibility = analyzeVariableVisibility(entries);
+    const expectedVariableHits = (testCase.expectedVariables ?? []).filter(variableName =>
+        variableVisibility.visibleVariableNames.includes(variableName)
+    );
+    const hasExpectedVariableEvidence =
+        !Array.isArray(testCase.expectedVariables) ||
+        testCase.expectedVariables.length === 0 ||
+        expectedVariableHits.length > 0;
     const rating =
-        goalMatched && hasRecommendedBlocks && !drift && runtimeOk && displayOk
+        goalMatched && hasRecommendedBlocks && !drift && runtimeOk && displayOk && variableVisibility.ok && hasExpectedVariableEvidence
             ? 'good'
-            : (goalMatched && !drift && runtimeOk && displayOk ? 'ok' : 'weak');
+            : (goalMatched && !drift && runtimeOk && displayOk && variableVisibility.ok && hasExpectedVariableEvidence ? 'ok' : 'weak');
     return {
         id: testCase.id,
         kind: testCase.kind,
@@ -1428,6 +1547,11 @@ function evaluateCaseResult(testCase, entries) {
         runtimeOk,
         displayIssues,
         displayOk,
+        variableVisibilityOk: variableVisibility.ok,
+        variableVisibilityIssues: variableVisibility.issues,
+        visibleVariableNames: variableVisibility.visibleVariableNames,
+        expectedVariableHits,
+        hasExpectedVariableEvidence,
         rating
     };
 }
@@ -1439,6 +1563,7 @@ async function main() {
 
     console.log(JSON.stringify({
         phase: 'start',
+        goalSuite,
         usePackaged,
         companionExe,
         companionCwd,
@@ -1653,6 +1778,7 @@ async function main() {
         const summary = {
             ok: true,
             artifactDir,
+            goalSuite,
             usePackaged,
             companionExe,
             scratchExe,
@@ -1670,21 +1796,23 @@ async function main() {
         const lines = [
             '# Multi-Goal DeepSeek Coaching Report',
             '',
+            `- goalSuite: ${summary.goalSuite}`,
             `- usePackaged: ${summary.usePackaged}`,
             `- steps: ${summary.steps}`,
             `- screenshots: ${summary.screenshots.length}`,
             `- hasApiKey: ${summary.hasApiKey}`,
             '',
             '## Case Evaluation',
-            '| 目标 | 类型 | 评价 | DeepSeek | Fallback | 运行输出 | 显示校验 | 命中积木 | 命中关键词 | 漂移 |',
-            '| --- | --- | --- | ---: | ---: | --- | --- | --- | --- | --- |'
+            '| 目标 | 类型 | 评价 | DeepSeek | Fallback | 运行输出 | 显示校验 | 变量可见 | 可见变量 | 命中积木 | 命中关键词 | 漂移 |',
+            '| --- | --- | --- | ---: | ---: | --- | --- | --- | --- | --- | --- | --- |'
         ];
         for (const item of caseEvaluations) {
             const runtimeText = item.runtimeCheck
                 ? `${item.runtimeCheck.ok ? 'pass' : 'fail'}: expected ${item.runtimeCheck.expectedText}, got ${item.runtimeCheck.bubbleText || '(empty)'}`
                 : '-';
             const displayText = item.displayOk ? 'pass' : item.displayIssues.join('; ');
-            lines.push(`| ${item.id} | ${item.kind} | ${item.rating} | ${item.deepseekCount} | ${item.fallbackCount} | ${runtimeText} | ${displayText} | ${item.expectedOpcodeHits.join(', ') || '-'} | ${item.keywordHits.join(', ') || '-'} | ${[...item.disallowedHits, ...item.driftHits].join(', ') || '-'} |`);
+            const variableText = item.variableVisibilityOk ? 'pass' : item.variableVisibilityIssues.join('; ');
+            lines.push(`| ${item.id} | ${item.kind} | ${item.rating} | ${item.deepseekCount} | ${item.fallbackCount} | ${runtimeText} | ${displayText} | ${variableText} | ${item.visibleVariableNames.join(', ') || '-'} | ${item.expectedOpcodeHits.join(', ') || '-'} | ${item.keywordHits.join(', ') || '-'} | ${[...item.disallowedHits, ...item.driftHits].join(', ') || '-'} |`);
         }
         lines.push('', '## UI Layout Samples');
         for (const sample of uiLayoutSamples.slice(0, 8)) {
@@ -1723,6 +1851,10 @@ async function main() {
                 drift: item.drift,
                 displayOk: item.displayOk,
                 displayIssues: item.displayIssues,
+                variableVisibilityOk: item.variableVisibilityOk,
+                variableVisibilityIssues: item.variableVisibilityIssues,
+                visibleVariableNames: item.visibleVariableNames,
+                expectedVariableHits: item.expectedVariableHits,
                 runtimeCheck: item.runtimeCheck
             }))
         }, null, 2)}\n`);
