@@ -21,6 +21,7 @@
  *   node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs --case-ids=G4-chicken-rabbit,G7-square-number,G10-draw-pentagon
  *   node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs --goal-suite=variable-visibility
  *   node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs --goal-suite=real-world-stability
+ *   node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs --goal-suite=render-completeness-50
  */
 import {access, mkdir, readFile, rm, writeFile} from 'node:fs/promises';
 import path from 'node:path';
@@ -37,6 +38,10 @@ import {
     REAL_WORLD_STABILITY_GOAL_CASES,
     REAL_WORLD_STABILITY_SEED_SPECS
 } from './multi-goal-real-world-stability-cases.mjs';
+import {
+    RENDER_COMPLETENESS_50_GOAL_CASES,
+    RENDER_COMPLETENESS_50_SEED_SPECS
+} from './multi-goal-render-completeness-50-cases.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
@@ -65,6 +70,8 @@ const timeoutMs = Number(argv.get('--timeout-ms') ?? '150000');
 const maxFollowSteps = Number(argv.get('--follow-steps') ?? '1');
 const keepOpen = argv.get('--keep-open') === 'true';
 const goalSuite = argv.get('--goal-suite') ?? 'default';
+const failOnWeak = argv.get('--fail-on-weak') === 'true';
+const failOnRenderIssue = argv.get('--fail-on-render') !== 'false';
 const requestedCaseIds = new Set(
     (argv.get('--case-ids') ?? '')
         .split(',')
@@ -454,6 +461,20 @@ async function readRenderedRecommendationState(target) {
   return {
     itemCount: container ? container.children.length : 0,
     xmlList: hosts.map(host => host.dataset?.xml || ''),
+    hostStateList: hosts.map(host => {
+      const blocks = Array.from(host.querySelectorAll('.blocklyBlock'));
+      return {
+        className: host.className || '',
+        xmlLength: (host.dataset?.xml || '').length,
+        fallbackText: host.dataset?.fallbackText || '',
+        blockCount: blocks.length,
+        nonShadowBlockCount: blocks.filter(block => !block.classList.contains('blocklyShadow')).length,
+        svgCount: host.querySelectorAll('svg').length,
+        fallback: host.classList.contains('scratch-workspace-host-fallback'),
+        degraded: host.classList.contains('scratch-workspace-host-degraded'),
+        text: (host.textContent || '').trim()
+      };
+    }),
     blockTextList: hosts.map(host =>
       Array.from(host.querySelectorAll('.blocklyText'))
         .map(node => (node.textContent || '').trim())
@@ -582,7 +603,8 @@ ${findVmHelpersSource()}
   const flagId = makeId("flag");
   const additionalSeedSpecs = ${JSON.stringify({
     ...VARIABLE_VISIBILITY_SEED_SPECS,
-    ...REAL_WORLD_STABILITY_SEED_SPECS
+    ...REAL_WORLD_STABILITY_SEED_SPECS,
+    ...RENDER_COMPLETENESS_50_SEED_SPECS
   })};
   const additionalSeedSpec = additionalSeedSpecs[seedName];
 
@@ -1375,9 +1397,14 @@ const goalCases = goalSuite === 'variable-visibility'
     ? VARIABLE_VISIBILITY_GOAL_CASES
     : goalSuite === 'real-world-stability'
         ? REAL_WORLD_STABILITY_GOAL_CASES
-        : defaultGoalCases;
+        : goalSuite === 'render-completeness-50'
+            ? RENDER_COMPLETENESS_50_GOAL_CASES
+            : defaultGoalCases;
 assert(
-    goalSuite === 'default' || goalSuite === 'variable-visibility' || goalSuite === 'real-world-stability',
+    goalSuite === 'default' ||
+        goalSuite === 'variable-visibility' ||
+        goalSuite === 'real-world-stability' ||
+        goalSuite === 'render-completeness-50',
     `未知 --goal-suite：${goalSuite}`
 );
 const activeGoalCases = requestedCaseIds.size > 0
@@ -1504,6 +1531,61 @@ function analyzeDisplayChecks(testCase, entries) {
     return issues;
 }
 
+function analyzeRenderCompleteness(entries) {
+    const issues = [];
+    let renderedHostCount = 0;
+    let renderedNonShadowBlockCount = 0;
+    let renderedXmlCount = 0;
+    let recommendationEntryCount = 0;
+
+    for (const entry of entries.filter(item => !String(item.tag).endsWith('goal-typed'))) {
+        const recommendedBlocks = entry.coach?.recommendedBlocks ?? [];
+        if (recommendedBlocks.length === 0) continue;
+        recommendationEntryCount += 1;
+
+        const rendered = entry.renderedRecommendation ?? {};
+        if (rendered.error) {
+            issues.push(`${entry.tag}: 推荐区 DOM 读取失败：${rendered.error}`);
+            continue;
+        }
+
+        const hostStateList = Array.isArray(rendered.hostStateList) ? rendered.hostStateList : [];
+        if (hostStateList.length === 0) {
+            issues.push(`${entry.tag}: 有推荐积木但没有 scratch-workspace-host`);
+            continue;
+        }
+
+        renderedHostCount += hostStateList.length;
+        hostStateList.forEach((host, index) => {
+            const label = `${entry.tag}#${index + 1}`;
+            if (!host.xmlLength) issues.push(`${label}: 推荐 XML 为空`);
+            else renderedXmlCount += 1;
+            if (host.fallback) issues.push(`${label}: 进入文字 fallback`);
+            if (host.degraded) issues.push(`${label}: 使用降级 fallback XML`);
+            if (host.svgCount < 1) issues.push(`${label}: 未生成 Blockly SVG`);
+            if (host.nonShadowBlockCount < 1) {
+                issues.push(`${label}: 未生成可见非 shadow 积木`);
+            } else {
+                renderedNonShadowBlockCount += host.nonShadowBlockCount;
+            }
+            if (!String(host.text || '').trim()) issues.push(`${label}: Blockly 可见文字为空`);
+        });
+    }
+
+    if (recommendationEntryCount === 0) {
+        issues.push('没有任何步骤产生推荐积木，无法判断推荐渲染');
+    }
+
+    return {
+        ok: issues.length === 0,
+        issues,
+        recommendationEntryCount,
+        renderedHostCount,
+        renderedXmlCount,
+        renderedNonShadowBlockCount
+    };
+}
+
 function evaluateCaseResult(testCase, entries) {
     const coachEntries = entries
         .filter(entry => !String(entry.tag).endsWith('goal-typed'))
@@ -1536,10 +1618,18 @@ function evaluateCaseResult(testCase, entries) {
         !Array.isArray(testCase.expectedVariables) ||
         testCase.expectedVariables.length === 0 ||
         expectedVariableHits.length > 0;
+    const renderCompleteness = analyzeRenderCompleteness(entries);
     const rating =
-        goalMatched && hasRecommendedBlocks && !drift && runtimeOk && displayOk && variableVisibility.ok && hasExpectedVariableEvidence
+        goalMatched &&
+        hasRecommendedBlocks &&
+        !drift &&
+        runtimeOk &&
+        displayOk &&
+        variableVisibility.ok &&
+        hasExpectedVariableEvidence &&
+        renderCompleteness.ok
             ? 'good'
-            : (goalMatched && !drift && runtimeOk && displayOk && variableVisibility.ok && hasExpectedVariableEvidence ? 'ok' : 'weak');
+            : (goalMatched && !drift && runtimeOk && displayOk && variableVisibility.ok && hasExpectedVariableEvidence && renderCompleteness.ok ? 'ok' : 'weak');
     return {
         id: testCase.id,
         kind: testCase.kind,
@@ -1562,6 +1652,11 @@ function evaluateCaseResult(testCase, entries) {
         visibleVariableNames: variableVisibility.visibleVariableNames,
         expectedVariableHits,
         hasExpectedVariableEvidence,
+        renderCompletenessOk: renderCompleteness.ok,
+        renderCompletenessIssues: renderCompleteness.issues,
+        renderedHostCount: renderCompleteness.renderedHostCount,
+        renderedXmlCount: renderCompleteness.renderedXmlCount,
+        renderedNonShadowBlockCount: renderCompleteness.renderedNonShadowBlockCount,
         rating
     };
 }
@@ -1574,6 +1669,7 @@ async function main() {
     console.log(JSON.stringify({
         phase: 'start',
         goalSuite,
+        failOnWeak,
         usePackaged,
         companionExe,
         companionCwd,
@@ -1775,6 +1871,13 @@ async function main() {
             testCase,
             timeline.filter(entry => entry.caseId === testCase.id)
         ));
+        const failedCaseEvaluations = caseEvaluations.filter(item => item.rating !== 'good');
+        const renderFailedCaseEvaluations = caseEvaluations.filter(item =>
+            !item.renderCompletenessOk || !item.variableVisibilityOk
+        );
+        const summaryOk = failOnWeak
+            ? failedCaseEvaluations.length === 0
+            : (!failOnRenderIssue || renderFailedCaseEvaluations.length === 0);
         const uiLayoutSamples = timeline
             .filter(entry => entry.layout?.lessonGoalInput)
             .map(entry => ({
@@ -1786,9 +1889,13 @@ async function main() {
                 buttonRects: entry.layout.buttonRects
             }));
         const summary = {
-            ok: true,
+            ok: summaryOk,
+            renderOk: renderFailedCaseEvaluations.length === 0,
+            semanticOk: failedCaseEvaluations.length === 0,
             artifactDir,
             goalSuite,
+            failOnWeak,
+            failOnRenderIssue,
             usePackaged,
             companionExe,
             scratchExe,
@@ -1798,6 +1905,8 @@ async function main() {
             steps: timeline.length,
             screenshots: timeline.flatMap(item => [item.mainScreenshot, item.scratchScreenshot].filter(Boolean)),
             caseEvaluations,
+            failedCaseEvaluations,
+            renderFailedCaseEvaluations,
             uiLayoutSamples,
             timeline
         };
@@ -1811,18 +1920,39 @@ async function main() {
             `- steps: ${summary.steps}`,
             `- screenshots: ${summary.screenshots.length}`,
             `- hasApiKey: ${summary.hasApiKey}`,
+            `- renderOk: ${summary.renderOk}`,
+            `- semanticOk: ${summary.semanticOk}`,
+            `- failOnWeak: ${summary.failOnWeak}`,
+            `- failOnRenderIssue: ${summary.failOnRenderIssue}`,
+            `- renderFailedCases: ${renderFailedCaseEvaluations.length}`,
+            `- weakCases: ${failedCaseEvaluations.length}`,
             '',
             '## Case Evaluation',
-            '| 目标 | 类型 | 评价 | DeepSeek | Fallback | 运行输出 | 显示校验 | 变量可见 | 可见变量 | 命中积木 | 命中关键词 | 漂移 |',
-            '| --- | --- | --- | ---: | ---: | --- | --- | --- | --- | --- | --- | --- |'
+            '| 目标 | 类型 | 评价 | DeepSeek | Fallback | 渲染完整 | 运行输出 | 显示校验 | 变量可见 | 可见变量 | 命中积木 | 命中关键词 | 漂移 |',
+            '| --- | --- | --- | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- |'
         ];
         for (const item of caseEvaluations) {
             const runtimeText = item.runtimeCheck
                 ? `${item.runtimeCheck.ok ? 'pass' : 'fail'}: expected ${item.runtimeCheck.expectedText}, got ${item.runtimeCheck.bubbleText || '(empty)'}`
                 : '-';
+            const renderText = item.renderCompletenessOk
+                ? `pass (${item.renderedHostCount} host / ${item.renderedNonShadowBlockCount} blocks)`
+                : item.renderCompletenessIssues.join('; ');
             const displayText = item.displayOk ? 'pass' : item.displayIssues.join('; ');
             const variableText = item.variableVisibilityOk ? 'pass' : item.variableVisibilityIssues.join('; ');
-            lines.push(`| ${item.id} | ${item.kind} | ${item.rating} | ${item.deepseekCount} | ${item.fallbackCount} | ${runtimeText} | ${displayText} | ${variableText} | ${item.visibleVariableNames.join(', ') || '-'} | ${item.expectedOpcodeHits.join(', ') || '-'} | ${item.keywordHits.join(', ') || '-'} | ${[...item.disallowedHits, ...item.driftHits].join(', ') || '-'} |`);
+            lines.push(`| ${item.id} | ${item.kind} | ${item.rating} | ${item.deepseekCount} | ${item.fallbackCount} | ${renderText} | ${runtimeText} | ${displayText} | ${variableText} | ${item.visibleVariableNames.join(', ') || '-'} | ${item.expectedOpcodeHits.join(', ') || '-'} | ${item.keywordHits.join(', ') || '-'} | ${[...item.disallowedHits, ...item.driftHits].join(', ') || '-'} |`);
+        }
+        if (failedCaseEvaluations.length > 0) {
+            lines.push('', '## Weak Cases');
+            for (const item of failedCaseEvaluations) {
+                lines.push(`- ${item.id}: rating=${item.rating}; render=${item.renderCompletenessOk ? 'pass' : item.renderCompletenessIssues.join('; ') || 'fail'}; display=${item.displayOk ? 'pass' : item.displayIssues.join('; ') || 'fail'}; variables=${item.variableVisibilityOk ? 'pass' : item.variableVisibilityIssues.join('; ') || 'fail'}`);
+            }
+        }
+        if (renderFailedCaseEvaluations.length > 0) {
+            lines.push('', '## Render Failed Cases');
+            for (const item of renderFailedCaseEvaluations) {
+                lines.push(`- ${item.id}: render=${item.renderCompletenessOk ? 'pass' : item.renderCompletenessIssues.join('; ') || 'fail'}; variables=${item.variableVisibilityOk ? 'pass' : item.variableVisibilityIssues.join('; ') || 'fail'}`);
+            }
         }
         lines.push('', '## UI Layout Samples');
         for (const sample of uiLayoutSamples.slice(0, 8)) {
@@ -1847,10 +1977,14 @@ async function main() {
         await writeFile(path.join(artifactDir, 'REPORT.md'), lines.join('\n'), 'utf8');
 
         process.stdout.write(`${JSON.stringify({
-            ok: true,
+            ok: summary.ok,
+            renderOk: summary.renderOk,
+            semanticOk: summary.semanticOk,
             artifactDir,
             steps: summary.steps,
             screenshotCount: summary.screenshots.length,
+            renderFailedCaseCount: renderFailedCaseEvaluations.length,
+            weakCaseCount: failedCaseEvaluations.length,
             caseEvaluations: caseEvaluations.map(item => ({
                 id: item.id,
                 kind: item.kind,
@@ -1863,11 +1997,19 @@ async function main() {
                 displayIssues: item.displayIssues,
                 variableVisibilityOk: item.variableVisibilityOk,
                 variableVisibilityIssues: item.variableVisibilityIssues,
+                renderCompletenessOk: item.renderCompletenessOk,
+                renderCompletenessIssues: item.renderCompletenessIssues,
+                renderedHostCount: item.renderedHostCount,
+                renderedXmlCount: item.renderedXmlCount,
+                renderedNonShadowBlockCount: item.renderedNonShadowBlockCount,
                 visibleVariableNames: item.visibleVariableNames,
                 expectedVariableHits: item.expectedVariableHits,
                 runtimeCheck: item.runtimeCheck
             }))
         }, null, 2)}\n`);
+        if (!summary.ok) {
+            process.exitCode = 1;
+        }
     } finally {
         if (!keepOpen) {
             if (scratchTarget) await closeScratchTarget(scratchTarget);

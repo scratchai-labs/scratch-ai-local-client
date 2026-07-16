@@ -74,6 +74,7 @@ tools/verification/tmp-lesson-goal-input-userdata/
 # multi-goal DeepSeek coaching screenshots
 multi-goal-deepseek-screenshots*/
 multi-goal-10-verification-*/
+multi-goal-render-completeness-50-*/
 multi-goal-recording-*/
 multi-goal-split-recording-*/
 runtime-output-verification-*/

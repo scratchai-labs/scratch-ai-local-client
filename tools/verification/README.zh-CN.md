@@ -27,6 +27,7 @@ node tools/verification\scripts\generate-teaching-brief-from-sb3.mjs --sb3="C:\P
 node tools/verification\scripts\run-deepseek-teaching-workflow.mjs
 npm run test:recommendation-render-contract
 npm run verify:deepseek-strict
+npm run verify:render-completeness-50
 node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs --packaged=false --goal-suite=variable-visibility --follow-steps=1
 ```
 
@@ -39,6 +40,7 @@ node tools/verification/scripts/verify-desktop-companion-ui.mjs
 node tools/verification/scripts/verify-desktop-companion-real-e2e.mjs --project-file="/absolute/path/to/project.sb3"
 npm run test:recommendation-render-contract
 npm run verify:deepseek-strict
+npm run verify:render-completeness-50
 ```
 
 ## 自动化覆盖
@@ -55,10 +57,12 @@ npm run verify:deepseek-strict
 - DeepSeek Beta Strict 工具兼容性、扁平节点编译与 XML 生成探针
 - 94 个推荐 opcode、合法结构和 terminal 非法连接的真实 Electron / scratch-blocks 渲染合同
 - 第二组 10 个变量型真实目标，可逐项比较 XML 变量字段次数与 Blockly 可见文字次数，发现空圆形即判失败
+- 50 个不同本课目标的推荐积木真实渲染守门，覆盖变量、列表、广播、声音、画笔、侦测、运算、控制和游戏交互；缺 XML、缺 SVG、进入 fallback/degraded 或变量文字不可见会返回失败码，目标语义 weak 默认只记录到报告
 
 ## 推荐积木专项验证
 
 - `npm run test:recommendation-render-contract` 不需要 DeepSeek Key，CI 在 Ubuntu 上通过 `xvfb-run` 执行。
+- `npm run verify:render-completeness-50` 会真实打开 Companion + Scratch，逐个输入 50 个目标并读取推荐区 DOM；默认使用源码版 Companion，产物写入 `multi-goal-deepseek-screenshots/`。如果要把目标相关性 weak 也作为失败，请追加 `-- --fail-on-weak=true` 或直接运行脚本参数。
 - `npm run verify:deepseek-strict` 需要桌面设置中已保存的 Key，只用于人工验证当前 Flash/Pro 模型的 Beta Strict 兼容性。
 - Strict 探针失败时，先检查工具参数或当前模型兼容性；客户端运行时会拒绝非法 DeepSeek 结果并使用本地结构化提示。
 

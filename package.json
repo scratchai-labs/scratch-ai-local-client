@@ -21,6 +21,7 @@
     "test": "npm run test --workspace=@scratch-ai/shared && npm run test --workspace=@scratch-ai/verification && npm run test --workspace=@scratch-ai/desktop-companion",
     "test:recommendation-render-contract": "npm run desktop:build && node tools/verification/scripts/verify-recommendation-render-contract.mjs",
     "verify:deepseek-strict": "npm run desktop:build && node tools/verification/scripts/verify-deepseek-strict-compatibility.mjs",
+    "verify:render-completeness-50": "npm run desktop:build && node tools/verification/scripts/verify-multi-goal-deepseek-coaching.mjs --packaged=false --goal-suite=render-completeness-50 --follow-steps=0",
     "verify": "npm run test",
     "clean": "node scripts/cleanup-workspace.mjs",
     "clean:dry-run": "node scripts/cleanup-workspace.mjs --dry-run",
