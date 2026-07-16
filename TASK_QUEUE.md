@@ -8,6 +8,7 @@
 
 ## 已完成
 
+- 2026-07-16：完成最终文档收口。`docs/architecture.zh-CN.md` 已补齐推荐积木 XML 编译、params 输入槽、`recommended-block-capabilities.ts` 能力表和 `dist/recommended-block-capabilities.js` 构建入口；`docs/maintenance.zh-CN.md` 已补齐白名单/能力表/params 输入槽/推荐渲染合同变更时的文档更新和验证检查口径。
 - 2026-07-16：追加完成组合积木输入槽渲染验证。新增 XML 单测与真实 Electron 合同 case，覆盖 `重复执行` 次数槽填 `n + 2`、`(rounds + bonus) * 2`、`round(number)`、`listlength(购物清单)`，以及 substack 内变量累加公式、移动步数公式、`repeat until` 取余条件、`if/else` 算式比较和变量赋值复合公式。修复 `repeatTimes` 对特殊 reporter 函数的解析，让数字槽先尝试 `round / length / listlength` 等 reporter，再退到普通公式和默认数字；`test:recommendation-render-contract` 通过 5 个组合输入槽变体，0 fallback / 0 degraded。
 - 2026-07-16：完成推荐积木“笨办法”穷举渲染验证。`test:recommendation-render-contract` 已从少量结构样例扩展为真实 Electron + scratch-blocks 批量矩阵：94 个单积木、71 个结构化 root、4908 个合法 `next / condition / substack / substack2` 关系 pair、5 个多关系组合、12 个 params 协议变体、仅 reporter 变量名可见性和 3 个 terminal 非法 next 全部逐项断言，运行结果 0 fallback / 0 degraded。补出 `recommended-block-capabilities.js` 构建入口，确保验证脚本复用同一份能力规则。
 - 2026-07-16：修复 C49 四舍五入/取余数推荐显示缺口。根因是 DeepSeek 可能返回 `operator_round number` / `operator_mod number 5` 这类运算占位参数，或只在中文 reason 里描述“四舍五入/余数”，渲染层会退成文本/变量 reporter。现推荐 XML 可从占位参数和自然语言推断生成真实 `operator_round` 与 `operator_mod` 积木，50 目标 C49 新增 XML opcode displayCheck 守门。真实复测产物 `multi-goal-render-completeness-50-20260716-c49-round-mod-fix-v3/`：C49 good，`renderOk=true`、`semanticOk=true`、weak 0；全仓测试通过（shared 14、verification 37、desktop-companion 248），94 个推荐 opcode 渲染合同通过。

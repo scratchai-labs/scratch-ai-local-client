@@ -116,7 +116,7 @@
 - 真机验证入口变化
 - 打包命令变化
 - `src/main` / `src/renderer` / `src/common` 结构变化
-- 推荐积木白名单、Strict 节点协议、结构编译、净化或渲染失败兜底文案变化
+- 推荐积木白名单、能力表、Strict 节点协议、结构编译、params 输入槽、净化或渲染失败兜底文案变化
 
 ### `tools/verification/*.md`
 
@@ -131,6 +131,7 @@
 - `scripts/` 入口变化
 - `workflows/deepseek-teaching/` 路径变化
 - 临时目录、产物目录或 fixtures 位置变化
+- 推荐渲染合同的覆盖范围、失败判定或 CI 执行口径变化
 
 ## 3. 维护检查清单
 
@@ -141,6 +142,7 @@
 - 文档里的 artifact 名称、workflow 名称与当前配置一致
 - 验证脚本示例是否已经带上 `tools/verification/scripts/`
 - 推荐协议变化后是否运行 `npm run verify:deepseek-strict`
-- opcode、XML 或 renderer 变化后是否运行 `npm run test:recommendation-render-contract`
+- opcode、能力表、XML、params 输入槽或 renderer 变化后是否运行 `npm run test:recommendation-render-contract`
+- 组合输入槽变化后是否确认真实 XML 包含目标 reporter / operator，而不是默认数字、文本 fallback 或空圆形
 - 文档是否还提到 `apps/server`、`Windows-Test` 这类已退出主线的路径
 - `npm run clean:dry-run` 的描述是否和脚本输出一致

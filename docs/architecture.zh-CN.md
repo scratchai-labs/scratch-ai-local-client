@@ -100,7 +100,11 @@ Electron 桌面工具，源码拆成三层：
 对应实现位置：
 
 - `apps/desktop-companion/src/common/scratch-block-xml.ts`
-  - 负责顶层脚本排序、`next`、`SUBSTACK / SUBSTACK2`、shadow input、变量/列表/广播字段，以及推荐积木白名单和默认模板
+  - 负责顶层脚本排序、`next`、`SUBSTACK / SUBSTACK2`、shadow input、变量/列表/广播字段，以及推荐积木白名单、默认模板和输入槽参数编译
+  - 推荐输入槽支持受控 params DSL，例如变量 reporter、四则公式、`round(...)`、`length(...)`、`listlength(...)`、广播名和列表名；数字槽必须优先生成真实 reporter / operator 积木，不能静默退回默认数字
+- `apps/desktop-companion/src/common/recommended-block-capabilities.ts`
+  - 负责推荐积木能力表，统一定义 hat / stack / terminal / reporter / boolean 形态，以及 `next / condition / substack / substack2` 可连接关系
+  - `build.mjs` 会把该能力表单独输出到 `dist/recommended-block-capabilities.js`，供真实渲染合同复用同一份规则
 - `apps/desktop-companion/src/common/recommended-structure.ts`
   - 负责推荐结构净化，约束 reporter / hat / 条件槽 / 子堆栈 的合法关系
 - `apps/desktop-companion/src/renderer/scratch-workspace-renderer.ts`
@@ -108,7 +112,7 @@ Electron 桌面工具，源码拆成三层：
   - 当前只读 workspace 统一使用本地 `scratch-blocks/media`，缩放比例也已下调得更紧凑
   - `ScratchMsgs` 语言跟随当前文档语言，不再固定为 `zh-cn`
 - `apps/desktop-companion/build.mjs`
-  - 负责复制 `scratch-blocks/media`
+  - 负责复制 `scratch-blocks/media`，并输出推荐 XML、结构净化和能力表相关 bundle，供 UI 与验证脚本共用
 
 ## 5. 当前风险点
 
@@ -116,7 +120,8 @@ Electron 桌面工具，源码拆成三层：
 - macOS 正式签名、公证和发版还没有自动化
 - GitHub Releases 的正式导出规则固定为 4 个无 Key 包：Windows portable / setup、macOS zip / dmg；本地只承诺当前平台可出包
 - `tools/verification/artifacts/` 不再进 git，需要通过文档和 CI artifact 回看验证结果
-- 推荐积木白名单外的新 opcode，先扩 `src/common/scratch-block-xml.ts` 的默认模板，再决定是否放行到 AI 输出
-- 若复杂推荐再次出现 fallback，先运行 `npm run verify:deepseek-strict` 检查 Strict 工具兼容性，再运行 `npm run test:recommendation-render-contract` 检查真实 scratch-blocks 渲染
+- 推荐积木白名单外的新 opcode，先扩 `src/common/scratch-block-xml.ts` 的默认模板和 `recommended-block-capabilities.ts` 的能力归类，再决定是否放行到 AI 输出
+- 若复杂推荐再次出现 fallback，先运行 `npm run verify:deepseek-strict` 检查 Strict 工具兼容性，再运行 `npm run test:recommendation-render-contract` 检查真实 scratch-blocks 渲染；当前合同覆盖 94 个单积木、71 个结构化 root、4908 个合法关系 pair、12 个 params 协议变体、5 个组合输入槽变体、变量名可见性和 terminal 非法 next
+- 若推荐里的输入槽显示默认值或空圆形，优先检查 params 编译是否生成了真实 reporter / operator XML，以及 `<variables>` 是否声明了所有变量/列表/广播字段
 - 新出现的扩展块、动态菜单块或特殊 mutation，可能还需要在只读渲染层补兜底定义
 - Scratch 语言问题优先从桥接日志排查：确认是否记录到 `Scratch locale remembered`，以及下一次受控启动是否带对应 `--lang`
