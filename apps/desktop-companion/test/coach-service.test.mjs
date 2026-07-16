@@ -2056,6 +2056,128 @@ test("CoachService math chicken-rabbit fallback recommends formula path instead 
   assert.doesNotMatch(xml, /<field name="TEXT">0<\/field>/);
 });
 
+test("CoachService keeps common variable goals relevant when Strict output falls back", async () => {
+  const service = new CoachService(async () => {
+    throw new Error("force fallback");
+  });
+  const cases = [
+    {
+      goal: "输入摄氏温度 celsius，用 fahrenheit = celsius × 9 ÷ 5 + 32 换算华氏温度并说出来",
+      variables: ["celsius", "fahrenheit"],
+      expectedXml: [/fahrenheit<\/field>/, /celsius<\/field>/, /operator_multiply/, /operator_divide/, /operator_add/]
+    },
+    {
+      goal: "已知 length=8、width=5，计算长方形面积 area = length × width 并说出来",
+      variables: ["length", "width", "area"],
+      expectedXml: [/area<\/field>/, /length<\/field>/, /width<\/field>/, /operator_multiply/]
+    },
+    {
+      goal: "做点击角色加分小游戏：每点一次 score 加 1，score 等于 targetScore 时说胜利",
+      variables: ["score", "targetScore"],
+      expectedXml: [/event_whenthisspriteclicked/, /score<\/field>/, /targetScore<\/field>/, /operator_equals/, /control_if/]
+    },
+    {
+      goal: "用左右方向键控制角色移动，移动步数使用变量 speed，持续检测按键",
+      variables: ["speed"],
+      expectedXml: [/event_whenkeypressed/, /right arrow/, /speed<\/field>/, /motion_changexby/]
+    }
+  ];
+
+  for (const scenario of cases) {
+    const snapshot = createSnapshot();
+    snapshot.programAreaModules = [
+      { id: "event", label: "事件", blockCount: 1 },
+      { id: "data", label: "变量", blockCount: scenario.variables.length }
+    ];
+    snapshot.globalVariables = scenario.variables.map((name, index) => ({
+      id: `var-${name}`, name, value: index, isCloud: false
+    }));
+    snapshot.sprites[0].variables = snapshot.globalVariables;
+    snapshot.sprites[0].blockCount = 1 + scenario.variables.length;
+    snapshot.sprites[0].scripts = [{
+      spriteName: "Cat",
+      event: "when green flag clicked",
+      blockSequence: ["当绿旗被点击", ...scenario.variables.map(name => `将 ${name} 设为 0`)],
+      blockOpcodes: ["event_whenflagclicked", ...scenario.variables.map(() => "data_setvariableto")]
+    }];
+
+    const result = await service.generateHint({
+      snapshot,
+      currentTargetPrograms: [snapshot.sprites[0].scripts[0].blockSequence.join(" -> ")],
+      programAreaModules: snapshot.programAreaModules,
+      usedExtensions: [],
+      loadedExtensions: [],
+      goal: scenario.goal,
+      aiConfig: createAiConfig({configured: false, apiKey: ""})
+    });
+
+    assert.equal(result.source, "fallback", scenario.goal);
+    const xml = buildRecommendedStructureXml(result.coachResponse.recommendation);
+    for (const pattern of scenario.expectedXml) {
+      assert.match(xml, pattern, scenario.goal);
+    }
+    assert.doesNotMatch(result.coachResponse.answerText, /累加结果变量 sum|碰到边缘就反弹/, scenario.goal);
+  }
+});
+
+test("CoachService replaces a structurally valid but off-target click recommendation", async () => {
+  const service = new CoachService(async () => createDeepSeekResponse(JSON.stringify({
+    summary: "持续检测是否碰到目标。",
+    recommendation: {
+      root: {
+        opcode: "control_forever",
+        category: "控制",
+        label: "一直重复",
+        reason: "持续检测。",
+        substack: {
+          opcode: "control_if",
+          category: "控制",
+          label: "如果",
+          reason: "判断碰撞。",
+          condition: {
+            opcode: "sensing_touchingobject",
+            category: "侦测",
+            label: "碰到目标",
+            reason: "检测碰撞。"
+          }
+        }
+      }
+    }
+  })));
+  const snapshot = createSnapshot();
+  snapshot.globalVariables = [
+    { id: "score", name: "score", value: 0, isCloud: false },
+    { id: "target", name: "targetScore", value: 10, isCloud: false }
+  ];
+  snapshot.sprites[0].variables = snapshot.globalVariables;
+  snapshot.sprites[0].scripts = [{
+    spriteName: "Cat",
+    event: "when green flag clicked",
+    blockSequence: ["当绿旗被点击", "将 score 设为 0", "将 targetScore 设为 10"],
+    blockOpcodes: ["event_whenflagclicked", "data_setvariableto", "data_setvariableto"]
+  }];
+  snapshot.sprites[0].blockCount = 3;
+
+  const result = await service.generateHint({
+    snapshot,
+    currentTargetPrograms: ["当绿旗被点击 -> 将 score 设为 0 -> 将 targetScore 设为 10"],
+    programAreaModules: [
+      { id: "event", label: "事件", blockCount: 1 },
+      { id: "data", label: "变量", blockCount: 2 }
+    ],
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "做点击角色加分小游戏：每点一次 score 加 1，score 等于 targetScore 时说胜利",
+    aiConfig: createAiConfig()
+  });
+
+  const xml = buildRecommendedStructureXml(result.coachResponse.recommendation);
+  assert.match(xml, /event_whenthisspriteclicked/);
+  assert.match(xml, /score<\/field>/);
+  assert.match(xml, /targetScore<\/field>/);
+  assert.doesNotMatch(xml, /sensing_touchingobject/);
+});
+
 test("CoachService math sum fallback recommends accumulator instead of turn/bounce", async () => {
   const service = new CoachService(async () => {
     throw new Error("network should not be required for fallback");
