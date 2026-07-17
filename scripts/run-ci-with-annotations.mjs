@@ -3,8 +3,11 @@
 import { spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
-const DEFAULT_TAIL_LINES = 200;
-const MAX_ANNOTATION_CHARS = 60_000;
+const DEFAULT_TAIL_LINES = 5_000;
+const ANNOTATION_CHAR_LIMIT = 7_500;
+const FINAL_OUTPUT_LINES = 80;
+const FAILURE_CONTEXT_LINES = 40;
+const MAX_FAILURE_ANNOTATIONS = 4;
 
 export function escapeGitHubAnnotation(value) {
   return String(value)
@@ -25,6 +28,52 @@ export function buildSpawnOptions(platform = process.platform) {
     shell: platform === "win32",
     windowsHide: true
   };
+}
+
+function takeLastLines(text, lineCount) {
+  return String(text).split(/\r?\n/).slice(-lineCount).join("\n");
+}
+
+function collectTapFailureExcerpts(text) {
+  const lines = String(text).split(/\r?\n/);
+  const excerpts = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!/^(?:#\s*)?not ok\b/.test(lines[index])) continue;
+    const start = Math.max(0, index - 2);
+    const end = Math.min(lines.length, index + FAILURE_CONTEXT_LINES);
+    excerpts.push(lines.slice(start, end).join("\n"));
+  }
+  return excerpts.join("\n--- next failure ---\n");
+}
+
+function splitBounded(text, maxChars = ANNOTATION_CHAR_LIMIT) {
+  const chunks = [];
+  let remaining = String(text).trim();
+  while (remaining) {
+    let splitAt = Math.min(maxChars, remaining.length);
+    if (splitAt < remaining.length) {
+      const newline = remaining.lastIndexOf("\n", splitAt);
+      if (newline > maxChars / 2) splitAt = newline;
+    }
+    chunks.push(remaining.slice(0, splitAt));
+    remaining = remaining.slice(splitAt).replace(/^\n/, "");
+  }
+  return chunks;
+}
+
+export function buildFailureAnnotations(output) {
+  const finalOutput = takeLastLines(output, FINAL_OUTPUT_LINES)
+    .slice(-ANNOTATION_CHAR_LIMIT)
+    .trim() || "Command failed without output.";
+  const failureChunks = splitBounded(collectTapFailureExcerpts(output))
+    .slice(0, MAX_FAILURE_ANNOTATIONS);
+  return [
+    { title: "CI command failed: final output", message: finalOutput },
+    ...failureChunks.map((message, index) => ({
+      title: `CI command failed: test failure ${index + 1}`,
+      message
+    }))
+  ];
 }
 
 export class TailBuffer {
@@ -97,8 +146,11 @@ async function main(argv) {
 
   const result = await runCommand(command, args);
   if (result.exitCode !== 0) {
-    const tail = result.tail.slice(-MAX_ANNOTATION_CHARS) || "Command failed without output.";
-    console.log(`::error title=CI command failed::${escapeGitHubAnnotation(tail)}`);
+    for (const annotation of buildFailureAnnotations(result.tail)) {
+      console.log(
+        `::error title=${annotation.title}::${escapeGitHubAnnotation(annotation.message)}`
+      );
+    }
   }
   return result.exitCode;
 }
