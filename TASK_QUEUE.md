@@ -260,6 +260,9 @@
 
 ## 2026-07-17 全量测试与架构设计 Code Review
 - 初始状态：待确认
-- 当前状态：进行中
+- 当前状态：已完成
 - 需求：完成一轮覆盖全面的 TDD、BDD、真实 UI 点击测试，并对架构与界面设计进行 Code Review；使用多 Agent 并行推进。
-- 验收：形成测试覆盖矩阵；执行 workspace 全量自动化测试；补齐必要的失败用例后再实现；完成真实 Electron/Scratch 点击链路；输出按严重级别排序的架构、设计、测试问题与证据；列出修改文件及提交。
+- 结果：workspace 301 项通过；推荐积木真实 Renderer 5,103 个合同用例通过；源码 Mock UI 与当前 macOS 打包产物真实 Electron→Scratch 点击链路通过。
+- TDD：先失败复现“清除 Key 后按钮被错误重新启用”，再按最新状态修复；新增组件测试并提交。
+- Review：无 P0；主要 P1 为真实 UI 未进入默认 CI、核心模块过大、IPC 测试偏源码字符串；完整报告见 `docs/reviews/2026-07-17-full-test-and-code-review.zh-CN.md`。
+- 限制：未调用真实 DeepSeek API；未执行 Windows 实机点击、macOS 签名/公证/DMG 安装。
