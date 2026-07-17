@@ -8,6 +8,7 @@
 ## 开源入口
 
 - 用户使用文档：[`./user-guide.zh-CN.md`](./user-guide.zh-CN.md) / [`./user-guide.zh-CN.pdf`](./user-guide.zh-CN.pdf)
+- v0.3.0 发布说明：[`./releases/v0.3.0.zh-CN.md`](./releases/v0.3.0.zh-CN.md)
 - 项目总览：[`../README.zh-CN.md`](../README.zh-CN.md)
 - English overview: [`../README.en.md`](../README.en.md)
 - 贡献指南：[`../CONTRIBUTING.zh-CN.md`](../CONTRIBUTING.zh-CN.md)

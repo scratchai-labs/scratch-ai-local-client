@@ -277,3 +277,10 @@
 - 验证：workspace 349 项通过；CI 等价 UI smoke 通过；Renderer 5,103 项通过；macOS app 打包通过；当前打包 App→真实 Scratch E2E 连续两轮通过。
 - 报告：修复闭环已追加至 `docs/reviews/2026-07-17-full-test-and-code-review.zh-CN.md`。
 - 限制：未调用真实 DeepSeek API；未执行 Windows 实机点击、macOS 签名/公证/DMG 安装。
+
+## 2026-07-17 发布 v0.3.0
+- 初始状态：待确认
+- 当前状态：发布准备中
+- 需求：整理项目与用户文档，提交并推送 main，创建 v0.3.0 标签并发布新版本。
+- 发布范围：本课目标输入、数学题辅导优化、DeepSeek Strict 推荐协议、复杂积木参数/公式/变量渲染、真实 Renderer 合同、UI/架构/安全与稳定性修复。
+- 验收：版本和文档一致；workspace、UI smoke、Renderer full、macOS zip/dmg 通过；main 与 v0.3.0 推送成功；GitHub Release 包含 4 个无 Key 安装文件。
