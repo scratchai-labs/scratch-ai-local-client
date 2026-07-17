@@ -27,6 +27,21 @@ export function buildElectronContractLaunchArgs({
   return [...sandboxArgs, launcherPath, "--electron-contract-child", ...args];
 }
 
+export function createContractBrowserWindowOptions(preloadPath) {
+  return {
+    show: false,
+    width: 1280,
+    height: 900,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      backgroundThrottling: false,
+      preload: preloadPath
+    }
+  };
+}
+
 export function parseRenderContractOptions(args) {
   const options = { ...DEFAULT_OPTIONS };
 

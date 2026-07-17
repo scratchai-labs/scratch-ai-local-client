@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   buildElectronContractLaunchArgs,
+  createContractBrowserWindowOptions,
   formatRenderProgress,
   getRenderContractHelp,
   parseRenderContractOptions,
@@ -718,17 +719,9 @@ function createCompositeInputVariantCases(sanitizeRecommendedStructure, buildRec
 }
 
 async function createContractBrowserWindow({ BrowserWindow, preloadPath, rendererDiagnostics }) {
-  const browserWindow = new BrowserWindow({
-    show: false,
-    width: 1280,
-    height: 900,
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false,
-      preload: preloadPath
-    }
-  });
+  const browserWindow = new BrowserWindow(
+    createContractBrowserWindowOptions(preloadPath)
+  );
   browserWindow.webContents.on("console-message", details => {
     if (details.level === "warning" || details.level === "error") {
       rendererDiagnostics.push(details.message);

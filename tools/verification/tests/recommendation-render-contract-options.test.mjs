@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   buildElectronContractLaunchArgs,
+  createContractBrowserWindowOptions,
   formatRenderProgress,
   parseRenderContractOptions,
   selectCasesForRun
@@ -89,4 +90,13 @@ test("Electron render contract disables the Chromium sandbox only on Linux", () 
     }),
     ["/tmp/main.cjs", "--electron-contract-child"]
   );
+});
+
+
+test("hidden Electron contract windows keep animation frames active", () => {
+  const options = createContractBrowserWindowOptions("/tmp/preload.cjs");
+
+  assert.equal(options.show, false);
+  assert.equal(options.webPreferences.backgroundThrottling, false);
+  assert.equal(options.webPreferences.preload, "/tmp/preload.cjs");
 });
