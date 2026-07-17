@@ -70,3 +70,25 @@ test("ScratchExecutableConfigStore saves the last observed Scratch locale", asyn
     assert.equal((await store.load()).lastScratchLocale, "ko");
   });
 });
+
+test("ScratchExecutableConfigStore reports malformed JSON with the config path", async () => {
+  await withTempStore(async ({ configPath, store }) => {
+    await writeFile(configPath, '{"customAiApiKey":', "utf8");
+
+    await assert.rejects(
+      store.load(),
+      (error) => {
+        assert.match(error.message, /配置文件.*损坏/);
+        assert.match(error.message, /desktop-companion\.config\.json/);
+        assert.ok(error.cause instanceof SyntaxError);
+        return true;
+      }
+    );
+  });
+});
+
+test("ScratchExecutableConfigStore keeps missing configs compatible with defaults", async () => {
+  await withTempStore(async ({ store }) => {
+    assert.deepEqual(await store.load(), { aiHintTriggerMode: "auto" });
+  });
+});

@@ -176,18 +176,29 @@ export class ScratchExecutableConfigStore {
   }
 
   private async readParsedConfig() {
+    let rawConfig: string;
     try {
-      const rawConfig = await readFile(this.filePath, "utf8");
-      const parsed = JSON.parse(rawConfig);
-
-      if (!parsed || typeof parsed !== "object") {
+      rawConfig = await readFile(this.filePath, "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
         return {} as Record<string, unknown>;
       }
 
-      return parsed as Record<string, unknown>;
-    } catch {
+      throw new Error(`无法读取配置文件：${this.filePath}`, { cause: error });
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(rawConfig);
+    } catch (error) {
+      throw new Error(`配置文件已损坏，无法解析：${this.filePath}`, { cause: error });
+    }
+
+    if (!parsed || typeof parsed !== "object") {
       return {} as Record<string, unknown>;
     }
+
+    return parsed as Record<string, unknown>;
   }
 
   private async writeConfig(nextConfig: Record<string, unknown>) {
