@@ -6,6 +6,7 @@ import { desktopCompanionStateSchema } from "@scratch-ai/shared";
 import { BrowserWindow, Menu, Tray, app, clipboard, dialog, ipcMain, shell } from "electron";
 
 import { getLaunchOptions } from "../common/launch-options";
+import { registerDesktopIpcHandlers } from "./desktop-ipc";
 import { createScratchPlatformAdapter } from "./platform-adapter";
 import { getRuntimeLogPath, initializeRuntimeLog, writeRuntimeLog } from "./runtime-log";
 import { ScratchExecutableConfigStore } from "./scratch-config-store";
@@ -388,45 +389,21 @@ async function handleChooseScratchExecutable() {
   return await chooseScratchExecutable("window");
 }
 
-ipcMain.handle("desktop-companion:get-state", () => stateStore.getState());
-ipcMain.handle("desktop-companion:retry", async () => {
-  await handleRetryNow();
-});
-ipcMain.handle("desktop-companion:launch-scratch", async () => {
-  await handleLaunchScratchNow();
-});
-ipcMain.handle("desktop-companion:open-settings", async () => {
-  showSettingsWindow();
-});
-ipcMain.handle("desktop-companion:request-ai-hint", async (_event, goal?: string) => {
-  await handleRequestAiHint(goal);
-});
-ipcMain.handle("desktop-companion:save-custom-ai-api-key", async (_event, apiKey: string) => {
-  await handleSaveCustomAiApiKey(apiKey);
-});
-ipcMain.handle("desktop-companion:test-custom-ai-api-key", async (_event, apiKey?: string) => {
-  return await handleTestCustomAiApiKey(apiKey);
-});
-ipcMain.handle("desktop-companion:clear-custom-ai-api-key", async () => {
-  await handleClearCustomAiApiKey();
-});
-ipcMain.handle("desktop-companion:save-custom-ai-model", async (_event, model: string) => {
-  await handleSaveCustomAiModel(model);
-});
-ipcMain.handle("desktop-companion:save-ai-hint-trigger-mode", async (_event, mode: "auto" | "manual") => {
-  await handleSaveAiHintTriggerMode(mode);
-});
-ipcMain.handle("desktop-companion:save-lesson-goal", async (_event, goal: string) => {
-  await handleSaveLessonGoal(goal);
-});
-ipcMain.handle("desktop-companion:save-custom-ai-prompt", async (_event, prompt: string) => {
-  await handleSaveCustomAiPrompt(prompt);
-});
-ipcMain.handle("desktop-companion:clear-custom-ai-prompt", async () => {
-  await handleClearCustomAiPrompt();
-});
-ipcMain.handle("desktop-companion:choose-scratch-executable", async () => {
-  return await handleChooseScratchExecutable();
+registerDesktopIpcHandlers(ipcMain, {
+  getState: () => stateStore.getState(),
+  retry: handleRetryNow,
+  launchScratch: handleLaunchScratchNow,
+  openSettings: showSettingsWindow,
+  requestAiHint: handleRequestAiHint,
+  saveCustomAiApiKey: handleSaveCustomAiApiKey,
+  testCustomAiApiKey: handleTestCustomAiApiKey,
+  clearCustomAiApiKey: handleClearCustomAiApiKey,
+  saveCustomAiModel: handleSaveCustomAiModel,
+  saveAiHintTriggerMode: handleSaveAiHintTriggerMode,
+  saveLessonGoal: handleSaveLessonGoal,
+  saveCustomAiPrompt: handleSaveCustomAiPrompt,
+  clearCustomAiPrompt: handleClearCustomAiPrompt,
+  chooseScratchExecutable: handleChooseScratchExecutable
 });
 
 app.on("second-instance", () => {
