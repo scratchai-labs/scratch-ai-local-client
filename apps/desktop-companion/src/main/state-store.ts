@@ -2,6 +2,10 @@ import { EventEmitter } from "node:events";
 
 import type { DesktopCompanionState } from "../common/types";
 
+function cloneState(state: DesktopCompanionState) {
+  return structuredClone(state);
+}
+
 export class StateStore {
   private readonly emitter = new EventEmitter();
 
@@ -25,12 +29,12 @@ export class StateStore {
   };
 
   getState() {
-    return this.state;
+    return cloneState(this.state);
   }
 
   setState(nextState: DesktopCompanionState) {
-    this.state = nextState;
-    this.emitter.emit("change", this.state);
+    this.state = cloneState(nextState);
+    this.emitter.emit("change", cloneState(this.state));
   }
 
   update(patch: Partial<DesktopCompanionState>) {
