@@ -266,3 +266,10 @@
 - TDD：先失败复现“清除 Key 后按钮被错误重新启用”，再按最新状态修复；新增组件测试并提交。
 - Review：无 P0；主要 P1 为真实 UI 未进入默认 CI、核心模块过大、IPC 测试偏源码字符串；完整报告见 `docs/reviews/2026-07-17-full-test-and-code-review.zh-CN.md`。
 - 限制：未调用真实 DeepSeek API；未执行 Windows 实机点击、macOS 签名/公证/DMG 安装。
+
+## 2026-07-17 P1/P2 架构、测试与 UI 风险修复
+- 初始状态：待确认
+- 当前状态：进行中
+- 需求：使用多个 Agent 并行修复 2026-07-17 Code Review 中的 P1/P2 问题。
+- 范围：默认 CI UI smoke、主进程 IPC 行为测试、核心模块职责拆分、Renderer 合同性能、StateStore 不可变性、配置损坏诊断、验证脚本复用、UI 可访问性与忙碌反馈、Bridge CORS 收紧。
+- 验收：每个行为改动按 TDD 实施；完成 workspace 全量测试、Renderer 合同、源码 UI 点击、macOS 打包与真实 Scratch E2E；更新 Review 状态与剩余风险。
