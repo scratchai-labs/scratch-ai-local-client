@@ -1046,6 +1046,7 @@ async function runElectronContract(options) {
 }
 
 const cliArgs = process.argv.slice(2);
+let contractExitCode = 0;
 
 try {
   const options = parseRenderContractOptions(cliArgs);
@@ -1062,5 +1063,10 @@ try {
   }
 } catch (error) {
   console.error("[render-contract] 失败：", error);
-  process.exitCode = 1;
+  contractExitCode = 1;
 }
+
+if (isElectronMain) {
+  process.exit(contractExitCode);
+}
+process.exitCode = contractExitCode;

@@ -113,3 +113,13 @@ test("renderer contract main-process timeout rejects stalled work with its stage
     withTimeout(Promise.resolve("ok"), { label: "renderer bridge", timeoutMs: 50 })
   );
 });
+
+test("Electron contract child exits explicitly after cleanup on every platform", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = await readFile(
+    new URL("../scripts/verify-recommendation-render-contract.mjs", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(source, /if \(isElectronMain\) \{\s*process\.exit\(contractExitCode\);\s*\}/);
+});
