@@ -280,7 +280,14 @@
 
 ## 2026-07-17 发布 v0.3.0
 - 初始状态：待确认
-- 当前状态：跨平台 CI 修复中（Windows 单测、Ubuntu Renderer 合同）
+- 当前状态：已完成
 - 需求：整理项目与用户文档，提交并推送 main，创建 v0.3.0 标签并发布新版本。
 - 发布范围：本课目标输入、数学题辅导优化、DeepSeek Strict 推荐协议、复杂积木参数/公式/变量渲染、真实 Renderer 合同、UI/架构/安全与稳定性修复。
 - 验收：版本和文档一致；workspace、UI smoke、Renderer full、macOS zip/dmg 通过；main 与 v0.3.0 推送成功；GitHub Release 包含 4 个无 Key 安装文件。
+- 跨平台修复：Windows npm.cmd/Node 进程启动、窗口路径断言；Linux Electron sandbox、隐藏窗口 RAF 节流、主进程超时与子进程退出。
+- 最终回归：workspace 14 + 61 + 288 = 363 项通过；本地 Renderer full 5,103 项通过；GitHub CI 三平台与 4 个 Ubuntu Renderer full shard 全绿。
+- 发布提交：`d619c1a906329058648480523954560e969b201a`；远端 annotated tag `v0.3.0` 已指向该提交。
+- CI：<https://github.com/scratchai-labs/scratch-ai-local-client/actions/runs/29577849703>。
+- 发布流程：<https://github.com/scratchai-labs/scratch-ai-local-client/actions/runs/29578307584>。
+- Release：<https://github.com/scratchai-labs/scratch-ai-local-client/releases/tag/v0.3.0>，已发布且非草稿/非预发布。
+- 资产：`ScratchDesktopCompanion-portable.exe`、`ScratchDesktopCompanion-setup.exe`、`ScratchDesktopCompanion-mac.zip`、`ScratchDesktopCompanion-mac.dmg`；共 4 个，均为 uploaded，无 `with-key`。
