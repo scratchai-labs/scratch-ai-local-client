@@ -28,9 +28,9 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run build
+      - run: node scripts/run-ci-with-annotations.mjs npm run build
 
-      - run: npm run test
+      - run: node scripts/run-ci-with-annotations.mjs npm run test
 
       - name: Desktop companion mock UI smoke (macOS)
         if: runner.os == 'macOS'
@@ -39,4 +39,4 @@ jobs:
 
       - name: Recommendation render contract (Ubuntu)
         if: runner.os == 'Linux'
-        run: xvfb-run -a npm run test:recommendation-render-contract
+        run: node scripts/run-ci-with-annotations.mjs xvfb-run -a npm run test:recommendation-render-contract

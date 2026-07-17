@@ -44,6 +44,20 @@ test("ci runs the isolated Electron mock UI smoke only on macOS", async () => {
   );
   assert.match(
     workflow,
-    /name:\s*Recommendation render contract \(Ubuntu\)[\s\S]*?if:\s*runner\.os == 'Linux'[\s\S]*?run:\s*xvfb-run -a npm run test:recommendation-render-contract/
+    /name:\s*Recommendation render contract \(Ubuntu\)[\s\S]*?if:\s*runner\.os == 'Linux'[\s\S]*?run:\s*node scripts\/run-ci-with-annotations\.mjs xvfb-run -a npm run test:recommendation-render-contract/
+  );
+});
+
+test("ci workflow publishes failed command tails as GitHub annotations", async () => {
+  const workflow = await readFile(
+    new URL("../../../.github/workflows/ci.yml", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(workflow, /node scripts\/run-ci-with-annotations\.mjs npm run build/);
+  assert.match(workflow, /node scripts\/run-ci-with-annotations\.mjs npm run test/);
+  assert.match(
+    workflow,
+    /node scripts\/run-ci-with-annotations\.mjs xvfb-run -a npm run test:recommendation-render-contract/
   );
 });

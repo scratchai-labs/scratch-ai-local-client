@@ -81,3 +81,15 @@ test("desktop release workflow uses Node 24-based GitHub actions runtimes", asyn
   assert.doesNotMatch(workflow, /actions\/upload-artifact@v4/);
   assert.doesNotMatch(workflow, /actions\/download-artifact@v4/);
 });
+
+test("desktop release workflow publishes failed test tails as GitHub annotations", async () => {
+  const workflow = await readFile(
+    new URL("../../../.github/workflows/release-desktop.yml", import.meta.url),
+    "utf8"
+  );
+
+  const annotatedTests = workflow.match(
+    /node scripts\/run-ci-with-annotations\.mjs npm run test/g
+  ) ?? [];
+  assert.equal(annotatedTests.length, 2);
+});

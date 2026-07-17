@@ -280,7 +280,7 @@
 
 ## 2026-07-17 发布 v0.3.0
 - 初始状态：待确认
-- 当前状态：发布准备中
+- 当前状态：跨平台 CI 修复中（Windows 单测、Ubuntu Renderer 合同）
 - 需求：整理项目与用户文档，提交并推送 main，创建 v0.3.0 标签并发布新版本。
 - 发布范围：本课目标输入、数学题辅导优化、DeepSeek Strict 推荐协议、复杂积木参数/公式/变量渲染、真实 Renderer 合同、UI/架构/安全与稳定性修复。
 - 验收：版本和文档一致；workspace、UI smoke、Renderer full、macOS zip/dmg 通过；main 与 v0.3.0 推送成功；GitHub Release 包含 4 个无 Key 安装文件。
