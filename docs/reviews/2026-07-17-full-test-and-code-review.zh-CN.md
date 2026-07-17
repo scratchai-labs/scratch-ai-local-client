@@ -175,3 +175,43 @@ renderer 记录最新合法状态，异步操作结束时按 `aiStatus` 与 `aiC
 - 真实 DeepSeek Strict / 50 目标在线验证：会读取本机已保存 Key、产生网络调用和费用，本轮未执行。
 - Windows 原生安装包与真实点击：当前执行机为 macOS；本轮覆盖了 Windows 路径、打包配置与脚本单测，但不能替代 Windows 实机验收。
 - macOS 签名、公证、DMG 安装：本轮构建为未签名 `dir` 内测包，只验证 app 可启动和真实 E2E。
+
+## 9. P1/P2 修复闭环（2026-07-17）
+
+### P1 状态
+
+| 原问题 | 修复结果 |
+| --- | --- |
+| 默认 CI 不覆盖真实 UI | 新增 macOS 隔离 Electron mock UI smoke；使用临时 userData、假 Scratch 路径和临时截图，不读取真实 Key。 |
+| `main.ts` 多职责 | 抽出 `desktop-ipc.ts` 和 `desktop-windows.ts`；`main.ts` 从 666 行降至 537 行。 |
+| IPC 测试只匹配源码字符串 | 改为注入 fake `ipcMain` 的 14 channel 行为合同，覆盖参数、返回值和异常传播。 |
+| `coach-service.ts` 过大 | 抽出 DeepSeek client、prompt context、task intent、recommendation normalizer；从 1,734 行降至 761 行。 |
+| `session-manager.ts` 过大 | 抽出 `scratch-payload-projection.ts`；从 1,128 行降至 1,018 行。 |
+| `scratch-block-xml.ts` 过大 | 抽出推荐值/公式编译和 XML primitives；从 2,149 行降至 1,754 行。 |
+
+### P2 状态
+
+| 原问题 | 修复结果 |
+| --- | --- |
+| Renderer 合同约 16 分钟、2–2.5 GB | 增加 workspace 释放、Renderer recycle、smoke/full/shard 参数和进度；full 5,103 项本机 63.16 秒完成，Renderer 约 247–428 MB。 |
+| StateStore 暴露可变引用 | 写入时复制并递归冻结，保留未变化子树的引用稳定性；新增污染与同步事件测试。 |
+| 配置损坏被静默吞掉 | 仅 `ENOENT` 视为缺失；读取、权限和 JSON 损坏抛出带路径及 cause 的诊断错误。 |
+| CDP/UI 验证脚本重复 | 抽出 `cdp-automation.mjs`；UI 脚本 616→455 行，real E2E 870→738 行。 |
+| 动态反馈可访问性不足 | 主窗口和设置页增加 `role=status/alert`、`aria-live` 和高对比 `:focus-visible`。 |
+| 设置页忙碌反馈不足 | 5 类异步操作统一锁定控件并显示“测试中/保存中/清除中”，成功和失败后按最新状态恢复。 |
+| Bridge 使用通配 CORS | 只允许无 Origin 或 Scratch file opaque origin `null`，拒绝其他浏览器 Origin，继续要求随机 token。 |
+
+### 集成回归中新发现并修复
+
+首次 packaged real E2E 暴露 Bridge 注入偶发失败：安装流程在 listener/heartbeat 完成前就设置“已安装”标记；若中途异常，重试只执行一次抓取，无法完整恢复。新增运行时失败注入测试，并将安装标记延后到 bootstrap 完成。修复后连续两轮当前打包 App → 真实 Scratch E2E 均通过。
+
+### 最终验证
+
+- Workspace：`14 + 47 + 288 = 349` 项通过。
+- macOS CI 等价 mock UI smoke：通过。
+- 真实 Scratch Renderer full：5,103 项通过，63.16 秒。
+- macOS arm64 未签名 app 打包：通过。
+- 当前 packaged App → Scratch 3 → 加载 `Cat and a Mouse.sb3` → 重连 → 设置持久化：连续两轮通过。
+- 独立集成 Review：未发现新的 P0–P3 可复现问题。
+
+仍未执行：真实 DeepSeek 在线调用、Windows 实机点击、macOS 签名/公证/DMG 安装。

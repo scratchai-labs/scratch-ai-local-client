@@ -269,7 +269,11 @@
 
 ## 2026-07-17 P1/P2 架构、测试与 UI 风险修复
 - 初始状态：待确认
-- 当前状态：进行中
+- 当前状态：已完成
 - 需求：使用多个 Agent 并行修复 2026-07-17 Code Review 中的 P1/P2 问题。
-- 范围：默认 CI UI smoke、主进程 IPC 行为测试、核心模块职责拆分、Renderer 合同性能、StateStore 不可变性、配置损坏诊断、验证脚本复用、UI 可访问性与忙碌反馈、Bridge CORS 收紧。
-- 验收：每个行为改动按 TDD 实施；完成 workspace 全量测试、Renderer 合同、源码 UI 点击、macOS 打包与真实 Scratch E2E；更新 Review 状态与剩余风险。
+- 完成：CI macOS UI smoke、IPC 行为边界、窗口管理、CoachService/推荐规范化、Session payload、Scratch XML 深模块拆分；StateStore、配置诊断、Bridge CORS、UI 可访问性/忙碌反馈和 CDP 复用已落地。
+- 性能：Renderer full 5,103 项从约 16 分钟、2–2.5 GB 降至 63.16 秒、约 247–428 MB；新增 smoke/full/shard/recycle 参数。
+- TDD：各子任务均先失败测试；集成 E2E 另发现并修复 Bridge 部分安装无法恢复，新增运行时失败注入测试。
+- 验证：workspace 349 项通过；CI 等价 UI smoke 通过；Renderer 5,103 项通过；macOS app 打包通过；当前打包 App→真实 Scratch E2E 连续两轮通过。
+- 报告：修复闭环已追加至 `docs/reviews/2026-07-17-full-test-and-code-review.zh-CN.md`。
+- 限制：未调用真实 DeepSeek API；未执行 Windows 实机点击、macOS 签名/公证/DMG 安装。
