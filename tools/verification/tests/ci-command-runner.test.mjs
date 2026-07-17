@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
+  buildSpawnOptions,
   escapeGitHubAnnotation,
   resolveCommandForPlatform,
+  runCommand,
   TailBuffer
 } from "../../../scripts/run-ci-with-annotations.mjs";
 
@@ -40,4 +42,25 @@ test("CI command runner emits the failed command output as one annotation", () =
   assert.equal(result.status, 7);
   assert.match(result.stderr, /diagnostic line/);
   assert.match(result.stdout, /::error title=CI command failed::.*diagnostic line/);
+});
+
+test("CI command runner enables the command shell for Windows command shims", () => {
+  assert.equal(buildSpawnOptions("win32").shell, true);
+  assert.equal(buildSpawnOptions("linux").shell, false);
+});
+
+test("CI command runner annotates synchronous spawn failures", async () => {
+  const result = await runCommand(
+    "npm",
+    ["run", "test"],
+    {
+      platform: "win32",
+      spawnFn() {
+        throw new Error("spawn failed before child creation");
+      }
+    }
+  );
+
+  assert.equal(result.exitCode, 1);
+  assert.match(result.tail, /spawn failed before child creation/);
 });

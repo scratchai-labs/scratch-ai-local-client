@@ -20,6 +20,13 @@ export function resolveCommandForPlatform(command, platform = process.platform) 
   return command;
 }
 
+export function buildSpawnOptions(platform = process.platform) {
+  return {
+    shell: platform === "win32",
+    windowsHide: true
+  };
+}
+
 export class TailBuffer {
   constructor(maxLines = DEFAULT_TAIL_LINES) {
     this.maxLines = maxLines;
@@ -44,13 +51,19 @@ export class TailBuffer {
 
 export async function runCommand(command, args, options = {}) {
   const tail = new TailBuffer(options.tailLines ?? DEFAULT_TAIL_LINES);
-  const executable = resolveCommandForPlatform(command, options.platform);
-  const child = spawn(executable, args, {
-    cwd: options.cwd ?? process.cwd(),
-    env: options.env ?? process.env,
-    shell: false,
-    windowsHide: true
-  });
+  const platform = options.platform ?? process.platform;
+  const executable = resolveCommandForPlatform(command, platform);
+  let child;
+  try {
+    child = (options.spawnFn ?? spawn)(executable, args, {
+      cwd: options.cwd ?? process.cwd(),
+      env: options.env ?? process.env,
+      ...buildSpawnOptions(platform)
+    });
+  } catch (error) {
+    tail.append(`${error.name}: ${error.message}\n`);
+    return { exitCode: 1, tail: tail.toString() };
+  }
 
   child.stdout.on("data", (chunk) => {
     process.stdout.write(chunk);
