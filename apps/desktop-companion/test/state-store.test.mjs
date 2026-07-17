@@ -12,9 +12,18 @@ test("StateStore snapshots cannot mutate internal state through returned referen
   });
 
   const exposed = store.getState();
-  exposed.status = "error";
-  exposed.programAreaModules[0].label = "已污染";
-  exposed.programAreaModules.push({ id: "looks", label: "外观", blockCount: 1 });
+  assert.equal(Object.isFrozen(exposed), true);
+  assert.equal(Object.isFrozen(exposed.programAreaModules), true);
+  assert.equal(Object.isFrozen(exposed.programAreaModules[0]), true);
+  assert.throws(() => {
+    exposed.status = "error";
+  }, TypeError);
+  assert.throws(() => {
+    exposed.programAreaModules[0].label = "已污染";
+  }, TypeError);
+  assert.throws(() => {
+    exposed.programAreaModules.push({ id: "looks", label: "外观", blockCount: 1 });
+  }, TypeError);
 
   const current = store.getState();
   assert.equal(current.status, "connected");
@@ -35,8 +44,12 @@ test("StateStore change events stay synchronous without exposing internal state"
 
   store.onChange((state) => {
     observed.push(state.statusText);
-    state.statusText = "监听器污染";
-    state.toolboxCategories.push("looks");
+    assert.throws(() => {
+      state.statusText = "监听器污染";
+    }, TypeError);
+    assert.throws(() => {
+      state.toolboxCategories.push("looks");
+    }, TypeError);
   });
 
   store.setState(nextState);

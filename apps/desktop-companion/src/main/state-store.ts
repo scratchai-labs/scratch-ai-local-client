@@ -2,14 +2,25 @@ import { EventEmitter } from "node:events";
 
 import type { DesktopCompanionState } from "../common/types";
 
-function cloneState(state: DesktopCompanionState) {
-  return structuredClone(state);
+function cloneAndFreeze<T>(value: T): T {
+  if (value === null || typeof value !== "object" || Object.isFrozen(value)) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return Object.freeze(value.map((item) => cloneAndFreeze(item))) as T;
+  }
+
+  const clone = Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, cloneAndFreeze(item)])
+  );
+  return Object.freeze(clone) as T;
 }
 
 export class StateStore {
   private readonly emitter = new EventEmitter();
 
-  private state: DesktopCompanionState = {
+  private state: DesktopCompanionState = cloneAndFreeze({
     status: "starting",
     statusText: "Scratch AI 教练正在启动…",
     toolboxCategories: [],
@@ -26,15 +37,15 @@ export class StateStore {
     aiHintTriggerMode: "auto",
     lessonGoal: undefined,
     aiStatus: "idle"
-  };
+  });
 
   getState() {
-    return cloneState(this.state);
+    return this.state;
   }
 
   setState(nextState: DesktopCompanionState) {
-    this.state = cloneState(nextState);
-    this.emitter.emit("change", cloneState(this.state));
+    this.state = cloneAndFreeze(nextState);
+    this.emitter.emit("change", this.state);
   }
 
   update(patch: Partial<DesktopCompanionState>) {
