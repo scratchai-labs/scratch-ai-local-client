@@ -79,6 +79,12 @@ const buildConfigs = [
     format: "esm"
   },
   {
+    entryPoints: [path.join(__dirname, "src/main/deepseek-coach-client.ts")],
+    outfile: path.join(distDir, "deepseek-coach-client.js"),
+    platform: "node",
+    format: "esm"
+  },
+  {
     entryPoints: [path.join(__dirname, "src/main/coaching-session.ts")],
     outfile: path.join(distDir, "coaching-session.js"),
     platform: "node",
