@@ -35,6 +35,8 @@ const saveAiHintTriggerModeButton = document.getElementById(
 const errorElement = document.getElementById("settings-error");
 const feedbackElement = document.getElementById("settings-feedback");
 
+let latestState: DesktopCompanionState | null = null;
+
 function getDesktopCompanionApi() {
   if (!window.desktopCompanionApi) {
     throw new Error("预加载脚本没有就绪，请退出旧实例后重新打开设置窗口。");
@@ -67,6 +69,7 @@ function normalizeState(rawState: unknown): DesktopCompanionState {
 }
 
 function renderState(state: DesktopCompanionState) {
+  latestState = state;
   if (statusElement) {
     statusElement.textContent = state.aiConfigured
       ? "已检测到本机可用 DeepSeek Key"
@@ -185,7 +188,9 @@ clearCustomAiApiKeyButton?.addEventListener("click", () => {
     .finally(() => {
       window.setTimeout(() => {
         if (clearCustomAiApiKeyButton) {
-          clearCustomAiApiKeyButton.disabled = false;
+          clearCustomAiApiKeyButton.disabled = latestState
+            ? latestState.aiStatus === "loading" || !latestState.aiCustomKeyConfigured
+            : false;
         }
       }, 400);
     });
