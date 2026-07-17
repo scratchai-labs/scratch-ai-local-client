@@ -257,3 +257,9 @@
 - 完成：切换 Beta Strict Tool Calls，使用扁平 `id / parentId / relation` 节点协议并由本地编译器校验连接；修复 terminal next；新增 93 opcode 真实渲染合同和真实 DeepSeek 兼容性探针。
 - 验证：desktop-companion 228 项通过；真实 Renderer 合同覆盖 93 个单积木、4 类合法结构和 3 类 terminal 非法 next；DeepSeek V4 Flash / Pro 实际 Strict 请求均返回循环 + 移动 + 反弹并成功生成 XML。
 - 文档收尾：已同步桌面端 README、验证工具说明和维护清单，明确 Beta Strict endpoint、扁平节点协议、本地拒绝策略及两条专项验证命令。
+
+## 2026-07-17 全量测试与架构设计 Code Review
+- 初始状态：待确认
+- 当前状态：进行中
+- 需求：完成一轮覆盖全面的 TDD、BDD、真实 UI 点击测试，并对架构与界面设计进行 Code Review；使用多 Agent 并行推进。
+- 验收：形成测试覆盖矩阵；执行 workspace 全量自动化测试；补齐必要的失败用例后再实现；完成真实 Electron/Scratch 点击链路；输出按严重级别排序的架构、设计、测试问题与证据；列出修改文件及提交。
