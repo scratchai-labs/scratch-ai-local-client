@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
+  buildElectronContractLaunchArgs,
   formatRenderProgress,
   getRenderContractHelp,
   parseRenderContractOptions,
@@ -100,7 +101,10 @@ async function runNodeLauncher(args) {
   );
 
   try {
-    const child = spawn(electronBinary, [launcherPath, "--electron-contract-child", ...args], {
+    const child = spawn(electronBinary, buildElectronContractLaunchArgs({
+      launcherPath,
+      args
+    }), {
       cwd: workspaceRoot,
       env: Object.fromEntries(
         Object.entries(process.env).filter(([key]) => key !== "ELECTRON_RUN_AS_NODE")

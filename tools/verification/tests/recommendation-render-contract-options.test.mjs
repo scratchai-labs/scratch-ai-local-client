@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  buildElectronContractLaunchArgs,
   formatRenderProgress,
   parseRenderContractOptions,
   selectCasesForRun
@@ -68,5 +69,24 @@ test("formatRenderProgress reports suite completion, elapsed time and renderer m
       rendererMemoryKb: 262_144
     }),
     "[render-contract] relation 40/100 (40.0%) elapsed=12.3s renderer-memory=256.0MB"
+  );
+});
+
+test("Electron render contract disables the Chromium sandbox only on Linux", () => {
+  assert.deepEqual(
+    buildElectronContractLaunchArgs({
+      platform: "linux",
+      launcherPath: "/tmp/main.cjs",
+      args: ["--mode=smoke"]
+    }),
+    ["--no-sandbox", "/tmp/main.cjs", "--electron-contract-child", "--mode=smoke"]
+  );
+  assert.deepEqual(
+    buildElectronContractLaunchArgs({
+      platform: "darwin",
+      launcherPath: "/tmp/main.cjs",
+      args: []
+    }),
+    ["/tmp/main.cjs", "--electron-contract-child"]
   );
 });

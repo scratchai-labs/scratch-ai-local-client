@@ -18,6 +18,15 @@ function parsePositiveInteger(value, optionName, { allowZero = false } = {}) {
   return parsed;
 }
 
+export function buildElectronContractLaunchArgs({
+  platform = process.platform,
+  launcherPath,
+  args = []
+}) {
+  const sandboxArgs = platform === "linux" ? ["--no-sandbox"] : [];
+  return [...sandboxArgs, launcherPath, "--electron-contract-child", ...args];
+}
+
 export function parseRenderContractOptions(args) {
   const options = { ...DEFAULT_OPTIONS };
 
