@@ -45,7 +45,17 @@ export class ScratchBridgeServer {
     }
 
     const server = http.createServer((request, response) => {
-      response.setHeader("Access-Control-Allow-Origin", "*");
+      const origin = request.headers.origin;
+      if (origin !== undefined && origin !== "null") {
+        response.writeHead(403);
+        response.end();
+        return;
+      }
+
+      if (origin === "null") {
+        response.setHeader("Access-Control-Allow-Origin", "null");
+        response.setHeader("Vary", "Origin");
+      }
       response.setHeader("Access-Control-Allow-Headers", "content-type, x-monitor-token");
       response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
 
