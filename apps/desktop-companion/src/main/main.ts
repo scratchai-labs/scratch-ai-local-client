@@ -7,6 +7,7 @@ import { BrowserWindow, Menu, Tray, app, clipboard, dialog, ipcMain, shell } fro
 
 import { getLaunchOptions } from "../common/launch-options";
 import { registerDesktopIpcHandlers } from "./desktop-ipc";
+import { createDesktopWindowFactory } from "./desktop-windows";
 import { createScratchPlatformAdapter } from "./platform-adapter";
 import { getRuntimeLogPath, initializeRuntimeLog, writeRuntimeLog } from "./runtime-log";
 import { ScratchExecutableConfigStore } from "./scratch-config-store";
@@ -34,11 +35,22 @@ const automationActionCounts = {
 };
 
 const WINDOWS_APP_ID = "com.scratchai.desktopcompanion";
-const WINDOW_BACKGROUND_COLOR = "#f7fbff";
 const scratchPlatformAdapter = createScratchPlatformAdapter(process.platform);
 const USER_DATA_DIR =
   process.env.SCRATCH_AI_USER_DATA_DIR?.trim() ||
   scratchPlatformAdapter.getDefaultUserDataDir(app.getPath("appData"));
+
+const desktopWindowFactory = createDesktopWindowFactory(
+  { BrowserWindow, Menu, clipboard },
+  {
+    rendererDirectory: __dirname,
+    iconPath: getIconAssetPath("app-icon.png"),
+    platform: process.platform,
+    onRendererLoadFailure: (errorCode, errorDescription) => {
+      writeRuntimeLog(`renderer failed to load: ${errorCode} ${errorDescription}`);
+    }
+  }
+);
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -50,22 +62,11 @@ if (process.platform === "win32") {
 app.setPath("userData", USER_DATA_DIR);
 
 function showMainWindow() {
-  if (!windowRef) {
-    return;
-  }
-
-  windowRef.show();
-  windowRef.setSkipTaskbar(false);
-  windowRef.focus();
+  desktopWindowFactory.showMainWindow(windowRef);
 }
 
 function hideMainWindow() {
-  if (!windowRef) {
-    return;
-  }
-
-  windowRef.hide();
-  windowRef.setSkipTaskbar(true);
+  desktopWindowFactory.hideMainWindow(windowRef);
 }
 
 function updateTrayTooltip() {
@@ -79,62 +80,16 @@ function updateTrayTooltip() {
 
 function showSettingsWindow() {
   if (!settingsWindowRef) {
-    settingsWindowRef = createSettingsWindow();
-  }
-
-  settingsWindowRef.show();
-  settingsWindowRef.focus();
-}
-
-function buildContextMenuTemplate(
-  params: Electron.ContextMenuParams
-): Electron.MenuItemConstructorOptions[] {
-  if (params.isEditable) {
-    return [
-      { label: "撤销", role: "undo", enabled: params.editFlags.canUndo },
-      { label: "重做", role: "redo", enabled: params.editFlags.canRedo },
-      { type: "separator" },
-      { label: "剪切", role: "cut", enabled: params.editFlags.canCut },
-      { label: "复制", role: "copy", enabled: params.editFlags.canCopy },
-      { label: "粘贴", role: "paste", enabled: params.editFlags.canPaste },
-      { type: "separator" },
-      { label: "全选", role: "selectAll", enabled: params.editFlags.canSelectAll }
-    ];
-  }
-
-  const template: Electron.MenuItemConstructorOptions[] = [];
-  const hasSelection = params.selectionText.trim().length > 0;
-  const hasLink = params.linkURL.trim().length > 0;
-
-  if (hasSelection) {
-    template.push({ label: "复制", role: "copy", enabled: params.editFlags.canCopy });
-  }
-
-  if (hasLink) {
-    if (template.length > 0) {
-      template.push({ type: "separator" });
-    }
-
-    template.push({
-      label: "复制链接地址",
-      click: () => {
-        clipboard.writeText(params.linkURL);
+    settingsWindowRef = desktopWindowFactory.createSettingsWindow({
+      parent: windowRef,
+      onClosed: () => {
+        settingsWindowRef = null;
       }
     });
   }
 
-  return template;
-}
-
-function installContextMenu(window: BrowserWindow) {
-  window.webContents.on("context-menu", (_event, params) => {
-    const template = buildContextMenuTemplate(params);
-    if (template.length === 0) {
-      return;
-    }
-
-    Menu.buildFromTemplate(template).popup({ window });
-  });
+  settingsWindowRef.show();
+  settingsWindowRef.focus();
 }
 
 function createTray() {
@@ -207,73 +162,12 @@ function createTray() {
   return tray;
 }
 
-function createWindow(startHidden: boolean) {
-  const window = new BrowserWindow({
-    width: 720,
-    height: 920,
-    minWidth: 560,
-    minHeight: 760,
-    title: "Scratch AI 教练",
-    alwaysOnTop: false,
-    autoHideMenuBar: true,
-    backgroundColor: WINDOW_BACKGROUND_COLOR,
-    icon: getIconAssetPath("app-icon.png"),
-    show: !startHidden,
-    skipTaskbar: startHidden,
-    webPreferences: {
-      preload: path.join(__dirname, "preload.cjs"),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
+function createMainWindow(startHidden: boolean) {
+  return desktopWindowFactory.createMainWindow({
+    startHidden,
+    shouldHideOnClose: () => !isQuitting && Boolean(trayRef),
+    onHideRequested: hideMainWindow
   });
-
-  installContextMenu(window);
-  void window.loadFile(path.join(__dirname, "index.html"));
-  window.webContents.on("did-fail-load", (_event, errorCode, errorDescription) => {
-    writeRuntimeLog(`renderer failed to load: ${errorCode} ${errorDescription}`);
-  });
-  window.on("close", (event) => {
-    if (process.platform !== "win32" || isQuitting || !trayRef) {
-      return;
-    }
-
-    event.preventDefault();
-    hideMainWindow();
-  });
-
-  return window;
-}
-
-function createSettingsWindow() {
-  const settingsWindow = new BrowserWindow({
-    width: 480,
-    height: 640,
-    minWidth: 420,
-    minHeight: 540,
-    title: "DeepSeek 设置",
-    alwaysOnTop: false,
-    autoHideMenuBar: true,
-    backgroundColor: WINDOW_BACKGROUND_COLOR,
-    icon: getIconAssetPath("app-icon.png"),
-    show: false,
-    parent: windowRef ?? undefined,
-    webPreferences: {
-      preload: path.join(__dirname, "preload.cjs"),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
-  });
-
-  installContextMenu(settingsWindow);
-  void settingsWindow.loadFile(path.join(__dirname, "settings.html"));
-  settingsWindow.on("closed", () => {
-    settingsWindowRef = null;
-  });
-  settingsWindow.once("ready-to-show", () => {
-    settingsWindow.show();
-  });
-
-  return settingsWindow;
 }
 
 function getAutomationScratchExecutablePath() {
@@ -483,7 +377,7 @@ app.whenReady()
     initializeRuntimeLog();
     writeRuntimeLog("app ready");
 
-    windowRef = createWindow(launchOptions.startHidden);
+    windowRef = createMainWindow(launchOptions.startHidden);
     writeRuntimeLog("main window created");
 
     const unsubscribe = stateStore.onChange((state) => {
@@ -539,7 +433,7 @@ app.whenReady()
 
 app.on("activate", () => {
   if (!windowRef) {
-    windowRef = createWindow(false);
+    windowRef = createMainWindow(false);
     return;
   }
 
