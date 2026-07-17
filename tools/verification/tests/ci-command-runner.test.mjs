@@ -45,9 +45,11 @@ test("CI command runner emits the failed command output as one annotation", () =
   assert.match(result.stdout, /::error title=CI command failed: final output::.*diagnostic line/);
 });
 
-test("CI command runner enables the command shell for Windows command shims", () => {
-  assert.equal(buildSpawnOptions("win32").shell, true);
-  assert.equal(buildSpawnOptions("linux").shell, false);
+test("CI command runner enables the Windows shell only for command shims", () => {
+  assert.equal(buildSpawnOptions("win32", "npm.cmd").shell, true);
+  assert.equal(buildSpawnOptions("win32", "tool.bat").shell, true);
+  assert.equal(buildSpawnOptions("win32", "C:\\Program Files\\nodejs\\node.exe").shell, false);
+  assert.equal(buildSpawnOptions("linux", "npm").shell, false);
 });
 
 test("CI command runner annotates synchronous spawn failures", async () => {

@@ -23,9 +23,9 @@ export function resolveCommandForPlatform(command, platform = process.platform) 
   return command;
 }
 
-export function buildSpawnOptions(platform = process.platform) {
+export function buildSpawnOptions(platform = process.platform, executable = "") {
   return {
-    shell: platform === "win32",
+    shell: platform === "win32" && /\.(?:cmd|bat)$/i.test(executable),
     windowsHide: true
   };
 }
@@ -107,7 +107,7 @@ export async function runCommand(command, args, options = {}) {
     child = (options.spawnFn ?? spawn)(executable, args, {
       cwd: options.cwd ?? process.cwd(),
       env: options.env ?? process.env,
-      ...buildSpawnOptions(platform)
+      ...buildSpawnOptions(platform, executable)
     });
   } catch (error) {
     tail.append(`${error.name}: ${error.message}\n`);
