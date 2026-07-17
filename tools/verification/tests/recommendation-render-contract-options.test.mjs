@@ -6,7 +6,8 @@ import {
   createContractBrowserWindowOptions,
   formatRenderProgress,
   parseRenderContractOptions,
-  selectCasesForRun
+  selectCasesForRun,
+  withTimeout
 } from "../scripts/recommendation-render-contract-options.mjs";
 
 test("parseRenderContractOptions keeps the exhaustive full contract as the default", () => {
@@ -99,4 +100,16 @@ test("hidden Electron contract windows keep animation frames active", () => {
   assert.equal(options.show, false);
   assert.equal(options.webPreferences.backgroundThrottling, false);
   assert.equal(options.webPreferences.preload, "/tmp/preload.cjs");
+});
+
+
+test("renderer contract main-process timeout rejects stalled work with its stage label", async () => {
+  await assert.rejects(
+    withTimeout(new Promise(() => {}), { label: "render batch", timeoutMs: 5 }),
+    /render batch 超时（5ms）/
+  );
+
+  await assert.doesNotReject(
+    withTimeout(Promise.resolve("ok"), { label: "renderer bridge", timeoutMs: 50 })
+  );
 });

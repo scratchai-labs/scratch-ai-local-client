@@ -42,6 +42,22 @@ export function createContractBrowserWindowOptions(preloadPath) {
   };
 }
 
+export async function withTimeout(promise, { label, timeoutMs }) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_resolve, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error(`${label} 超时（${timeoutMs}ms）`));
+        }, timeoutMs);
+      })
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function parseRenderContractOptions(args) {
   const options = { ...DEFAULT_OPTIONS };
 

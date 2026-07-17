@@ -11,7 +11,8 @@ import {
   formatRenderProgress,
   getRenderContractHelp,
   parseRenderContractOptions,
-  selectCasesForRun
+  selectCasesForRun,
+  withTimeout
 } from "./recommendation-render-contract-options.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
@@ -202,7 +203,7 @@ async function renderXml(browserWindow, xml, caseName) {
   const state = createRendererState(xml, caseName);
   const serializedState = JSON.stringify(state);
 
-  return browserWindow.webContents.executeJavaScript(`
+  return withTimeout(browserWindow.webContents.executeJavaScript(`
     (async () => {
       window.recommendationRenderContract.updateState(${serializedState});
       const deadline = Date.now() + 10000;
@@ -229,7 +230,7 @@ async function renderXml(browserWindow, xml, caseName) {
         text: host.textContent || ""
       };
     })()
-  `);
+  `), { label: `渲染单用例 ${caseName}`, timeoutMs: 30_000 });
 }
 
 async function renderXmlBatch(browserWindow, cases) {
@@ -237,7 +238,7 @@ async function renderXmlBatch(browserWindow, cases) {
   const serializedState = JSON.stringify(state);
   const expectedHostCount = cases.length;
 
-  return browserWindow.webContents.executeJavaScript(`
+  return withTimeout(browserWindow.webContents.executeJavaScript(`
     (async () => {
       window.recommendationRenderContract.updateState(${serializedState});
       const expectedHostCount = ${expectedHostCount};
@@ -267,7 +268,7 @@ async function renderXmlBatch(browserWindow, cases) {
         };
       });
     })()
-  `);
+  `), { label: `渲染批次（${cases.length} 项）`, timeoutMs: 30_000 });
 }
 
 function assertCaseXmlExpectations(caseItem) {
@@ -298,7 +299,7 @@ function assertCompleteRender(caseName, result, minimumNonShadowBlocks = 1) {
 }
 
 async function releaseRenderedWorkspaces(browserWindow) {
-  await browserWindow.webContents.executeJavaScript(`
+  await withTimeout(browserWindow.webContents.executeJavaScript(`
     (async () => {
       window.recommendationRenderContract.updateState(${JSON.stringify(createRendererBatchState([]))});
       const deadline = Date.now() + 2000;
@@ -308,7 +309,7 @@ async function releaseRenderedWorkspaces(browserWindow) {
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       return document.querySelectorAll(".scratch-workspace-host").length;
     })()
-  `);
+  `), { label: "释放 Renderer workspace", timeoutMs: 10_000 });
 }
 
 async function readRendererMemoryKb(browserWindow) {
@@ -732,8 +733,14 @@ async function createContractBrowserWindow({ BrowserWindow, preloadPath, rendere
       rendererDiagnostics.push(`render-process-gone: ${details.reason}`);
     }
   });
-  await browserWindow.loadFile(path.join(desktopDistDir, "index.html"));
-  await waitForRendererBridge(browserWindow);
+  await withTimeout(
+    browserWindow.loadFile(path.join(desktopDistDir, "index.html")),
+    { label: "加载 Renderer 页面", timeoutMs: 15_000 }
+  );
+  await withTimeout(
+    waitForRendererBridge(browserWindow),
+    { label: "等待 Renderer Bridge", timeoutMs: 15_000 }
+  );
   return browserWindow;
 }
 
