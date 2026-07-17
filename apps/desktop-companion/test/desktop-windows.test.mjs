@@ -130,12 +130,12 @@ test("desktop window factory creates the main window with secure preferences and
     show: false,
     skipTaskbar: true,
     webPreferences: {
-      preload: "/app/dist/preload.cjs",
+      preload: path.join("/app/dist", "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false
     }
   });
-  assert.deepEqual(window.loadedFiles, ["/app/dist/index.html"]);
+  assert.deepEqual(window.loadedFiles, [path.join("/app/dist", "index.html")]);
   assert.equal(window.webContents.handlers.has("context-menu"), true);
   assert.equal(window.webContents.handlers.has("did-fail-load"), true);
   assert.equal(window.windowHandlers.has("close"), true);
@@ -208,12 +208,12 @@ test("desktop window factory creates a parented settings window and owns ready/c
     show: false,
     parent,
     webPreferences: {
-      preload: "/app/dist/preload.cjs",
+      preload: path.join("/app/dist", "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false
     }
   });
-  assert.deepEqual(settingsWindow.loadedFiles, ["/app/dist/settings.html"]);
+  assert.deepEqual(settingsWindow.loadedFiles, [path.join("/app/dist", "settings.html")]);
   assert.equal(settingsWindow.webContents.handlers.has("context-menu"), true);
 
   settingsWindow.onceHandlers.get("ready-to-show")();
