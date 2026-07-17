@@ -27,3 +27,17 @@ test("settings page keeps auto hint mode as the visible default", async () => {
   assert.match(html, /<option value="auto" selected>自动刷新<\/option>/);
   assert.match(html, /<option value="manual">手动点击<\/option>/);
 });
+
+test("settings page exposes accessible feedback, strong keyboard focus, and clear Key action groups", async () => {
+  const html = await readFile(new URL("../src/renderer/settings.html", import.meta.url), "utf8");
+
+  assert.match(html, /id="settings-status"[^>]*role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"/);
+  assert.match(html, /id="settings-feedback"[^>]*role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"/);
+  assert.match(html, /id="settings-error"[^>]*role="alert"[^>]*aria-live="assertive"[^>]*aria-atomic="true"/);
+  assert.match(html, /\.button:focus-visible,[\s\S]*input:focus-visible,[\s\S]*select:focus-visible\s*\{/);
+  assert.match(html, /outline:\s*3px solid var\(--focus-ring\);/);
+  assert.match(html, /class="key-action-groups"/);
+  assert.match(html, /class="key-action-group verify"/);
+  assert.match(html, /class="key-action-group save"/);
+  assert.match(html, /class="key-action-group clear"/);
+});

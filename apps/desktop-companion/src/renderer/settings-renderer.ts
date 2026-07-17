@@ -36,6 +36,16 @@ const errorElement = document.getElementById("settings-error");
 const feedbackElement = document.getElementById("settings-feedback");
 
 let latestState: DesktopCompanionState | null = null;
+type PendingAction = "save-key" | "test-key" | "clear-key" | "save-model" | "save-hint-mode";
+let pendingAction: PendingAction | null = null;
+
+const actionButtons = [
+  saveCustomAiApiKeyButton,
+  testCustomAiApiKeyButton,
+  clearCustomAiApiKeyButton,
+  saveCustomAiModelButton,
+  saveAiHintTriggerModeButton
+];
 
 function getDesktopCompanionApi() {
   if (!window.desktopCompanionApi) {
@@ -44,28 +54,89 @@ function getDesktopCompanionApi() {
   return window.desktopCompanionApi;
 }
 
-function showMessage(message: string, kind: "error" | "success") {
-  if (feedbackElement) {
-    feedbackElement.textContent = message;
-    feedbackElement.dataset.kind = kind;
-    feedbackElement.hidden = false;
+function hideMessage(element: HTMLElement | null) {
+  if (!element) {
+    return;
   }
-
-  if (errorElement) {
-    errorElement.textContent = kind === "error" ? message : "";
-    errorElement.hidden = kind !== "error";
-  }
+  element.textContent = "";
+  element.hidden = true;
 }
 
-function clearError() {
-  if (errorElement) {
-    errorElement.textContent = "";
-    errorElement.hidden = true;
+function clearMessages() {
+  hideMessage(feedbackElement);
+  hideMessage(errorElement);
+}
+
+function showMessage(message: string, kind: "error" | "success") {
+  clearMessages();
+  const target = kind === "error" ? errorElement : feedbackElement;
+  if (!target) {
+    return;
   }
+  target.textContent = message;
+  target.dataset.kind = kind;
+  target.hidden = false;
 }
 
 function normalizeState(rawState: unknown): DesktopCompanionState {
   return desktopCompanionStateSchema.parse(rawState);
+}
+
+function renderControls() {
+  const controlsLocked = latestState?.aiStatus === "loading" || pendingAction !== null;
+
+  if (customAiApiKeyInput) {
+    customAiApiKeyInput.disabled = controlsLocked;
+  }
+
+  for (const button of actionButtons) {
+    if (button) {
+      button.disabled = controlsLocked;
+    }
+  }
+
+  if (clearCustomAiApiKeyButton) {
+    clearCustomAiApiKeyButton.disabled = controlsLocked || !latestState?.aiCustomKeyConfigured;
+  }
+
+  if (customAiModelSelect) {
+    customAiModelSelect.disabled = controlsLocked;
+  }
+
+  if (aiHintTriggerModeSelect) {
+    aiHintTriggerModeSelect.disabled = controlsLocked;
+  }
+
+  if (saveCustomAiApiKeyButton) {
+    saveCustomAiApiKeyButton.textContent = pendingAction === "save-key" ? "保存中…" : "保存 Key";
+  }
+  if (testCustomAiApiKeyButton) {
+    testCustomAiApiKeyButton.textContent = pendingAction === "test-key" ? "测试中…" : "测试 Key";
+  }
+  if (clearCustomAiApiKeyButton) {
+    clearCustomAiApiKeyButton.textContent = pendingAction === "clear-key" ? "清除中…" : "清除 Key";
+  }
+  if (saveCustomAiModelButton) {
+    saveCustomAiModelButton.textContent = pendingAction === "save-model" ? "保存中…" : "保存模型";
+  }
+  if (saveAiHintTriggerModeButton) {
+    saveAiHintTriggerModeButton.textContent = pendingAction === "save-hint-mode" ? "保存中…" : "保存触发方式";
+  }
+}
+
+function beginAction(action: PendingAction) {
+  if (pendingAction) {
+    return false;
+  }
+  pendingAction = action;
+  clearMessages();
+  renderControls();
+  return true;
+}
+
+function finishAction() {
+  pendingAction = null;
+  renderControls();
 }
 
 function renderState(state: DesktopCompanionState) {
@@ -76,48 +147,25 @@ function renderState(state: DesktopCompanionState) {
       : "当前还没有保存本机 DeepSeek Key";
   }
 
-  if (customAiApiKeyInput) {
-    customAiApiKeyInput.disabled = state.aiStatus === "loading";
-  }
-
-  if (saveCustomAiApiKeyButton) {
-    saveCustomAiApiKeyButton.disabled = state.aiStatus === "loading";
-  }
-
-  if (testCustomAiApiKeyButton) {
-    testCustomAiApiKeyButton.disabled = state.aiStatus === "loading";
-  }
-
-  if (clearCustomAiApiKeyButton) {
-    clearCustomAiApiKeyButton.disabled = state.aiStatus === "loading" || !state.aiCustomKeyConfigured;
-  }
-
   if (customAiModelSelect) {
-    customAiModelSelect.disabled = state.aiStatus === "loading";
     customAiModelSelect.value = normalizeDeepSeekModel(state.aiCustomModel ?? state.aiModel);
   }
 
-  if (saveCustomAiModelButton) {
-    saveCustomAiModelButton.disabled = state.aiStatus === "loading";
-  }
-
   if (aiHintTriggerModeSelect) {
-    aiHintTriggerModeSelect.disabled = state.aiStatus === "loading";
     aiHintTriggerModeSelect.value = normalizeAiHintTriggerMode(state.aiHintTriggerMode);
   }
 
-  if (saveAiHintTriggerModeButton) {
-    saveAiHintTriggerModeButton.disabled = state.aiStatus === "loading";
-  }
+  renderControls();
 }
 
 saveCustomAiApiKeyButton?.addEventListener("click", () => {
-  saveCustomAiApiKeyButton.disabled = true;
+  if (!beginAction("save-key")) {
+    return;
+  }
   const apiKey = customAiApiKeyInput?.value?.trim() ?? "";
 
   void Promise.resolve()
     .then(() => {
-      clearError();
       if (!apiKey) {
         throw new Error("请先输入自定义 DeepSeek API Key。");
       }
@@ -134,47 +182,33 @@ saveCustomAiApiKeyButton?.addEventListener("click", () => {
     .catch((error) => {
       showMessage(error instanceof Error ? error.message : "保存自定义 DeepSeek API Key 失败，请查看日志。", "error");
     })
-    .finally(() => {
-      window.setTimeout(() => {
-        if (saveCustomAiApiKeyButton) {
-          saveCustomAiApiKeyButton.disabled = false;
-        }
-      }, 400);
-    });
+    .finally(finishAction);
 });
 
 testCustomAiApiKeyButton?.addEventListener("click", () => {
-  testCustomAiApiKeyButton.disabled = true;
+  if (!beginAction("test-key")) {
+    return;
+  }
   const apiKey = customAiApiKeyInput?.value?.trim() ?? "";
 
   void Promise.resolve()
-    .then(() => {
-      clearError();
-      return getDesktopCompanionApi().testCustomAiApiKey(apiKey || undefined);
-    })
+    .then(() => getDesktopCompanionApi().testCustomAiApiKey(apiKey || undefined))
     .then((message) => {
       showMessage(message, "success");
     })
     .catch((error) => {
       showMessage(error instanceof Error ? error.message : "测试 DeepSeek API Key 失败，请查看日志。", "error");
     })
-    .finally(() => {
-      window.setTimeout(() => {
-        if (testCustomAiApiKeyButton) {
-          testCustomAiApiKeyButton.disabled = false;
-        }
-      }, 400);
-    });
+    .finally(finishAction);
 });
 
 clearCustomAiApiKeyButton?.addEventListener("click", () => {
-  clearCustomAiApiKeyButton.disabled = true;
+  if (!beginAction("clear-key")) {
+    return;
+  }
 
   void Promise.resolve()
-    .then(() => {
-      clearError();
-      return getDesktopCompanionApi().clearCustomAiApiKey();
-    })
+    .then(() => getDesktopCompanionApi().clearCustomAiApiKey())
     .then(() => {
       if (customAiApiKeyInput) {
         customAiApiKeyInput.value = "";
@@ -185,64 +219,42 @@ clearCustomAiApiKeyButton?.addEventListener("click", () => {
     .catch((error) => {
       showMessage(error instanceof Error ? error.message : "清除自定义 DeepSeek API Key 失败，请查看日志。", "error");
     })
-    .finally(() => {
-      window.setTimeout(() => {
-        if (clearCustomAiApiKeyButton) {
-          clearCustomAiApiKeyButton.disabled = latestState
-            ? latestState.aiStatus === "loading" || !latestState.aiCustomKeyConfigured
-            : false;
-        }
-      }, 400);
-    });
+    .finally(finishAction);
 });
 
 saveCustomAiModelButton?.addEventListener("click", () => {
-  saveCustomAiModelButton.disabled = true;
+  if (!beginAction("save-model")) {
+    return;
+  }
   const model = normalizeDeepSeekModel(customAiModelSelect?.value);
 
   void Promise.resolve()
-    .then(() => {
-      clearError();
-      return getDesktopCompanionApi().saveCustomAiModel(model);
-    })
+    .then(() => getDesktopCompanionApi().saveCustomAiModel(model))
     .then(() => {
       showMessage(`已保存模型：${model}。`, "success");
     })
     .catch((error) => {
       showMessage(error instanceof Error ? error.message : "保存模型失败，请查看日志。", "error");
     })
-    .finally(() => {
-      window.setTimeout(() => {
-        if (saveCustomAiModelButton) {
-          saveCustomAiModelButton.disabled = false;
-        }
-      }, 400);
-    });
+    .finally(finishAction);
 });
 
 saveAiHintTriggerModeButton?.addEventListener("click", () => {
-  saveAiHintTriggerModeButton.disabled = true;
+  if (!beginAction("save-hint-mode")) {
+    return;
+  }
   const mode = normalizeAiHintTriggerMode(aiHintTriggerModeSelect?.value);
   const modeLabel = mode === "manual" ? "手动点击" : "自动刷新";
 
   void Promise.resolve()
-    .then(() => {
-      clearError();
-      return getDesktopCompanionApi().saveAiHintTriggerMode(mode);
-    })
+    .then(() => getDesktopCompanionApi().saveAiHintTriggerMode(mode))
     .then(() => {
       showMessage(`已保存下一步提示触发方式：${modeLabel}。`, "success");
     })
     .catch((error) => {
       showMessage(error instanceof Error ? error.message : "保存下一步提示触发方式失败，请查看日志。", "error");
     })
-    .finally(() => {
-      window.setTimeout(() => {
-        if (saveAiHintTriggerModeButton) {
-          saveAiHintTriggerModeButton.disabled = false;
-        }
-      }, 400);
-    });
+    .finally(finishAction);
 });
 
 void Promise.resolve()

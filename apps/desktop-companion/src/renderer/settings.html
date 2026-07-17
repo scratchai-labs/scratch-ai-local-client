@@ -18,6 +18,7 @@
         --accent-soft: #dbeafe;
         --warn: #b45309;
         --warn-soft: #ffedd5;
+        --focus-ring: #111827;
         --shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
         --shell-radius: 22px;
         --panel-radius: 16px;
@@ -174,6 +175,51 @@
         gap: 8px;
       }
 
+      .field-label,
+      .key-action-title {
+        font-size: var(--text-note);
+        font-weight: 650;
+        color: var(--ink);
+      }
+
+      .key-action-groups {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .key-action-group {
+        display: grid;
+        align-content: start;
+        gap: 6px;
+        min-width: 0;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: var(--card-radius);
+        background: var(--panel-muted);
+      }
+
+      .key-action-group.save {
+        border-color: rgba(37, 99, 235, 0.35);
+        background: #f5f9ff;
+      }
+
+      .key-action-group.clear {
+        border-color: rgba(180, 83, 9, 0.28);
+        background: #fffaf5;
+      }
+
+      .key-action-copy {
+        min-height: 34px;
+        font-size: var(--text-mini);
+        line-height: 1.45;
+        color: var(--muted);
+      }
+
+      .key-action-group .button {
+        width: 100%;
+      }
+
       .button {
         display: inline-flex;
         min-height: var(--control-height);
@@ -210,11 +256,18 @@
         cursor: not-allowed;
       }
 
+      .button:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 3px solid var(--focus-ring);
+        outline-offset: 3px;
+        box-shadow: 0 0 0 2px #fff;
+      }
+
       #settings-feedback[data-kind="success"] {
         color: var(--accent-strong);
       }
 
-      #settings-feedback[data-kind="error"],
       #settings-error {
         color: var(--warn);
       }
@@ -227,6 +280,14 @@
         .shell {
           padding: 12px;
         }
+
+        .key-action-groups {
+          grid-template-columns: 1fr;
+        }
+
+        .key-action-copy {
+          min-height: 0;
+        }
       }
     </style>
   </head>
@@ -238,24 +299,38 @@
         <p class="hero-copy">
           这里只保存当前电脑要使用的 DeepSeek Key、模型，以及“下一步提示”是自动刷新还是手动触发。默认使用 Flash；Pro 更强，但可能更慢、费用更高。
         </p>
-        <p id="settings-status" class="status-pill">正在读取当前配置…</p>
+        <p id="settings-status" class="status-pill" role="status" aria-live="polite" aria-atomic="true">正在读取当前配置…</p>
       </section>
 
       <section class="panel">
         <h2>DeepSeek API Key</h2>
         <p class="note">Key 会明文保存在当前电脑，并限制为当前系统用户可读写。你可以先输入再点“测试 Key”检查是否真的可用；保存后会直接用于在线提示，并默认切到手动点击；清除后不再请求 DeepSeek，只会临时给一次基础提示，随后提醒你先补 Key。</p>
+        <label class="field-label" for="settings-custom-ai-api-key">要使用的 Key</label>
         <input
           id="settings-custom-ai-api-key"
           type="password"
           placeholder="输入 DeepSeek API Key"
+          autocomplete="off"
         />
-        <div class="action-row">
-          <button id="settings-test-custom-ai-api-key-button" class="button secondary" type="button">测试 Key</button>
-          <button id="settings-save-custom-ai-api-key-button" class="button primary" type="button">保存 Key</button>
-          <button id="settings-clear-custom-ai-api-key-button" class="button secondary" type="button">清除 Key</button>
+        <div class="key-action-groups">
+          <div class="key-action-group verify" role="group" aria-labelledby="key-action-verify-title">
+            <p id="key-action-verify-title" class="key-action-title">先检查</p>
+            <p class="key-action-copy">确认这个 Key 能正常连接。</p>
+            <button id="settings-test-custom-ai-api-key-button" class="button secondary" type="button">测试 Key</button>
+          </div>
+          <div class="key-action-group save" role="group" aria-labelledby="key-action-save-title">
+            <p id="key-action-save-title" class="key-action-title">确认使用</p>
+            <p class="key-action-copy">保存后，提示会使用这个 Key。</p>
+            <button id="settings-save-custom-ai-api-key-button" class="button primary" type="button">保存 Key</button>
+          </div>
+          <div class="key-action-group clear" role="group" aria-labelledby="key-action-clear-title">
+            <p id="key-action-clear-title" class="key-action-title">不再使用</p>
+            <p class="key-action-copy">从这台电脑移除已保存的 Key。</p>
+            <button id="settings-clear-custom-ai-api-key-button" class="button secondary" type="button">清除 Key</button>
+          </div>
         </div>
-        <p id="settings-feedback" hidden></p>
-        <p id="settings-error" hidden></p>
+        <p id="settings-feedback" role="status" aria-live="polite" aria-atomic="true" hidden></p>
+        <p id="settings-error" role="alert" aria-live="assertive" aria-atomic="true" hidden></p>
       </section>
 
       <section class="panel">

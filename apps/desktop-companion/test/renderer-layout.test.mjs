@@ -94,3 +94,13 @@ test("lesson goal input stays enabled while saving and while AI hints load", asy
   assert.doesNotMatch(source, /lessonGoalInput\.disabled\s*=\s*state\.aiStatus\s*===\s*"loading"/);
   assert.doesNotMatch(source, /lessonGoalInput\.disabled\s*=\s*true/);
 });
+
+test("main window announces dynamic status and errors with a strong keyboard focus ring", async () => {
+  const html = await readFile(new URL("../src/renderer/index.html", import.meta.url), "utf8");
+
+  assert.match(html, /id="status-summary"[^>]*role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"/);
+  assert.match(html, /class="status-copy"[^>]*role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"/);
+  assert.match(html, /id="error"[^>]*role="alert"[^>]*aria-live="assertive"[^>]*aria-atomic="true"/);
+  assert.match(html, /\.button:focus-visible,[\s\S]*\.lesson-goal-row input:focus-visible\s*\{/);
+  assert.match(html, /outline:\s*3px solid var\(--focus-ring\);/);
+});

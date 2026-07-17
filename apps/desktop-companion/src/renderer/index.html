@@ -18,6 +18,7 @@
         --accent-soft: #dbeafe;
         --warn: #b45309;
         --warn-soft: #ffedd5;
+        --focus-ring: #111827;
         --scratch-motion: #4c97ff;
         --scratch-looks: #9966ff;
         --scratch-sound: #cf63cf;
@@ -195,6 +196,13 @@
         opacity: 0.55;
         cursor: not-allowed;
         box-shadow: none;
+      }
+
+      .button:focus-visible,
+      .lesson-goal-row input:focus-visible {
+        outline: 3px solid var(--focus-ring);
+        outline-offset: 3px;
+        box-shadow: 0 0 0 2px #fff;
       }
 
       .workspace {
@@ -638,7 +646,7 @@
             <div class="summary-grid compact">
               <div class="summary-card">
                 <span>状态</span>
-                <strong id="status-summary">启动中</strong>
+                <strong id="status-summary" role="status" aria-live="polite" aria-atomic="true">启动中</strong>
               </div>
               <div class="summary-card">
                 <span>当前角色</span>
@@ -653,7 +661,7 @@
                 <strong id="scratch-path">还没有选择</strong>
               </div>
             </div>
-            <p id="error" hidden></p>
+            <p id="error" role="alert" aria-live="assertive" aria-atomic="true" hidden></p>
           </section>
 
           <section class="panel hint-panel">
@@ -661,7 +669,7 @@
               <h2>下一步提示</h2>
               <p id="ai-source" class="status-line muted">当前提示来源：等待生成</p>
             </div>
-            <div class="status-copy">
+            <div class="status-copy" role="status" aria-live="polite" aria-atomic="true">
               <p id="ai-status" class="status-line muted">正在整理当前状态…</p>
               <p id="ai-answer" class="status-line">先自己搭一会儿；需要时看右边的积木提示。</p>
             </div>
