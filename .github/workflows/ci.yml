@@ -32,6 +32,11 @@ jobs:
 
       - run: npm run test
 
+      - name: Desktop companion mock UI smoke (macOS)
+        if: runner.os == 'macOS'
+        timeout-minutes: 5
+        run: npm run desktop:test:ui:smoke
+
       - name: Recommendation render contract (Ubuntu)
         if: runner.os == 'Linux'
         run: xvfb-run -a npm run test:recommendation-render-contract

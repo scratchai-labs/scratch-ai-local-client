@@ -30,3 +30,20 @@ test("ci workflow uses Node 24-based GitHub actions runtimes", async () => {
   assert.doesNotMatch(workflow, /actions\/checkout@v4/);
   assert.doesNotMatch(workflow, /actions\/setup-node@v4/);
 });
+
+test("ci runs the isolated Electron mock UI smoke only on macOS", async () => {
+  const workflow = await readFile(
+    new URL("../../../.github/workflows/ci.yml", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(workflow, /name:\s*Desktop companion mock UI smoke \(macOS\)/);
+  assert.match(
+    workflow,
+    /name:\s*Desktop companion mock UI smoke \(macOS\)[\s\S]*?if:\s*runner\.os == 'macOS'[\s\S]*?timeout-minutes:\s*5[\s\S]*?run:\s*npm run desktop:test:ui:smoke/
+  );
+  assert.match(
+    workflow,
+    /name:\s*Recommendation render contract \(Ubuntu\)[\s\S]*?if:\s*runner\.os == 'Linux'[\s\S]*?run:\s*xvfb-run -a npm run test:recommendation-render-contract/
+  );
+});

@@ -37,7 +37,8 @@
     "package:mac:zip": "node scripts/package-mac.mjs --target=zip",
     "package:mac:zip:no-key": "node scripts/package-mac.mjs --target=zip --variant=no-key",
     "package:mac:dmg": "node scripts/package-mac.mjs --target=dmg",
-    "package:mac:dmg:no-key": "node scripts/package-mac.mjs --target=dmg --variant=no-key"
+    "package:mac:dmg:no-key": "node scripts/package-mac.mjs --target=dmg --variant=no-key",
+    "test:desktop-ui:ci": "rm -rf ../../tools/verification/tmp-desktop-companion-ui-userdata && output_dir=\"$(mktemp -d \"${RUNNER_TEMP:-${TMPDIR:-/tmp}}/scratch-ai-desktop-ui-smoke.XXXXXX\")\" && trap 'rm -rf \"$output_dir\" ../../tools/verification/tmp-desktop-companion-ui-userdata' EXIT && node ../../tools/verification/scripts/verify-desktop-companion-ui.mjs --mock-state-file=\"$PWD/../../tools/verification/fixtures/desktop-companion-mock-state.json\" --timeout-ms=30000 --screenshot=\"$output_dir/current-ui-desktop-companion-mock.png\" --automation-scratch-path=\"$output_dir/mock-scratch/Scratch\""
   },
   "dependencies": {
     "@scratch-ai/shared": "0.1.0",

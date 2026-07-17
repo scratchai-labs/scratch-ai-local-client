@@ -44,6 +44,7 @@
     "package:mac:zip": "npm run package:mac:zip --workspace=@scratch-ai/desktop-companion",
     "package:mac:dmg": "npm run package:mac:dmg --workspace=@scratch-ai/desktop-companion",
     "workspace:clean": "npm run clean",
-    "workspace:clean:dry-run": "npm run clean:dry-run"
+    "workspace:clean:dry-run": "npm run clean:dry-run",
+    "desktop:test:ui:smoke": "npm run test:desktop-ui:ci --workspace=@scratch-ai/desktop-companion"
   }
 }
