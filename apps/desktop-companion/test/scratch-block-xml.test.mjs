@@ -721,6 +721,45 @@ test("buildRecommendedStructureXml renders variable angles and coordinate params
   assert.match(xml, /<block type="motion_gotoxy">[\s\S]*<field name="NUM">0<\/field>[\s\S]*<field name="NUM">0<\/field>/);
 });
 
+test("recommended expression XML keeps exact full-width formula serialization", () => {
+  const xml = buildRecommendedBlockXml({
+    opcode: "data_setvariableto",
+    category: "变量",
+    label: "把 结果 设为公式",
+    reason: "测试全角公式与优先级。",
+    params: { variable: "结果", value: "（number＋2）×3" }
+  });
+
+  assert.equal(
+    xml,
+    '<xml xmlns="https://developers.google.com/blockly/xml"><variables><variable type="" id="variable-p1v-kgs" islocal="false" iscloud="false">结果</variable><variable type="" id="variable-number" islocal="false" iscloud="false">number</variable></variables><block type="data_setvariableto"><field name="VARIABLE" id="variable-p1v-kgs" variabletype="">结果</field><value name="VALUE"><block type="operator_multiply"><value name="NUM1"><block type="operator_add"><value name="NUM1"><block type="data_variable"><field name="VARIABLE" id="variable-number" variabletype="">number</field></block></value><value name="NUM2"><shadow type="math_number"><field name="NUM">2</field></shadow></value></block></value><value name="NUM2"><shadow type="math_number"><field name="NUM">3</field></shadow></value></block></value></block></xml>'
+  );
+});
+
+test("recommended expression XML keeps exact special-function serialization", () => {
+  const xml = buildRecommendedStructureXml({
+    root: {
+      opcode: "data_setvariableto",
+      category: "变量",
+      label: "把 first 设为字符",
+      reason: "测试函数表达式。",
+      params: { variable: "first", value: "letter(join(text:你,name),round(1＋2))" },
+      next: {
+        opcode: "data_setvariableto",
+        category: "变量",
+        label: "保存列表长度",
+        reason: "测试列表表达式。",
+        params: { variable: "count", value: "listlength(购物清单)" }
+      }
+    }
+  });
+
+  assert.equal(
+    xml,
+    '<xml xmlns="https://developers.google.com/blockly/xml"><variables><variable type="" id="variable-first" islocal="false" iscloud="false">first</variable><variable type="" id="variable-count" islocal="false" iscloud="false">count</variable><variable type="list" id="list-rvx-mll-lqd-ggl" islocal="false" iscloud="false">购物清单</variable></variables><block type="data_setvariableto"><field name="VARIABLE" id="variable-first" variabletype="">first</field><value name="VALUE"><block type="operator_letter_of"><value name="LETTER"><block type="operator_round"><value name="NUM"><block type="operator_add"><value name="NUM1"><shadow type="math_number"><field name="NUM">1</field></shadow></value><value name="NUM2"><shadow type="math_number"><field name="NUM">2</field></shadow></value></block></value></block></value><value name="STRING"><shadow type="text"><field name="TEXT">join(text:你,name)</field></shadow></value></block></value><next><block type="data_setvariableto"><field name="VARIABLE" id="variable-count" variabletype="">count</field><value name="VALUE"><block type="data_lengthoflist"><field name="LIST" id="list-rvx-mll-lqd-ggl" variabletype="list">购物清单</field></block></value></block></next></block></xml>'
+  );
+});
+
 test("buildRecommendedStructureXml renders composite repeat count expressions", () => {
   const formulaXml = buildRecommendedStructureXml({
     root: {
