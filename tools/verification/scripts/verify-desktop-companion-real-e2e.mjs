@@ -9,6 +9,14 @@ import {
     buildSettingsUiSnapshotExpression,
     isSettingsUiReady
 } from './desktop-companion-real-e2e-settings.mjs';
+import {
+    evaluateExpressionInTarget as evaluateTargetExpression,
+    pickDesktopCompanionTarget,
+    pickScratchTarget,
+    pickSettingsTarget,
+    waitForTarget,
+    withCdpConnection
+} from './cdp-automation.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
@@ -128,155 +136,16 @@ async function waitForLogMarkers(markers, offset, errorMessage) {
     });
 }
 
-function isInspectablePageTarget(target) {
-    return target?.type === 'page' &&
-        typeof target.webSocketDebuggerUrl === 'string' &&
-        target.webSocketDebuggerUrl.length > 0 &&
-        typeof target.url === 'string' &&
-        !target.url.startsWith('devtools://') &&
-        target.url !== 'about:blank';
-}
-
-function pickCompanionTarget(targets) {
-    const inspectableTargets = targets.filter(isInspectablePageTarget);
-    return inspectableTargets.find(target => {
-        const title = typeof target.title === 'string' ? target.title.trim() : '';
-        const url = typeof target.url === 'string' ? target.url.toLowerCase() : '';
-        return title.includes('Scratch AI 教练') || url.endsWith('/index.html') || url.includes('index.html');
-    }) ?? inspectableTargets[0] ?? null;
-}
-
-function pickSettingsTarget(targets) {
-    const inspectableTargets = targets.filter(isInspectablePageTarget);
-    return inspectableTargets.find(target => {
-        const title = typeof target.title === 'string' ? target.title.trim() : '';
-        const url = typeof target.url === 'string' ? target.url.toLowerCase() : '';
-        return title.includes('DeepSeek 设置') || url.endsWith('/settings.html') || url.includes('settings.html');
-    }) ?? null;
-}
-
-function pickScratchTarget(targets) {
-    const inspectableTargets = targets.filter(isInspectablePageTarget);
-    return inspectableTargets.find(target =>
-        typeof target.url === 'string' && target.url.toLowerCase().endsWith('/index.html')
-    ) ?? inspectableTargets.find(target => {
-        const normalizedUrl = typeof target.url === 'string' ? target.url.toLowerCase() : '';
-        return normalizedUrl.includes('/index.html') &&
-            !normalizedUrl.includes('?route=about') &&
-            !normalizedUrl.includes('?route=privacy') &&
-            !normalizedUrl.includes('?route=usb');
-    }) ?? inspectableTargets[0] ?? null;
-}
-
 async function waitForTargets(port, picker, errorMessage) {
-    return await waitFor(async () => {
-        try {
-            const response = await fetch(`http://127.0.0.1:${port}/json/list`);
-            if (!response.ok) {
-                return null;
-            }
-            const parsed = await response.json();
-            if (!Array.isArray(parsed)) {
-                return null;
-            }
-            const preferredTarget = picker(parsed);
-            if (!preferredTarget) {
-                return null;
-            }
-            return {
-                targets: parsed,
-                preferredTarget
-            };
-        } catch {
-            return null;
-        }
-    }, {
-        timeoutMs,
-        intervalMs: 500,
-        errorMessage
-    });
-}
-
-class CdpConnection {
-    constructor(socket) {
-        this.socket = socket;
-        this.nextId = 1;
-        this.pending = new Map();
-        this.socket.addEventListener('message', event => {
-            const rawData = typeof event.data === 'string' ? event.data : String(event.data ?? '');
-            if (!rawData) return;
-            let message;
-            try {
-                message = JSON.parse(rawData);
-            } catch {
-                return;
-            }
-            if (typeof message.id !== 'number') return;
-            const request = this.pending.get(message.id);
-            if (!request) return;
-            this.pending.delete(message.id);
-            if (message.error?.message) {
-                request.reject(new Error(message.error.message));
-                return;
-            }
-            request.resolve(message.result ?? {});
-        });
+    const result = await waitForTarget(port, timeoutMs, picker, errorMessage, {pollIntervalMs: 500});
+    if (!result.ok) {
+        throw new Error(result.error);
     }
-
-    send(method, params) {
-        const id = this.nextId++;
-        return new Promise((resolve, reject) => {
-            this.pending.set(id, {resolve, reject});
-            this.socket.send(JSON.stringify({id, method, params}));
-        });
-    }
-}
-
-async function waitForWebSocketOpen(socket, maxWaitMs) {
-    if (socket.readyState === WebSocket.OPEN) return;
-    await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => {
-            reject(new Error('Timed out while opening websocket.'));
-        }, maxWaitMs);
-        socket.addEventListener('open', () => {
-            clearTimeout(timer);
-            resolve();
-        });
-        socket.addEventListener('error', () => {
-            clearTimeout(timer);
-            reject(new Error('Failed to connect to websocket.'));
-        });
-    });
+    return result;
 }
 
 async function evaluateExpressionInTarget(target, expression) {
-    const socket = new WebSocket(target.webSocketDebuggerUrl);
-    await waitForWebSocketOpen(socket, timeoutMs);
-    try {
-        const connection = new CdpConnection(socket);
-        await connection.send('Runtime.enable');
-        const response = await connection.send('Runtime.evaluate', {
-            expression,
-            awaitPromise: true,
-            returnByValue: true,
-            userGesture: true
-        });
-        if (response.exceptionDetails?.text) {
-            throw new Error(response.exceptionDetails.text);
-        }
-        return {
-            ok: true,
-            value: response.result?.value,
-            type: response.result?.type
-        };
-    } catch (error) {
-        return {
-            ok: false,
-            error: error instanceof Error ? error.message : String(error)
-        };
-    } finally {
-        socket.close();
-    }
+    return await evaluateTargetExpression(target, expression, {timeoutMs});
 }
 
 async function closeScratchTarget(target) {
@@ -284,15 +153,15 @@ async function closeScratchTarget(target) {
         return false;
     }
 
-    const closeAttempt = (async () => {
-        const socket = new WebSocket(target.webSocketDebuggerUrl);
-        await waitForWebSocketOpen(socket, Math.min(timeoutMs, 5000));
-        try {
-            const connection = new CdpConnection(socket);
-            await connection.send('Page.enable');
-            await connection.send('Runtime.enable');
-            await connection.send('Runtime.evaluate', {
-                expression: `
+    const closeAttempt = withCdpConnection(
+        target,
+        {timeoutMs: Math.min(timeoutMs, 5000)},
+        async connection => {
+            try {
+                await connection.send('Page.enable');
+                await connection.send('Runtime.enable');
+                await connection.send('Runtime.evaluate', {
+                    expression: `
 (() => {
   window.onbeforeunload = null;
   window.addEventListener('beforeunload', event => {
@@ -300,24 +169,23 @@ async function closeScratchTarget(target) {
   }, true);
   return true;
 })()
-                `.trim(),
-                awaitPromise: true,
-                returnByValue: true,
-                userGesture: true
-            }).catch(() => {});
-            const closeResult = connection.send('Page.close').catch(error => ({
-                closeError: error instanceof Error ? error.message : String(error)
-            }));
-            await sleep(500);
-            await connection.send('Page.handleJavaScriptDialog', {accept: true}).catch(() => {});
-            await closeResult;
-            return true;
-        } catch {
-            return false;
-        } finally {
-            socket.close();
+                    `.trim(),
+                    awaitPromise: true,
+                    returnByValue: true,
+                    userGesture: true
+                }).catch(() => {});
+                const closeResult = connection.send('Page.close').catch(error => ({
+                    closeError: error instanceof Error ? error.message : String(error)
+                }));
+                await sleep(500);
+                await connection.send('Page.handleJavaScriptDialog', {accept: true}).catch(() => {});
+                await closeResult;
+                return true;
+            } catch {
+                return false;
+            }
         }
-    })();
+    ).catch(() => false);
 
     return await Promise.race([
         closeAttempt,
@@ -623,7 +491,7 @@ async function main() {
     try {
         const companionTargetResult = await waitForTargets(
             companionDebugPort,
-            pickCompanionTarget,
+            pickDesktopCompanionTarget,
             'Failed to find the packaged desktop companion target.'
         );
 

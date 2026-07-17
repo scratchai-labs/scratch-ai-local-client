@@ -61,7 +61,9 @@ npm run verify:render-completeness-50
 
 ## 推荐积木专项验证
 
-- `npm run test:recommendation-render-contract` 不需要 DeepSeek Key，CI 在 Ubuntu 上通过 `xvfb-run` 执行；该脚本会逐项枚举推荐 opcode、合法结构关系、params 协议变体和组合输入槽（例如 `重复执行` 次数填变量、算式或 reporter），任何 XML 缺块、fallback、degraded 或非 shadow 积木缺失都会失败。
+- `npm run test:recommendation-render-contract` 不需要 DeepSeek Key，默认仍运行完整穷举；脚本会逐项枚举推荐 opcode、合法结构关系、params 协议变体和组合输入槽（例如 `重复执行` 次数填变量、算式或 reporter），任何 XML 缺块、fallback、degraded 或非 shadow 积木缺失都会失败。
+- PR 快速冒烟可运行 `node tools/verification/scripts/verify-recommendation-render-contract.mjs --mode=smoke`；默认每组均匀抽取最多 32 个用例，并保留真实 Electron / scratch-blocks 渲染。
+- 全量任务可用 `--shard-index=0 --shard-count=4` 做零基分片；`--batch-size`、`--progress-every`、`--recycle-every` 可调整批量大小、进度频率和 Renderer 重建频率，完整参数见 `--help`。
 - `npm run verify:render-completeness-50` 会真实打开 Companion + Scratch，逐个输入 50 个目标并读取推荐区 DOM；默认使用源码版 Companion，产物写入 `multi-goal-deepseek-screenshots/`。如果要把目标相关性 weak 也作为失败，请追加 `-- --fail-on-weak=true` 或直接运行脚本参数。
 - `npm run verify:deepseek-strict` 需要桌面设置中已保存的 Key，只用于人工验证当前 Flash/Pro 模型的 Beta Strict 兼容性。
 - Strict 探针失败时，先检查工具参数或当前模型兼容性；客户端运行时会拒绝非法 DeepSeek 结果并使用本地结构化提示。

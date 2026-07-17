@@ -5,12 +5,17 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import {
+  formatRenderProgress,
+  getRenderContractHelp,
+  parseRenderContractOptions,
+  selectCasesForRun
+} from "./recommendation-render-contract-options.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const workspaceRoot = path.resolve(path.dirname(scriptPath), "../../..");
 const desktopDistDir = path.join(workspaceRoot, "apps/desktop-companion/dist");
 const isElectronMain = Boolean(process.versions.electron);
-const BATCH_RENDER_SIZE = 40;
 const RECOMMENDATION_PARAM_KEYS = [
   "variable",
   "value",
@@ -79,7 +84,7 @@ function createRendererBatchState(cases) {
   };
 }
 
-async function runNodeLauncher() {
+async function runNodeLauncher(args) {
   const require = createRequire(import.meta.url);
   const electronBinary = require("electron");
   const launcherTempDir = await mkdtemp(path.join(os.tmpdir(), "scratch-ai-electron-launcher-"));
@@ -95,7 +100,7 @@ async function runNodeLauncher() {
   );
 
   try {
-    const child = spawn(electronBinary, [launcherPath, "--electron-contract-child"], {
+    const child = spawn(electronBinary, [launcherPath, "--electron-contract-child", ...args], {
       cwd: workspaceRoot,
       env: Object.fromEntries(
         Object.entries(process.env).filter(([key]) => key !== "ELECTRON_RUN_AS_NODE")
@@ -287,24 +292,93 @@ function assertCompleteRender(caseName, result, minimumNonShadowBlocks = 1) {
   assertRenderedCase(caseName, result, minimumNonShadowBlocks);
 }
 
-async function renderCasesInBatches(browserWindow, cases) {
+async function releaseRenderedWorkspaces(browserWindow) {
+  await browserWindow.webContents.executeJavaScript(`
+    (async () => {
+      window.recommendationRenderContract.updateState(${JSON.stringify(createRendererBatchState([]))});
+      const deadline = Date.now() + 2000;
+      while (Date.now() < deadline && document.querySelector(".scratch-workspace-host")) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      return document.querySelectorAll(".scratch-workspace-host").length;
+    })()
+  `);
+}
+
+async function readRendererMemoryKb(browserWindow) {
+  try {
+    const { app } = await import("electron");
+    const rendererPid = browserWindow.webContents.getOSProcessId();
+    const rendererMetric = app.getAppMetrics().find(metric => metric.pid === rendererPid);
+    return rendererMetric?.memory?.privateBytes ?? rendererMetric?.memory?.workingSetSize ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function selectSuiteCases(suite, cases, options) {
+  const selected = selectCasesForRun(cases, options);
+  const shard = options.shardCount > 1
+    ? ` shard=${options.shardIndex}/${options.shardCount}`
+    : "";
+  console.log(
+    `[render-contract] ${suite}: selected=${selected.length}/${cases.length} mode=${options.mode}${shard}`
+  );
+  return selected;
+}
+
+async function renderCasesInBatches(rendererSession, cases, { suite, batchSize, progressEvery, recycleEvery }) {
+  const startedAt = Date.now();
   let renderedCount = 0;
-  for (let index = 0; index < cases.length; index += BATCH_RENDER_SIZE) {
-    const batch = cases.slice(index, index + BATCH_RENDER_SIZE);
-    const results = await renderXmlBatch(browserWindow, batch);
-    assert.equal(results.length, batch.length, `批量渲染应返回 ${batch.length} 个 host，实际 ${results.length}`);
-    for (const [caseIndex, item] of batch.entries()) {
-      assertCaseXmlExpectations(item);
-      assertRenderedCase(
-        item.name,
-        results[caseIndex],
-        item.minimumNonShadowBlocks ?? 1,
-        item.expectedTextPatterns ?? []
-      );
+  let batchNumber = 0;
+  for (let index = 0; index < cases.length; index += batchSize) {
+    const batch = cases.slice(index, index + batchSize);
+    const browserWindow = rendererSession.browserWindow;
+    try {
+      const results = await renderXmlBatch(browserWindow, batch);
+      assert.equal(results.length, batch.length, `批量渲染应返回 ${batch.length} 个 host，实际 ${results.length}`);
+      for (const [caseIndex, item] of batch.entries()) {
+        assertCaseXmlExpectations(item);
+        assertRenderedCase(
+          item.name,
+          results[caseIndex],
+          item.minimumNonShadowBlocks ?? 1,
+          item.expectedTextPatterns ?? []
+        );
+      }
+      renderedCount += batch.length;
+    } finally {
+      await releaseRenderedWorkspaces(browserWindow);
     }
-    renderedCount += batch.length;
+
+    batchNumber += 1;
+    if (batchNumber % progressEvery === 0 || renderedCount === cases.length) {
+      console.log(formatRenderProgress({
+        suite,
+        completed: renderedCount,
+        total: cases.length,
+        elapsedMs: Date.now() - startedAt,
+        rendererMemoryKb: await readRendererMemoryKb(browserWindow)
+      }));
+    }
+    if (batchNumber % recycleEvery === 0 && renderedCount < cases.length) {
+      console.log(`[render-contract] ${suite}: recycle renderer after ${renderedCount}/${cases.length}`);
+      await rendererSession.recycle();
+    }
   }
   return renderedCount;
+}
+
+async function renderSuite(rendererSession, suite, cases, options) {
+  const selected = selectSuiteCases(suite, cases, options);
+  await renderCasesInBatches(rendererSession, selected, {
+    suite,
+    batchSize: options.batchSize,
+    progressEvery: options.progressEvery,
+    recycleEvery: options.recycleEvery
+  });
+  return selected;
 }
 
 function createStructureRenderCase(name, root, sanitizeRecommendedStructure, buildRecommendedStructureXml, expectations = {}) {
@@ -639,7 +713,34 @@ function createCompositeInputVariantCases(sanitizeRecommendedStructure, buildRec
   );
 }
 
-async function runElectronContract() {
+async function createContractBrowserWindow({ BrowserWindow, preloadPath, rendererDiagnostics }) {
+  const browserWindow = new BrowserWindow({
+    show: false,
+    width: 1280,
+    height: 900,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      preload: preloadPath
+    }
+  });
+  browserWindow.webContents.on("console-message", details => {
+    if (details.level === "warning" || details.level === "error") {
+      rendererDiagnostics.push(details.message);
+    }
+  });
+  browserWindow.webContents.on("render-process-gone", (_event, details) => {
+    if (details.reason !== "clean-exit") {
+      rendererDiagnostics.push(`render-process-gone: ${details.reason}`);
+    }
+  });
+  await browserWindow.loadFile(path.join(desktopDistDir, "index.html"));
+  await waitForRendererBridge(browserWindow);
+  return browserWindow;
+}
+
+async function runElectronContract(options) {
   const {
     SUPPORTED_RECOMMENDED_BLOCK_OPCODES,
     buildRecommendedBlockXml,
@@ -662,36 +763,37 @@ async function runElectronContract() {
     const preloadPath = await createContractPreload(tempDir);
     await app.whenReady();
 
-    browserWindow = new BrowserWindow({
-      show: false,
-      width: 1280,
-      height: 900,
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: false,
-        preload: preloadPath
+    const rendererSession = {
+      browserWindow: null,
+      async recycle() {
+        const previousWindow = this.browserWindow;
+        const nextWindow = await createContractBrowserWindow({
+          BrowserWindow,
+          preloadPath,
+          rendererDiagnostics
+        });
+        this.browserWindow = nextWindow;
+        browserWindow = nextWindow;
+        previousWindow?.destroy();
       }
-    });
-    browserWindow.webContents.on("console-message", (details) => {
-      if (details.level === "warning" || details.level === "error") {
-        rendererDiagnostics.push(details.message);
-      }
-    });
-    browserWindow.webContents.on("render-process-gone", (_event, details) => {
-      rendererDiagnostics.push(`render-process-gone: ${details.reason}`);
-    });
+    };
+    await rendererSession.recycle();
 
-    await browserWindow.loadFile(path.join(desktopDistDir, "index.html"));
-    await waitForRendererBridge(browserWindow);
-
-    console.log(`[render-contract] 验证 ${SUPPORTED_RECOMMENDED_BLOCK_OPCODES.length} 个推荐 opcode 单块...`);
+    console.log(
+      `[render-contract] start mode=${options.mode} batch=${options.batchSize} ` +
+      `shard=${options.shardIndex}/${options.shardCount}`
+    );
     const singleBlockCases = SUPPORTED_RECOMMENDED_BLOCK_OPCODES.map((opcode) => ({
       name: `single:${opcode}`,
       xml: buildRecommendedBlockXml(createBlock(opcode)),
       minimumNonShadowBlocks: 1
     }));
-    await renderCasesInBatches(browserWindow, singleBlockCases);
+    const selectedSingleBlockCases = await renderSuite(
+      rendererSession,
+      "single-opcode",
+      singleBlockCases,
+      options
+    );
 
     const legalStructures = [
       {
@@ -731,18 +833,20 @@ async function runElectronContract() {
       }
     ];
 
-    console.log(`[render-contract] 验证 ${legalStructures.length} 个合法结构...`);
-    for (const scenario of legalStructures) {
-      const structure = sanitizeRecommendedStructure({ root: scenario.root });
-      assert.ok(structure, `${scenario.name}: 合法结构不应被净化器拒绝`);
-      const expectedNodeCount = countStructureNodes(structure.root);
-      const result = await renderXml(
-        browserWindow,
-        buildRecommendedStructureXml(structure),
-        `structure:${scenario.name}`
-      );
-      assertCompleteRender(`structure:${scenario.name}`, result, expectedNodeCount);
-    }
+    const legalStructureCases = legalStructures.map(scenario =>
+      createStructureRenderCase(
+        `structure:${scenario.name}`,
+        scenario.root,
+        sanitizeRecommendedStructure,
+        buildRecommendedStructureXml
+      )
+    );
+    const selectedLegalStructureCases = await renderSuite(
+      rendererSession,
+      "legal-structure",
+      legalStructureCases,
+      options
+    );
 
     const rootOpcodes = SUPPORTED_RECOMMENDED_BLOCK_OPCODES.filter((opcode) =>
       canRenderRecommendedBlockAtPosition(opcode, "root")
@@ -777,8 +881,12 @@ async function runElectronContract() {
         buildRecommendedStructureXml
       )
     );
-    console.log(`[render-contract] 穷举 ${rootStructureCases.length} 个结构化 root...`);
-    await renderCasesInBatches(browserWindow, rootStructureCases);
+    const selectedRootStructureCases = await renderSuite(
+      rendererSession,
+      "root-structure",
+      rootStructureCases,
+      options
+    );
 
     const relationCases = [
       ...createRelationMatrixCases({
@@ -810,8 +918,12 @@ async function runElectronContract() {
         buildRecommendedStructureXml
       })
     ];
-    console.log(`[render-contract] 穷举 ${relationCases.length} 个合法关系 pair...`);
-    await renderCasesInBatches(browserWindow, relationCases);
+    const selectedRelationCases = await renderSuite(
+      rendererSession,
+      "relation-pair",
+      relationCases,
+      options
+    );
 
     const combinedRelationCases = createCanonicalMultiRelationCases({
       relationParents: substackParentOpcodes,
@@ -821,22 +933,34 @@ async function runElectronContract() {
       sanitizeRecommendedStructure,
       buildRecommendedStructureXml
     });
-    console.log(`[render-contract] 验证 ${combinedRelationCases.length} 个多关系组合结构...`);
-    await renderCasesInBatches(browserWindow, combinedRelationCases);
+    const selectedCombinedRelationCases = await renderSuite(
+      rendererSession,
+      "combined-relation",
+      combinedRelationCases,
+      options
+    );
 
     const parameterVariantCases = createParameterVariantCases(
       sanitizeRecommendedStructure,
       buildRecommendedStructureXml
     );
-    console.log(`[render-contract] 验证 ${parameterVariantCases.length} 个 params 协议变体...`);
-    await renderCasesInBatches(browserWindow, parameterVariantCases);
+    const selectedParameterVariantCases = await renderSuite(
+      rendererSession,
+      "parameter-variant",
+      parameterVariantCases,
+      options
+    );
 
     const compositeInputVariantCases = createCompositeInputVariantCases(
       sanitizeRecommendedStructure,
       buildRecommendedStructureXml
     );
-    console.log(`[render-contract] 验证 ${compositeInputVariantCases.length} 个组合输入槽变体...`);
-    await renderCasesInBatches(browserWindow, compositeInputVariantCases);
+    const selectedCompositeInputVariantCases = await renderSuite(
+      rendererSession,
+      "composite-input",
+      compositeInputVariantCases,
+      options
+    );
 
     const terminalStructures = [
       createBlock("control_forever", {
@@ -847,25 +971,33 @@ async function runElectronContract() {
       createBlock("control_delete_this_clone", { next: createBlock("looks_show") })
     ];
 
-    console.log("[render-contract] 验证仅被 reporter 引用的变量名可见...");
-    const variableReporterResult = await renderXml(
-      browserWindow,
-      buildRecommendedStructureXml({
-        root: createBlock("control_repeat", {
-          params: { repeatTimes: "n" }
-        })
-      }),
-      "structure:reporter-variable-name"
-    );
-    assertCompleteRender("structure:reporter-variable-name", variableReporterResult);
-    assert.match(
-      variableReporterResult.text,
-      /n/,
-      "structure:reporter-variable-name: 重复执行里的变量 reporter 应显示 n，而不是空圆形"
-    );
+    const shouldRunSingletonCases = options.shardIndex === 0;
+    let variableReporterCaseCount = 0;
+    if (shouldRunSingletonCases) {
+      console.log("[render-contract] 验证仅被 reporter 引用的变量名可见...");
+      try {
+        const variableReporterResult = await renderXml(
+          rendererSession.browserWindow,
+          buildRecommendedStructureXml({
+            root: createBlock("control_repeat", {
+              params: { repeatTimes: "n" }
+            })
+          }),
+          "structure:reporter-variable-name"
+        );
+        assertCompleteRender("structure:reporter-variable-name", variableReporterResult);
+        assert.match(
+          variableReporterResult.text,
+          /n/,
+          "structure:reporter-variable-name: 重复执行里的变量 reporter 应显示 n，而不是空圆形"
+        );
+        variableReporterCaseCount = 1;
+      } finally {
+        await releaseRenderedWorkspaces(rendererSession.browserWindow);
+      }
+    }
 
-    console.log("[render-contract] 验证 terminal block 的 next 会在渲染前被移除...");
-    for (const root of terminalStructures) {
+    const terminalCases = terminalStructures.map(root => {
       const structure = sanitizeRecommendedStructure({ root });
       assert.ok(structure, `${root.opcode}: terminal 结构根节点应被保留`);
       assert.equal(
@@ -875,12 +1007,26 @@ async function runElectronContract() {
       );
       const xml = buildRecommendedStructureXml(structure);
       assert.doesNotMatch(xml, /<next>/, `${root.opcode}: 编译后的 XML 不得包含 next`);
-      const result = await renderXml(browserWindow, xml, `terminal:${root.opcode}`);
-      assertCompleteRender(`terminal:${root.opcode}`, result, countStructureNodes(structure.root));
-    }
+      return {
+        name: `terminal:${root.opcode}`,
+        xml,
+        minimumNonShadowBlocks: countStructureNodes(structure.root)
+      };
+    });
+    const selectedTerminalCases = await renderSuite(
+      rendererSession,
+      "terminal-next",
+      terminalCases,
+      options
+    );
 
     console.log(
-      `[render-contract] 通过：${SUPPORTED_RECOMMENDED_BLOCK_OPCODES.length} 个单积木、${legalStructures.length} 个样例结构、${rootStructureCases.length} 个 root、${relationCases.length} 个关系 pair、${combinedRelationCases.length} 个多关系组合、${parameterVariantCases.length} 个 params 变体、${compositeInputVariantCases.length} 个组合输入槽变体、1 个变量名可见性、${terminalStructures.length} 个 terminal 非法 next 用例。`
+      `[render-contract] 通过：${selectedSingleBlockCases.length} 个单积木、` +
+      `${selectedLegalStructureCases.length} 个样例结构、${selectedRootStructureCases.length} 个 root、` +
+      `${selectedRelationCases.length} 个关系 pair、${selectedCombinedRelationCases.length} 个多关系组合、` +
+      `${selectedParameterVariantCases.length} 个 params 变体、` +
+      `${selectedCompositeInputVariantCases.length} 个组合输入槽变体、` +
+      `${variableReporterCaseCount} 个变量名可见性、${selectedTerminalCases.length} 个 terminal 非法 next 用例。`
     );
   } catch (error) {
     if (rendererDiagnostics.length > 0) {
@@ -895,13 +1041,22 @@ async function runElectronContract() {
   }
 }
 
-if (isElectronMain) {
-  try {
-    await runElectronContract();
-  } catch (error) {
-    console.error("[render-contract] 失败：", error);
-    process.exitCode = 1;
+const cliArgs = process.argv.slice(2);
+
+try {
+  const options = parseRenderContractOptions(cliArgs);
+  if (options.help) {
+    console.log(getRenderContractHelp());
+    if (isElectronMain) {
+      const { app } = await import("electron");
+      app.quit();
+    }
+  } else if (isElectronMain) {
+    await runElectronContract(options);
+  } else {
+    await runNodeLauncher(cliArgs);
   }
-} else {
-  await runNodeLauncher();
+} catch (error) {
+  console.error("[render-contract] 失败：", error);
+  process.exitCode = 1;
 }

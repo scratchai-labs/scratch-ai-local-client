@@ -1,4 +1,4 @@
-import {access, mkdir, writeFile} from 'node:fs/promises';
+import {access} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawn} from 'node:child_process';
@@ -9,6 +9,13 @@ import {
     getDefaultPackagedCompanionBinaryPath
 } from './electron-paths.mjs';
 import {probeElectronBinarySupport} from './runtime-support.mjs';
+import {
+    captureScreenshot as captureTargetScreenshot,
+    evaluateExpressionInTarget as evaluateTargetExpression,
+    pickDesktopCompanionTarget,
+    pickSettingsTarget,
+    waitForTarget
+} from './cdp-automation.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
@@ -48,185 +55,12 @@ async function ensureReadable(filePath) {
     await access(filePath);
 }
 
-function isInspectablePageTarget(target) {
-    return target?.type === 'page' &&
-        typeof target.webSocketDebuggerUrl === 'string' &&
-        target.webSocketDebuggerUrl.length > 0 &&
-        typeof target.url === 'string' &&
-        !target.url.startsWith('devtools://') &&
-        target.url !== 'about:blank';
-}
-
-function pickDesktopCompanionTarget(targets) {
-    const inspectableTargets = targets.filter(isInspectablePageTarget);
-    return inspectableTargets.find(target => {
-        const title = typeof target.title === 'string' ? target.title.trim() : '';
-        const url = typeof target.url === 'string' ? target.url.toLowerCase() : '';
-        return title.includes('Scratch AI 教练') || url.endsWith('/index.html') || url.includes('index.html');
-    }) ?? inspectableTargets[0] ?? null;
-}
-
-function pickSettingsTarget(targets) {
-    const inspectableTargets = targets.filter(isInspectablePageTarget);
-    return inspectableTargets.find(target => {
-        const title = typeof target.title === 'string' ? target.title.trim() : '';
-        const url = typeof target.url === 'string' ? target.url.toLowerCase() : '';
-        return title.includes('DeepSeek 设置') || url.endsWith('/settings.html') || url.includes('settings.html');
-    }) ?? null;
-}
-
-async function waitForTargets(port, maxWaitMs) {
-    const deadline = Date.now() + maxWaitMs;
-    let lastError = null;
-    while (Date.now() < deadline) {
-        try {
-            const response = await fetch(`http://127.0.0.1:${port}/json/list`);
-            if (response.ok) {
-                const parsed = await response.json();
-                if (Array.isArray(parsed)) {
-                    return {
-                        ok: true,
-                        targets: parsed,
-                        preferredTarget: pickDesktopCompanionTarget(parsed)
-                    };
-                }
-                lastError = 'The /json/list response was not an array.';
-            } else {
-                lastError = `Unexpected HTTP status: ${response.status}`;
-            }
-        } catch (error) {
-            lastError = error instanceof Error ? error.message : String(error);
-        }
-        await new Promise(resolve => setTimeout(resolve, 400));
-    }
-    return {
-        ok: false,
-        error: lastError ?? 'Timed out while waiting for Electron /json/list'
-    };
-}
-
-async function waitForTarget(port, maxWaitMs, picker, errorMessage) {
-    const deadline = Date.now() + maxWaitMs;
-    let lastError = null;
-    while (Date.now() < deadline) {
-        const result = await waitForTargets(port, Math.min(2000, Math.max(1000, deadline - Date.now())));
-        if (result.ok && Array.isArray(result.targets)) {
-            const preferredTarget = picker(result.targets);
-            if (preferredTarget) {
-                return {
-                    ok: true,
-                    targets: result.targets,
-                    preferredTarget
-                };
-            }
-        } else if (!result.ok) {
-            lastError = result.error;
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 300));
-    }
-
-    return {
-        ok: false,
-        error: errorMessage ?? lastError ?? 'Timed out while waiting for the requested Electron target.'
-    };
-}
-
-class CdpConnection {
-    constructor(socket) {
-        this.socket = socket;
-        this.nextId = 1;
-        this.pending = new Map();
-        this.socket.addEventListener('message', event => {
-            const rawData = typeof event.data === 'string' ? event.data : String(event.data ?? '');
-            if (!rawData) return;
-            let message;
-            try {
-                message = JSON.parse(rawData);
-            } catch {
-                return;
-            }
-            if (typeof message.id !== 'number') return;
-            const request = this.pending.get(message.id);
-            if (!request) return;
-            this.pending.delete(message.id);
-            if (message.error?.message) {
-                request.reject(new Error(message.error.message));
-                return;
-            }
-            request.resolve(message.result ?? {});
-        });
-    }
-
-    send(method, params) {
-        const id = this.nextId++;
-        return new Promise((resolve, reject) => {
-            this.pending.set(id, {resolve, reject});
-            this.socket.send(JSON.stringify({id, method, params}));
-        });
-    }
-}
-
-async function waitForWebSocketOpen(socket, maxWaitMs) {
-    if (socket.readyState === WebSocket.OPEN) return;
-    await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => {
-            reject(new Error('Timed out while opening the desktop companion websocket.'));
-        }, maxWaitMs);
-        socket.addEventListener('open', () => {
-            clearTimeout(timer);
-            resolve();
-        });
-        socket.addEventListener('error', () => {
-            clearTimeout(timer);
-            reject(new Error('Failed to connect to the desktop companion websocket.'));
-        });
-    });
-}
-
 async function evaluateExpressionInTarget(target, expression) {
-    const socket = new WebSocket(target.webSocketDebuggerUrl);
-    await waitForWebSocketOpen(socket, timeoutMs);
-    try {
-        const connection = new CdpConnection(socket);
-        await connection.send('Runtime.enable');
-        const response = await connection.send('Runtime.evaluate', {
-            expression,
-            awaitPromise: true,
-            returnByValue: true,
-            userGesture: true
-        });
-        return {
-            ok: true,
-            value: response.result?.value,
-            type: response.result?.type
-        };
-    } catch (error) {
-        return {
-            ok: false,
-            error: error instanceof Error ? error.message : String(error)
-        };
-    } finally {
-        socket.close();
-    }
+    return await evaluateTargetExpression(target, expression, {timeoutMs});
 }
 
 async function captureScreenshot(target, outputPath) {
-    const socket = new WebSocket(target.webSocketDebuggerUrl);
-    await waitForWebSocketOpen(socket, timeoutMs);
-    try {
-        const connection = new CdpConnection(socket);
-        await connection.send('Page.enable');
-        const response = await connection.send('Page.captureScreenshot', {
-            format: 'png',
-            captureBeyondViewport: true
-        });
-        await mkdir(path.dirname(outputPath), {recursive: true});
-        await writeFile(outputPath, Buffer.from(response.data, 'base64'));
-        return outputPath;
-    } finally {
-        socket.close();
-    }
+    return await captureTargetScreenshot(target, outputPath, {timeoutMs});
 }
 
 function buildUiSnapshotExpression() {
@@ -428,7 +262,12 @@ async function main() {
     );
 
     try {
-        const targetResult = await waitForTargets(debugPort, timeoutMs);
+        const targetResult = await waitForTarget(
+            debugPort,
+            timeoutMs,
+            pickDesktopCompanionTarget,
+            'Failed to find the desktop companion target.'
+        );
         if (!targetResult.ok || !targetResult.preferredTarget) {
             throw new Error(targetResult.error ?? 'Failed to find the desktop companion target.');
         }
