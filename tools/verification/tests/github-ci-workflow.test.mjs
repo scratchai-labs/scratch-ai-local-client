@@ -42,9 +42,9 @@ test("ci runs the isolated Electron mock UI smoke only on macOS", async () => {
     workflow,
     /name:\s*Desktop companion mock UI smoke \(macOS\)[\s\S]*?if:\s*runner\.os == 'macOS'[\s\S]*?timeout-minutes:\s*5[\s\S]*?run:\s*npm run desktop:test:ui:smoke/
   );
-  assert.match(
+  assert.doesNotMatch(
     workflow,
-    /name:\s*Recommendation render contract \(Ubuntu\)[\s\S]*?if:\s*runner\.os == 'Linux'[\s\S]*?run:\s*node scripts\/run-ci-with-annotations\.mjs xvfb-run -a npm run test:recommendation-render-contract/
+    /if:\s*runner\.os == 'Linux'[\s\S]*?test:recommendation-render-contract/
   );
 });
 
@@ -60,4 +60,21 @@ test("ci workflow publishes failed command tails as GitHub annotations", async (
     workflow,
     /node scripts\/run-ci-with-annotations\.mjs xvfb-run -a npm run test:recommendation-render-contract/
   );
+});
+
+test("ci shards the exhaustive Ubuntu Renderer contract without reducing coverage", async () => {
+  const workflow = await readFile(
+    new URL("../../../.github/workflows/ci.yml", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(workflow, /recommendation-render-contract:\s*\n/);
+  assert.match(workflow, /runs-on:\s*ubuntu-latest/);
+  assert.match(workflow, /shard:\s*\[0, 1, 2, 3\]/);
+  assert.match(workflow, /timeout-minutes:\s*10/);
+  assert.match(
+    workflow,
+    /--shard-index=\$\{\{\s*matrix\.shard\s*\}\} --shard-count=4/
+  );
+  assert.doesNotMatch(workflow, /--mode=smoke/);
 });

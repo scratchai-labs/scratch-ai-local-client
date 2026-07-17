@@ -37,6 +37,24 @@ jobs:
         timeout-minutes: 5
         run: npm run desktop:test:ui:smoke
 
-      - name: Recommendation render contract (Ubuntu)
-        if: runner.os == 'Linux'
-        run: node scripts/run-ci-with-annotations.mjs xvfb-run -a npm run test:recommendation-render-contract
+
+  recommendation-render-contract:
+    name: Recommendation Render Contract (Ubuntu ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: node scripts/run-ci-with-annotations.mjs xvfb-run -a npm run test:recommendation-render-contract -- --shard-index=${{ matrix.shard }} --shard-count=4
