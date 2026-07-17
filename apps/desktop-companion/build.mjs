@@ -135,6 +135,12 @@ const buildConfigs = [
     external: ["electron"]
   },
   {
+    entryPoints: [path.join(__dirname, "src/main/scratch-payload-projection.ts")],
+    outfile: path.join(distDir, "scratch-payload-projection.js"),
+    platform: "node",
+    format: "esm"
+  },
+  {
     entryPoints: [path.join(__dirname, "src/main/project-url-loader.ts")],
     outfile: path.join(distDir, "project-url-loader.js"),
     platform: "node",

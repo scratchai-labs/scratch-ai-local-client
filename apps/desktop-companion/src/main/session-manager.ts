@@ -1,10 +1,7 @@
 import {
   desktopCompanionStateSchema,
-  getModuleIdForOpcode,
-  getUsedExtensionsFromProject,
   projectJsonToSnapshot,
-  scratchStatePayloadSchema,
-  summarizeProgramAreaModulesFromProject
+  scratchStatePayloadSchema
 } from "@scratch-ai/shared";
 
 import { buildDesktopInjectionScript } from "./bridge-script";
@@ -19,7 +16,7 @@ import { ScratchExecutableConfigStore } from "./scratch-config-store";
 import { ScratchLauncher } from "./scratch-launcher";
 import { ScratchRemoteDebugger } from "./scratch-remote-debugger";
 import { StateStore } from "./state-store";
-import { buildCurrentTargetScriptXmlList } from "../common/scratch-block-xml";
+import { projectScratchPayload } from "./scratch-payload-projection";
 import { normalizeAiHintTriggerMode } from "../common/types";
 import type { LoadedDeepSeekConfig } from "./deepseek-config";
 import type { ScratchPlatformAdapter } from "./platform-adapter";
@@ -27,7 +24,6 @@ import type { RequestSnapshot, SessionDecision } from "./coaching-session";
 import type {
   AiHintTriggerMode,
   CoachResponse,
-  CurrentTargetScriptDescriptor,
   DesktopCompanionState,
   ProgramAreaModule,
   ProjectSnapshot,
@@ -60,57 +56,6 @@ interface SessionManagerDependencies {
 
 type ScratchLaunchSession = Awaited<ReturnType<ScratchLauncher["launch"]>>;
 
-function deriveCurrentTargetPrograms(snapshot: ProjectSnapshot, fallbackTargetName?: string) {
-  const targetName =
-    typeof snapshot.currentTarget === "string" && snapshot.currentTarget.trim()
-      ? snapshot.currentTarget.trim()
-      : fallbackTargetName;
-
-  const currentTargetSprite = snapshot.sprites.find((sprite) => sprite.name === String(targetName ?? ""));
-  if (!currentTargetSprite) {
-    return [];
-  }
-
-  return currentTargetSprite.scripts
-    .map((script) => script.blockSequence.join(" -> ").trim())
-    .filter(Boolean);
-}
-
-function deriveCurrentTargetScriptBlocks(
-  snapshot: ProjectSnapshot,
-  fallbackTargetName?: string
-): CurrentTargetScriptDescriptor[] {
-  const targetName =
-    typeof snapshot.currentTarget === "string" && snapshot.currentTarget.trim()
-      ? snapshot.currentTarget.trim()
-      : fallbackTargetName;
-
-  const currentTargetSprite = snapshot.sprites.find((sprite) => sprite.name === String(targetName ?? ""));
-  if (!currentTargetSprite) {
-    return [];
-  }
-
-  return currentTargetSprite.scripts
-    .map((script) => ({
-      blocks: script.blockOpcodes
-        .map((opcode, index) => {
-          const label = script.blockSequence[index]?.trim();
-          const categoryId = getModuleIdForOpcode(opcode) ?? "other";
-          if (!label) {
-            return null;
-          }
-
-          return {
-            opcode,
-            categoryId,
-            label
-          };
-        })
-        .filter((block): block is CurrentTargetScriptDescriptor["blocks"][number] => Boolean(block))
-    }))
-    .filter((script) => script.blocks.length > 0);
-}
-
 function trimText(value?: string) {
   const candidate = typeof value === "string" ? value.trim() : "";
   return candidate || undefined;
@@ -131,24 +76,6 @@ function buildMissingDeepSeekKeyReminder(targetName?: string): CoachResponse {
       }
     ]
   };
-}
-
-function normalizeWorkspaceXmlList(value: unknown) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((item) => (typeof item === "string" ? item.trim() : ""))
-    .filter(Boolean);
-}
-
-function containsRenderableScratchBlock(xml: string) {
-  return /<block\b/i.test(xml);
-}
-
-function pickRenderableWorkspaceXmlList(value: unknown) {
-  return normalizeWorkspaceXmlList(value).filter(containsRenderableScratchBlock);
 }
 
 export class SessionManager {
@@ -645,67 +572,30 @@ export class SessionManager {
     }
 
     const payload = parsed.data as ScratchStatePayload;
-    const source = typeof payload.source === "string" ? payload.source.trim() : "";
-    const isHeartbeat = source === "heartbeat";
     if (typeof payload.scratchLocale === "string" && payload.scratchLocale.trim()) {
       void this.rememberScratchLocale(payload.scratchLocale);
     }
-    const wasConnected = this.stateStore.getState().status === "connected";
-    const toolboxCategories = Array.isArray(payload.toolboxCategories) ? payload.toolboxCategories : [];
-    const loadedExtensions = Array.isArray(payload.loadedExtensions)
-      ? Array.from(new Set(payload.loadedExtensions)).sort()
-      : this.stateStore.getState().loadedExtensions;
+    const currentState = this.stateStore.getState();
+    const wasConnected = currentState.status === "connected";
     const snapshot =
       payload.projectData && typeof payload.projectData === "object"
         ? this.buildProjectSnapshot(payload.projectData as Record<string, unknown>, payload.currentTargetId, payload.currentTargetName)
         : null;
-    const usedExtensions =
-      payload.projectData && typeof payload.projectData === "object"
-        ? getUsedExtensionsFromProject(payload.projectData as Record<string, unknown>)
-        : this.stateStore.getState().usedExtensions;
-    const programAreaModules =
-      Array.isArray(payload.programAreaModules) && payload.programAreaModules.length > 0
-        ? payload.programAreaModules
-        : payload.projectData && typeof payload.projectData === "object"
-          ? summarizeProgramAreaModulesFromProject(payload.projectData as Record<string, unknown>, {
-              id: payload.currentTargetId,
-              name: payload.currentTargetName
-            })
-          : this.stateStore.getState().programAreaModules;
-    const currentTargetPrograms =
-      snapshot
-        ? deriveCurrentTargetPrograms(snapshot, payload.currentTargetName)
-        : this.stateStore.getState().currentTargetPrograms;
-    const currentTargetScriptBlocks =
-      snapshot
-        ? deriveCurrentTargetScriptBlocks(snapshot, payload.currentTargetName)
-        : this.stateStore.getState().currentTargetScriptBlocks;
-    const currentTargetWorkspaceXmlList = pickRenderableWorkspaceXmlList(
-      payload.currentTargetWorkspaceXmlList
-    );
-    const generatedCurrentTargetScriptXmlList =
-      payload.projectData && typeof payload.projectData === "object"
-        ? buildCurrentTargetScriptXmlList(payload.projectData as Record<string, unknown>, {
-            id: payload.currentTargetId,
-            name: payload.currentTargetName
-          })
-        : [];
-    const currentTargetScriptXmlList =
-      payload.projectData && typeof payload.projectData === "object"
-        ? generatedCurrentTargetScriptXmlList
-        : currentTargetWorkspaceXmlList.length > 0
-          ? currentTargetWorkspaceXmlList
-          : this.stateStore.getState().currentTargetScriptXmlList;
+    const projection = projectScratchPayload({ payload, currentState, snapshot });
+    const {
+      source,
+      isHeartbeat,
+      toolboxCategories,
+      loadedExtensions,
+      usedExtensions,
+      programAreaModules,
+      currentTargetPrograms,
+      currentTargetScriptBlocks,
+      currentTargetScriptXmlList,
+      hasMeaningfulPayload
+    } = projection;
 
-    if (
-      !payload.projectData &&
-      toolboxCategories.length === 0 &&
-      loadedExtensions.length === 0 &&
-      programAreaModules.length === 0 &&
-      currentTargetPrograms.length === 0 &&
-      currentTargetScriptBlocks.length === 0 &&
-      currentTargetScriptXmlList.length === 0
-    ) {
+    if (!hasMeaningfulPayload) {
       return;
     }
 
