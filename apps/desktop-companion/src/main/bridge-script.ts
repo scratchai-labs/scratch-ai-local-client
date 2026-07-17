@@ -41,14 +41,15 @@ const MODULE_LABELS = {
 export function buildDesktopInjectionScript(apiBaseUrl: string, token: string) {
   return `
 (() => {
-  if (window.__scratchDesktopCompanionBridgeInstalled) {
-    if (typeof window.__scratchDesktopCompanionCaptureNow === "function") {
-      window.__scratchDesktopCompanionCaptureNow("reinject");
-    }
+  if (
+    window.__scratchDesktopCompanionBridgeInstalled &&
+    typeof window.__scratchDesktopCompanionCaptureNow === "function"
+  ) {
+    window.__scratchDesktopCompanionCaptureNow("reinject");
     return "scratch-desktop-companion:already-installed";
   }
 
-  window.__scratchDesktopCompanionBridgeInstalled = true;
+  window.__scratchDesktopCompanionBridgeInstalled = false;
 
   const API_BASE_URL = ${JSON.stringify(apiBaseUrl)};
   const TOKEN = ${JSON.stringify(token)};
@@ -620,6 +621,7 @@ export function buildDesktopInjectionScript(apiBaseUrl: string, token: string) {
   installLocaleObserver();
   window.setInterval(() => postSnapshot("heartbeat"), 4000);
   postSnapshot("bootstrap");
+  window.__scratchDesktopCompanionBridgeInstalled = true;
 
   return "scratch-desktop-companion:installed";
 })();
