@@ -2,13 +2,13 @@
 
 ## 待确认
 
-- 2026-07-20：发布 Scratch AI 教练 v0.3.1；包含多轮推荐变量命名连续性修复与 95% 覆盖率门禁，待版本元数据、发布说明、回归、提交、tag 和 GitHub Release 工作流完成。
 - 2026-07-13：运行桌面伴随程序供人工查看效果；按正常联调启动，不带 mock 环境变量，待用户确认界面效果。
 - 2026-07-12：打开桌面伴随程序供真实人工测试；按正常联调启动，不带 mock 环境变量，确认应用可用后由用户执行真实测试。
 - 2026-05-07：为桌面伴随程序整理 GitHub CI 与跨平台出包链路；目标是让 Windows / macOS runner 能稳定构建、测试、打包并上传产物；本轮先在独立 worktree 里核实现状、补测试与 workflow。
 
 ## 已完成
 
+- 2026-07-20：完成 v0.3.1 发布准备与本轮文档收口。已更新桌面端版本号、lockfile、用户使用文档 Markdown/HTML/PDF、文档索引和 `docs/releases/v0.3.1.zh-CN.md`；`npm run desktop:test:variable-continuity-coverage` 与 `npm test` 通过；`main` 与 `v0.3.1` tag 已推送。GitHub `Desktop Release Artifacts` 已触发但仍停在 queued，Release 资产需等待 GitHub Actions runner 自动完成。
 - 2026-07-20：完成变量命名连续性逻辑 95% 覆盖率门禁。新增 `variable-continuity` 直接单测，覆盖语义识别、上下文合并、结构递归替换、同义变量替换、学生真实变量保留和无上下文直通；新增桌面端与根级覆盖率脚本，目标文件覆盖率达到 lines 100%、functions 100%、branches 95.49%；`npm test` 通过。
 - 2026-07-20：完成 DeepSeek 多轮提示变量命名一致性泛化修复。新增内存级短期 `continuityContext`，把上一轮推荐变量与语义绑定传入下一轮 prompt；推荐归一化层会在 DeepSeek 同义改名且 Scratch 快照未真实创建新变量时复用锁定变量名，同时保留学生真实改名。已补 CoachService / CoachingSession / recommendation-normalizer 回归，根级 `npm test` 通过。
 - 2026-07-16：完成最终文档收口。`docs/architecture.zh-CN.md` 已补齐推荐积木 XML 编译、params 输入槽、`recommended-block-capabilities.ts` 能力表和 `dist/recommended-block-capabilities.js` 构建入口；`docs/maintenance.zh-CN.md` 已补齐白名单/能力表/params 输入槽/推荐渲染合同变更时的文档更新和验证检查口径。
