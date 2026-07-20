@@ -2,6 +2,7 @@ import { getDisplayLabelForOpcode } from "@scratch-ai/shared";
 
 import type { ProgramAreaModule, ProjectSnapshot, SpriteSnapshot } from "../common/types";
 import type { CoachingTaskIntent } from "./coaching-task-intent";
+import type { CoachingContinuityContext } from "./variable-continuity";
 import { buildProjectScriptEvidence } from "./project-script-evidence";
 
 export interface CoachPromptContextOptions {
@@ -12,6 +13,7 @@ export interface CoachPromptContextOptions {
   usedExtensions: string[];
   loadedExtensions: string[];
   goal?: string;
+  continuityContext?: CoachingContinuityContext;
 }
 
 function buildProjectSprites(snapshot: ProjectSnapshot) {
@@ -62,7 +64,8 @@ export function buildCoachPromptContext(
     programAreaModules,
     usedExtensions,
     loadedExtensions,
-    goal
+    goal,
+    continuityContext
   } = options;
   const projectScriptEvidence = buildProjectScriptEvidence(projectData);
 
@@ -81,6 +84,7 @@ export function buildCoachPromptContext(
     loadedExtensions,
     detectedConcepts: snapshot.detectedConcepts,
     ...(projectScriptEvidence ? { projectScriptEvidence } : {}),
+    ...(continuityContext ? { continuityContext } : {}),
     sprites: buildProjectSprites(snapshot),
     globalVariables: snapshot.globalVariables.map((variable) => ({
       name: variable.name,

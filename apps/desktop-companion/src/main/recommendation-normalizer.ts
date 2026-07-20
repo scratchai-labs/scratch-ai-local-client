@@ -18,6 +18,7 @@ import {
   buildKnownVariableGoalFallbackResponse,
   shouldReplaceKnownVariableGoalRecommendation
 } from "./known-variable-goal-fallback";
+import { applyVariableContinuityToStructure } from "./variable-continuity";
 
 import type {
   CoachResponse,
@@ -27,6 +28,7 @@ import type {
   RecommendedBlockNode,
   RecommendedBlockStructure
 } from "../common/types";
+import type { CoachingContinuityContext } from "./variable-continuity";
 
 const NON_REPEATABLE_HAT_OPCODE_SET = new Set([
   "event_whenflagclicked",
@@ -41,6 +43,7 @@ interface RecommendationContext {
   programAreaModules: ProgramAreaModule[];
   loadedExtensions: string[];
   goal?: string;
+  continuityContext?: CoachingContinuityContext;
 }
 
 export interface RecommendationNormalizationOptions extends RecommendationContext {
@@ -690,6 +693,12 @@ export function normalizeCoachRecommendation(rawPayload: unknown, options: Recom
     if (!recommendation) {
       throw new Error("DeepSeek 没有返回可渲染的推荐积木结构。");
     }
+
+    recommendation = applyVariableContinuityToStructure(
+      recommendation,
+      options.snapshot,
+      options.continuityContext
+    );
 
     const knownVariableGoalContext = {
       goal: options.goal,

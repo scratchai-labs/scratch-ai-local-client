@@ -585,6 +585,62 @@ test("CoachService sends DeepSeek Strict tool requests in non-thinking mode", as
   });
 });
 
+test("CoachService sends variable continuity context to DeepSeek", async () => {
+  let capturedRequest;
+  const service = new CoachService(async (_url, init) => {
+    capturedRequest = JSON.parse(init.body);
+    return createDeepSeekResponse(
+      JSON.stringify({
+        summary: "继续使用上一轮变量名。",
+        recommendation: {
+          root: {
+            opcode: "data_changevariableby",
+            category: "变量",
+            label: "将 sum 增加 i",
+            reason: "复用上一轮变量名",
+            params: { variable: "sum", changeBy: "i" }
+          }
+        }
+      })
+    );
+  });
+
+  await service.generateHint({
+    snapshot: createSnapshot(),
+    currentTargetPrograms: ["event_whenflagclicked"],
+    programAreaModules: [{ id: "data", label: "变量", blockCount: 2 }],
+    usedExtensions: [],
+    loadedExtensions: [],
+    goal: "1+2+3...+100 求和",
+    aiConfig: createAiConfig(),
+    continuityContext: {
+      previousRecommendationVariables: ["sum", "i"],
+      lockedVariableBindings: [
+        {
+          meaning: "accumulator",
+          preferredName: "sum",
+          aliases: ["sum"],
+          source: "previous-recommendation",
+          confidence: "high"
+        },
+        {
+          meaning: "counter",
+          preferredName: "i",
+          aliases: ["i"],
+          source: "previous-recommendation",
+          confidence: "high"
+        }
+      ]
+    }
+  });
+
+  assert.equal(capturedRequest.messages[0].content.includes("lockedVariableBindings"), true);
+  assert.equal(capturedRequest.messages[0].content.includes("preferredName"), true);
+  const promptContext = JSON.parse(capturedRequest.messages[1].content.split("\n\n").at(-1));
+  assert.deepEqual(promptContext.continuityContext.previousRecommendationVariables, ["sum", "i"]);
+  assert.equal(promptContext.continuityContext.lockedVariableBindings[0].preferredName, "sum");
+});
+
 test("CoachService preserves recommendation params from DeepSeek structured output", async () => {
   const service = new CoachService(async () =>
     createDeepSeekResponse(

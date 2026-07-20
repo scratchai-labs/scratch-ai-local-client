@@ -228,3 +228,146 @@ test("recommendation normalizer promotes valid math output and enriches its accu
   assert.equal(result.recommendedBlocks.length, 1);
   assert.match(result.recommendation.root.reason, /s 变量/);
 });
+
+test("recommendation normalizer reuses locked variable names for equivalent new variables", () => {
+  const result = normalizeCoachRecommendation(
+    {
+      summary: "继续完成累加循环。",
+      recommendation: {
+        root: {
+          opcode: "control_repeat",
+          category: "控制",
+          label: "重复执行 100 次",
+          reason: "重复累加",
+          params: { repeatTimes: "100" },
+          substack: {
+            opcode: "data_changevariableby",
+            category: "变量",
+            label: "将求和增加计数",
+            reason: "每次把计数加到求和",
+            params: { variable: "求和", changeBy: "计数" },
+            next: {
+              opcode: "data_changevariableby",
+              category: "变量",
+              label: "将计数增加 1",
+              reason: "计数器前进一位",
+              params: { variable: "计数", changeBy: "1" }
+            }
+          }
+        }
+      }
+    },
+    createOptions({
+      goal: "1+2+3...+100 求和",
+      continuityContext: {
+        previousRecommendationVariables: ["sum", "i"],
+        lockedVariableBindings: [
+          {
+            meaning: "accumulator",
+            preferredName: "sum",
+            aliases: ["sum"],
+            source: "previous-recommendation",
+            confidence: "high"
+          },
+          {
+            meaning: "counter",
+            preferredName: "i",
+            aliases: ["i"],
+            source: "previous-recommendation",
+            confidence: "high"
+          }
+        ]
+      }
+    })
+  );
+
+  assert.equal(result.recommendation.root.substack.params.variable, "sum");
+  assert.equal(result.recommendation.root.substack.params.changeBy, "i");
+  assert.equal(result.recommendation.root.substack.next.params.variable, "i");
+  assert.match(result.recommendation.root.substack.label, /sum/);
+  assert.match(result.recommendation.root.substack.reason, /sum/);
+});
+
+test("recommendation normalizer keeps equivalent variables that already exist in Scratch", () => {
+  const options = createOptions({
+    goal: "1+2+3...+100 求和",
+    continuityContext: {
+      previousRecommendationVariables: ["sum", "i"],
+      lockedVariableBindings: [
+        {
+          meaning: "accumulator",
+          preferredName: "sum",
+          aliases: ["sum"],
+          source: "previous-recommendation",
+          confidence: "high"
+        },
+        {
+          meaning: "counter",
+          preferredName: "i",
+          aliases: ["i"],
+          source: "previous-recommendation",
+          confidence: "high"
+        }
+      ]
+    }
+  });
+  options.snapshot.globalVariables = [
+    { id: "sum-cn", name: "求和", value: 0, isCloud: false },
+    { id: "count-cn", name: "计数", value: 1, isCloud: false }
+  ];
+  options.snapshot.sprites[0].variables = options.snapshot.globalVariables;
+
+  const result = normalizeCoachRecommendation(
+    {
+      summary: "继续完成累加循环。",
+      recommendation: {
+        root: {
+          opcode: "data_changevariableby",
+          category: "变量",
+          label: "将求和增加计数",
+          reason: "学生已经创建了这些变量",
+          params: { variable: "求和", changeBy: "计数" }
+        }
+      }
+    },
+    options
+  );
+
+  assert.equal(result.recommendation.root.params.variable, "求和");
+  assert.equal(result.recommendation.root.params.changeBy, "计数");
+});
+
+test("recommendation normalizer applies continuity beyond sum variables", () => {
+  const result = normalizeCoachRecommendation(
+    {
+      summary: "答对后加分。",
+      recommendation: {
+        root: {
+          opcode: "data_changevariableby",
+          category: "变量",
+          label: "将分数增加 1",
+          reason: "答对时让分数加一",
+          params: { variable: "分数", changeBy: "1" }
+        }
+      }
+    },
+    createOptions({
+      goal: "做一道问答题，答对时 score 加 1",
+      continuityContext: {
+        previousRecommendationVariables: ["score"],
+        lockedVariableBindings: [
+          {
+            meaning: "score",
+            preferredName: "score",
+            aliases: ["score"],
+            source: "previous-recommendation",
+            confidence: "high"
+          }
+        ]
+      }
+    })
+  );
+
+  assert.equal(result.recommendation.root.params.variable, "score");
+  assert.match(result.recommendation.root.label, /score/);
+});

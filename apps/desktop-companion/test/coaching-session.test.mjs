@@ -458,3 +458,39 @@ test("CoachingSession resets memory when the project identity changes or exits",
   session.reset();
   assert.equal(session.requestManualHint().action, "idle");
 });
+
+test("CoachingSession stores and clears variable continuity context", () => {
+  const { session } = createSession();
+  const baseline = createLinearProjectData(["event_whenflagclicked"]);
+
+  observe(session, baseline);
+  session.markRequestStarted();
+  session.markRequestFinished({
+    response: {
+      answerText: "先初始化变量。",
+      nextStep: "准备 score。",
+      recommendation: {
+        root: {
+          opcode: "data_changevariableby",
+          category: "变量",
+          label: "将 score 增加 1",
+          reason: "答对时加分",
+          params: { variable: "score", changeBy: "1" }
+        }
+      },
+      recommendedBlocks: []
+    },
+    baselineProjectData: baseline,
+    baselineTarget: TARGET
+  });
+
+  const continuityContext = session.getContinuityContext();
+  assert.equal(continuityContext.previousRecommendationVariables.includes("score"), true);
+  assert.equal(continuityContext.lockedVariableBindings[0].meaning, "score");
+  assert.equal(continuityContext.lockedVariableBindings[0].preferredName, "score");
+
+  observe(session, createLinearProjectData(["event_whenflagclicked"]), {
+    projectId: "project-b"
+  });
+  assert.equal(session.getContinuityContext(), undefined);
+});

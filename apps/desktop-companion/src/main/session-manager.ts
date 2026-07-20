@@ -477,6 +477,7 @@ export class SessionManager {
       loadedExtensions: currentState.loadedExtensions,
       aiConfig,
       customSystemPrompt: this.config.customAiPrompt,
+      continuityContext: this.coachingSession.getContinuityContext(),
       ...(trimmedGoal ? { goal: trimmedGoal } : {})
     });
 

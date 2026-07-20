@@ -2,11 +2,13 @@ import {
   analyzeRecommendationProgress,
   buildProjectStructureSignature
 } from "../common/recommendation-matcher";
+import { buildCoachingContinuityContext } from "./variable-continuity";
 import type {
   AiHintTriggerMode,
   CoachResponse,
   RecommendedBlockStructure
 } from "../common/types";
+import type { CoachingContinuityContext } from "./variable-continuity";
 
 const AUTO_DEBOUNCE_MS = 2_000;
 
@@ -133,6 +135,8 @@ export class CoachingSession {
 
   private currentIdentity?: string;
 
+  private continuityContext?: CoachingContinuityContext;
+
   constructor(dependencies: CoachingSessionDependencies = {}) {
     this.now = dependencies.now ?? Date.now;
   }
@@ -149,6 +153,7 @@ export class CoachingSession {
       this.activeRecommendation = undefined;
       this.lastCompletedSignature = undefined;
       this.lastRequestedSignature = undefined;
+      this.continuityContext = undefined;
       return { action: "clear-hint" };
     }
 
@@ -156,6 +161,7 @@ export class CoachingSession {
       this.activeRecommendation = undefined;
       this.lastCompletedSignature = undefined;
       this.lastRequestedSignature = undefined;
+      this.continuityContext = undefined;
       if (observation.mode !== "auto") {
         this.pendingRequest = undefined;
         return { action: "idle" };
@@ -267,6 +273,7 @@ export class CoachingSession {
       };
       this.lastCompletedSignature = undefined;
     }
+    this.continuityContext = buildCoachingContinuityContext(result.response, this.continuityContext);
 
     if (!this.pendingRequest || !this.latestSnapshot) {
       return { action: "idle" };
@@ -284,10 +291,15 @@ export class CoachingSession {
     this.lastCompletedSignature = undefined;
     this.lastRequestedSignature = undefined;
     this.currentIdentity = undefined;
+    this.continuityContext = undefined;
   }
 
   getLatestSnapshot() {
     return this.latestSnapshot;
+  }
+
+  getContinuityContext() {
+    return this.continuityContext;
   }
 
   private scheduleOrQueue(

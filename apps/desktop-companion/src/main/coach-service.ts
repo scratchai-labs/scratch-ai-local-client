@@ -30,6 +30,7 @@ import {
   normalizeCoachRecommendation,
   trimRecommendationStructure
 } from "./recommendation-normalizer";
+import type { CoachingContinuityContext } from "./variable-continuity";
 import type {
   CoachResponse,
   ProgramAreaModule,
@@ -49,6 +50,7 @@ interface GenerateCoachHintOptions {
   goal?: string;
   aiConfig: LoadedDeepSeekConfig;
   customSystemPrompt?: string;
+  continuityContext?: CoachingContinuityContext;
 }
 
 export interface GenerateCoachHintResult {
@@ -755,6 +757,7 @@ export class CoachService {
       programAreaModules: options.programAreaModules,
       loadedExtensions: options.loadedExtensions,
       goal: options.goal,
+      continuityContext: options.continuityContext,
       buildFallbackResponse: () => buildFallbackCoachResponse(options)
     });
     return coachResponseSchema.parse(normalizedJson) as CoachResponse;
