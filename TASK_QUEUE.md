@@ -8,6 +8,7 @@
 
 ## 已完成
 
+- 2026-07-20：完成变量命名连续性逻辑 95% 覆盖率门禁。新增 `variable-continuity` 直接单测，覆盖语义识别、上下文合并、结构递归替换、同义变量替换、学生真实变量保留和无上下文直通；新增桌面端与根级覆盖率脚本，目标文件覆盖率达到 lines 100%、functions 100%、branches 95.49%；`npm test` 通过。
 - 2026-07-20：完成 DeepSeek 多轮提示变量命名一致性泛化修复。新增内存级短期 `continuityContext`，把上一轮推荐变量与语义绑定传入下一轮 prompt；推荐归一化层会在 DeepSeek 同义改名且 Scratch 快照未真实创建新变量时复用锁定变量名，同时保留学生真实改名。已补 CoachService / CoachingSession / recommendation-normalizer 回归，根级 `npm test` 通过。
 - 2026-07-16：完成最终文档收口。`docs/architecture.zh-CN.md` 已补齐推荐积木 XML 编译、params 输入槽、`recommended-block-capabilities.ts` 能力表和 `dist/recommended-block-capabilities.js` 构建入口；`docs/maintenance.zh-CN.md` 已补齐白名单/能力表/params 输入槽/推荐渲染合同变更时的文档更新和验证检查口径。
 - 2026-07-16：追加完成组合积木输入槽渲染验证。新增 XML 单测与真实 Electron 合同 case，覆盖 `重复执行` 次数槽填 `n + 2`、`(rounds + bonus) * 2`、`round(number)`、`listlength(购物清单)`，以及 substack 内变量累加公式、移动步数公式、`repeat until` 取余条件、`if/else` 算式比较和变量赋值复合公式。修复 `repeatTimes` 对特殊 reporter 函数的解析，让数字槽先尝试 `round / length / listlength` 等 reporter，再退到普通公式和默认数字；`test:recommendation-render-contract` 通过 5 个组合输入槽变体，0 fallback / 0 degraded。

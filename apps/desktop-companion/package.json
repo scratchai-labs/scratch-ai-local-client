@@ -21,6 +21,7 @@
     "dev": "node build.mjs && node ../../node_modules/electron/cli.js dist/main.js",
     "start": "node ../../node_modules/electron/cli.js dist/main.js",
     "test": "npm run build && node --test test/**/*.test.mjs",
+    "test:variable-continuity-coverage": "npm run build && node --test --experimental-test-coverage --test-coverage-include=dist/variable-continuity.js --test-coverage-lines=95 --test-coverage-functions=95 --test-coverage-branches=95 test/variable-continuity.test.mjs",
     "test:windows-ui": "node ../../tools/verification/scripts/verify-desktop-companion-ui.mjs",
     "test:desktop-ui": "node ../../tools/verification/scripts/verify-desktop-companion-ui.mjs",
     "package:win": "node scripts/package-win.mjs",

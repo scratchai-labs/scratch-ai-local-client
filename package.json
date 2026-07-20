@@ -28,6 +28,7 @@
     "desktop:icons": "npm run icons:generate --workspace=@scratch-ai/desktop-companion",
     "desktop:build": "npm run build --workspace=@scratch-ai/desktop-companion",
     "desktop:test": "npm run test --workspace=@scratch-ai/desktop-companion",
+    "desktop:test:variable-continuity-coverage": "npm run test:variable-continuity-coverage --workspace=@scratch-ai/desktop-companion",
     "desktop:test:ui": "npm run test:desktop-ui --workspace=@scratch-ai/desktop-companion",
     "desktop:package:win": "npm run package:win --workspace=@scratch-ai/desktop-companion",
     "desktop:package:portable": "npm run package:win:portable --workspace=@scratch-ai/desktop-companion",

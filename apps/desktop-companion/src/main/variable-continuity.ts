@@ -345,9 +345,6 @@ function replaceExpressionVariables(
 function replaceTextAliases(text: string, replacements: Map<string, string>) {
   let result = text;
   for (const [from, to] of replacements) {
-    if (!from || from === to) {
-      continue;
-    }
     const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const latin = /^[A-Za-z_][A-Za-z0-9_]*$/.test(from);
     result = latin
@@ -430,4 +427,3 @@ export function applyVariableContinuityToStructure(
     root: applyVariableContinuityToNode(structure.root, snapshot, context)
   };
 }
-
